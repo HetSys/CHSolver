@@ -31,5 +31,9 @@
 *.out
 *.app
 
+# Data files
+*.json
+*.htf5
+
 # Doxygen documentation
 doxygen/output/*
