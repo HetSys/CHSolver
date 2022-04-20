@@ -53,3 +53,24 @@ class Json_handler():
     self._data[run_name] = rundata
 
 
+def generate_json_file():
+  '''!
+  Generates a fresh json file with sample input configs
+  
+  '''
+
+  data = {}
+
+  data["default"] = {
+      "grid_type"  : "r",
+      "grid_level" : 2,
+      "A"          : 1,
+      "L"          : 1,
+      "M"          : 1,
+      "p0"         : 0,
+      "p1"         : 0 
+    }
+
+
+  with open(Json_handler._input_fname, 'x') as f:
+    json.dump(data, f)
