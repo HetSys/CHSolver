@@ -6,7 +6,7 @@ module globals
   implicit none
 
   ! Kind/precision of reals to use
-  integer, parameter :: real_kind = real64
+  integer, parameter :: dp = real64
 
 
   ! Logging defaults
