@@ -7,7 +7,6 @@ echo Building json-fortran
 cd json-fortran
 mkdir build
 cd build
-pwd
 cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/.local/bin/ -DSKIP_DOC_GEN=TRUE
 cmake --build .
 cmake --install .
@@ -20,7 +19,6 @@ echo Building pfUnit
 cd pFUnit
 mkdir build
 cd build
-pwd
 cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/.local/bin/
 cmake --build .
 cmake --install .
