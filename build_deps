@@ -1,0 +1,24 @@
+#!/bin/bash
+
+cd src/submodules
+
+echo Building json-fortran
+
+cd json-fortran
+mkdir build
+cd build
+cmake -D SKIP_DOC_GEN=TRUE -D CMAKE_INSTALL_PREFIX=$HOME/.local/bin/..
+cmake –build .
+cmake –install .
+cd ..
+cd ..
+
+echo Building pfUnit
+
+cd pfUnit
+mkdir build
+cd build
+cmake -D CMAKE_INSTALL_PREFIX=$HOME/.local/bin/..
+cmake –build .
+cmake –install .
+
