@@ -1,6 +1,7 @@
 module globals
   use iso_fortran_env
-  use logger_mod, logger => master_logger
+  use logger_mod, only: logger => master_logger, logger_init, debug, trivia, info, &
+                                    warning, error, fatal
 
   implicit none
 
@@ -16,23 +17,29 @@ module globals
 
   integer, parameter :: logfile_threshold = trivia
 
-  char(*), parameter :: logfile_prefix = "ch-log-"
+  character(*), parameter :: logfile_prefix = "ch-log-"
 
-  integer(8) :: dt
-
-  char(128) :: logname
-
-  call date_and_time(values=dt)
+  contains
 
 
-  ! Log filename = "<logfile_prefix>yyyy-mm-dd-hh-mm-ss.log
-  logname = logfile_prefix + dt(1) + "-" + dt(2) + "-" + dt(3) + "-" &
-              dt(5) + "-" + dt(6) + "-" + dt(7) + ".log"
+  subroutine initialise()
+    character(8) :: date 
+    character(10) :: time
+
+    character(128) :: logname
 
 
-  ! Initialise master logger
-  call logger_init(logname, , stderr_threshold, stdout_threshold, &
-                    logfile_threshold)
+    call date_and_time(date=date, time=time)
+
+
+    ! Log filename = "<logfile_prefix>yyyy-mm-dd-hh-mm-ss.log
+    logname = logfile_prefix // "-" // date // "-" // time(:7) // ".log"
+
+
+    ! Initialise master logger
+    call logger_init(trim(logname), stderr_threshold, stdout_threshold, &
+                      logfile_threshold)
+  end subroutine initialise
 
 
 
