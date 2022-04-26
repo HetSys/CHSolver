@@ -17,7 +17,7 @@ module globals
 
   integer, parameter :: logfile_threshold = trivia
 
-  character(*), parameter :: logfile_prefix = "ch-log-"
+  character(*), parameter :: logfile_prefix = "ch-log"
 
   contains
 
