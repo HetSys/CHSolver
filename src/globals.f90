@@ -18,6 +18,7 @@ module globals
   integer, parameter :: logfile_threshold = trivia
 
   character(*), parameter :: logfile_prefix = "ch-log"
+  character(*), parameter :: logfolder = "logs/"
 
   contains
 
@@ -33,7 +34,7 @@ module globals
 
 
     ! Log filename = "<logfile_prefix>yyyy-mm-dd-hh-mm-ss.log
-    logname = logfile_prefix // "-" // date // "-" // time(:7) // ".log"
+    logname = logfolder // logfile_prefix // "-" // date // "-" // time(:7) // ".log"
 
 
     ! Initialise master logger
