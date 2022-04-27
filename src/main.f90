@@ -6,7 +6,6 @@ program main
   character(:), allocatable :: init
   integer :: level
   call initialise()
-  call logger%error("main","test")
 
   call read_json("default", CH_params, init, level)
 

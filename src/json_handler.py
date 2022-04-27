@@ -76,12 +76,12 @@ def generate_json_file():
     data["default"] = {
         "grid_type": "r",
         "grid_level": 2,
-        "A": 1,
-        "L": 1,
-        "M": 1,
-        "K":1,
-        "p0": 0,
-        "p1": 1
+        "A": 1.0,
+        "L": 1.0,
+        "M": 1.0,
+        "K":1.0,
+        "p0": 0.0,
+        "p1": 1.0
     }
 
     with open(Json_handler._input_fname, 'w') as f:

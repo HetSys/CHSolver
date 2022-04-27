@@ -8,7 +8,7 @@ module JSON_Parser
   implicit none
   
 
-  character(*), parameter :: JSON_FILENAME = "input-data.json"
+  character(*), parameter :: JSON_FILENAME = "./src/input-data.json"
 
 
 
@@ -57,14 +57,17 @@ module JSON_Parser
   !! @todo check for failures in opening
   function open_json() result(json)
     type(json_file) :: json
+    character(:), allocatable :: j_string
 
     ! Initialise JSON, allowing for path mode
     ! Nested keys accessed via $["outer key"]["inner key"]
     call json%initialize(path_mode=3)
 
     call json%load(filename=JSON_FILENAME)
-    
+    call json%print_to_string(j_string)
     call logger%trivia("open_json", ("Opening "//JSON_FILENAME))
+    call logger%debug("open_json", "Found:")
+    call logger%debug("open_json", j_string)
   end function
 
 
@@ -80,7 +83,8 @@ module JSON_Parser
 
     real(dp) :: L, A, M, K, p0, p1
 
-    character(7) val_string
+    character(100) :: val_string
+
 
     all_found = .TRUE.
 
@@ -88,8 +92,8 @@ module JSON_Parser
     found = json_retrieve(json, run_name, "L", L)
 
     if (found) then
-      write(val_string, "(f3.3)") L
-      call logger%trivia("get_json_params", "Found L value of "// val_string)
+      write(val_string, *) L
+      call logger%trivia("get_json_params", "Found L value of "// trim(val_string))
     else
       call logger%error("get_json_params", "Input Parameter L not found")
       all_found = .FALSE.
@@ -100,8 +104,8 @@ module JSON_Parser
     found = json_retrieve(json, run_name, "A", A)
 
     if (found) then
-      write(val_string, "(f3.3)") A
-      call logger%trivia("get_json_params", "Found LAvalue of "// val_string)
+      write(val_string, *) A
+      call logger%trivia("get_json_params", "Found LAvalue of "// trim(val_string))
     else
       call logger%error("get_json_params", "Input Parameter A not found")
       all_found = .FALSE.
@@ -111,7 +115,7 @@ module JSON_Parser
     found = json_retrieve(json, run_name, "M", M)
 
     if (found) then
-      write(val_string, "(f3.3)") M
+      write(val_string, *) M
       call logger%trivia("get_json_params", "Found M value of "// val_string)
     else
       call logger%error("get_json_params", "Input Parameter M not found")
@@ -122,7 +126,7 @@ module JSON_Parser
     found = json_retrieve(json, run_name, "K", K)
 
     if (found) then
-      write(val_string, "(f3.3)") K
+      write(val_string, *) K
       call logger%trivia("get_json_params", "Found K value of "// val_string)
     else
       call logger%error("get_json_params", "Input Parameter K not found")
@@ -133,7 +137,7 @@ module JSON_Parser
     found = json_retrieve(json, run_name, "p0", p0)
 
     if (found) then
-      write(val_string, "(f3.3)") p0
+      write(val_string, *) p0
       call logger%trivia("get_json_params", "Found p0 value of "// val_string)
     else
       call logger%error("get_json_params", "Input Parameter p0 not found")
@@ -144,8 +148,8 @@ module JSON_Parser
     found = json_retrieve(json, run_name, "p1", p1)
 
     if (found) then
-      write(val_string, "(f3.3)") p1
-      call logger%trivia("get_json_params", "Found p1 value of "// val_string)
+      write(val_string, *) p1
+      call logger%trivia("get_json_params", "Found p1 value of "// trim(val_string))
     else
       call logger%error("get_json_params", "Input Parameter p1 not found")
       all_found = .FALSE.
@@ -155,7 +159,7 @@ module JSON_Parser
     found = json_retrieve(json, run_name, "grid_level", grid_level)
 
     if (found) then
-      write(val_string, "(i6)") grid_level
+      write(val_string, "(i4)") grid_level
       call logger%trivia("get_json_params", "Found level value of "// trim(val_string))
     else
       call logger%error("get_json_params", "Input Parameter level not found")
@@ -167,8 +171,7 @@ module JSON_Parser
     found = json_retrieve(json, run_name, "grid_type", grid_init)
 
     if (found) then
-      write(val_string, "(i6)") grid_level
-      call logger%trivia("get_json_params", "Found grid type of "// trim(grid_init))
+      call logger%trivia("get_json_params", "Found grid type of '"// trim(grid_init) // "'")
     else
       call logger%error("get_json_params", "Input Parameter 'grid_type' not found")
       all_found = .FALSE.
@@ -189,6 +192,7 @@ module JSON_Parser
     character(128) :: path
 
     path = "$['" // run_name // "']['" // key_name // "']"
+    call logger%debug("json_get_path", "Searching path "//trim(path))
   end function
 
   function json_retrieve_real(json, run_name, key_name, val) result(found)
