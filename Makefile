@@ -2,12 +2,11 @@
 FC= gfortran # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
 LD=$(FC)
 # flags and libraries
-FFLAGS= -I/usr/include/hdf5/serial -Wall -Wextra -std=f2008 #h5fc-show is equiv to nf-config --fflags/flibs to find these
+FFLAGS= -I/usr/include/hdf5/serial -Wall -Wextra -Wconversion-extra -std=f2008 #h5fc-show is equiv to nf-config --fflags/flibs to find these
 FLIBS= -L/usr/lib/x86_64-linux-gnu/hdf5/serial /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5_fortran.a /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5.a -lpthread -lsz -lz -ldl -lm -Wl,-rpath -Wl,/usr/lib/x86_64-linux-gnu/hdf5/serial
 
 # executable names
-EXE=out/chsolver
-EXE_TEST=test
+EXE=chsolver
 
 # directories
 SRC_DIR=./src
@@ -31,9 +30,11 @@ chsolver: directories $(OBJ)
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.f90
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
 	$(FC) -J$(SRC_DIR) $(FFLAGS) -c -o $@ $< 
+
 $(OBJ_DIR)/face.o: $(FACEPATH)
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
 	$(FC)-std=f2008 -c -o $@ $< 
+
 $(OBJ_DIR)/logger_mod.o: $(FLOGPATH)
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
 	$(FC)-std=f2008 -c -o $@ $< 
