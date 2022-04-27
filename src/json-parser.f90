@@ -55,7 +55,7 @@ module JSON_Parser
     call json%load(filename=JSON_FILENAME)
 
     if (json%failed()) then
-      call logger%critical(JSON_FILENAME // " could not be opened.")
+      call logger%fatal(JSON_FILENAME // " could not be opened.")
       stop
     end if
     
@@ -169,6 +169,12 @@ module JSON_Parser
     else
       call logger%error("get_json_params", "Input Parameter 'grid_type' not found")
       all_found = .FALSE.
+    end if
+
+
+    if (.NOT. all_found) then
+      call logger%fatal("get_json_params", "Missing Input Parameters")
+      stop
     end if
 
     ! Fill in CH_params array
