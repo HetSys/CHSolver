@@ -36,3 +36,6 @@ doxygen/output/*
 
 # Log files
 *.log
+
+# Exe
+chsolver
