@@ -44,3 +44,8 @@ doxygen/output/*
 
 # Compiled submodules
 src/submodules/bin/*
+# Log files
+*.log
+
+# Exe
+chsolver
