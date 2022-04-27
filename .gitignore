@@ -31,9 +31,19 @@
 *.out
 *.app
 
+# Compiled python
+__pycache__/*
+*.pyc
+
+# Data files
+*.json
+*.htf5
+
 # Doxygen documentation
 doxygen/output/*
 
+# Compiled submodules
+src/submodules/bin/*
 # Log files
 *.log
 
