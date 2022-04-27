@@ -79,6 +79,7 @@ def generate_json_file():
         "A": 1,
         "L": 1,
         "M": 1,
+        "K":1,
         "p0": 0,
         "p1": 0
     }

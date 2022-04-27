@@ -33,6 +33,7 @@
 
 # Compiled python
 __pycache__/*
+*.pyc
 
 # Data files
 *.json
@@ -40,3 +41,6 @@ __pycache__/*
 
 # Doxygen documentation
 doxygen/output/*
+
+# Compiled submodules
+src/submodules/bin/*
