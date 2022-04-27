@@ -81,8 +81,8 @@ def generate_json_file():
         "M": 1,
         "K":1,
         "p0": 0,
-        "p1": 0
+        "p1": 1
     }
 
-    with open(Json_handler._input_fname, 'x') as f:
-        json.dump(data, f)
+    with open(Json_handler._input_fname, 'w') as f:
+        json.dump(data, f, indent=2)

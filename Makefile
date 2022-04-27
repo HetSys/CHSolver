@@ -3,7 +3,7 @@ FC= gfortran # can use h5fc #HDF5's compiler (that wraps gfortran) then no need 
 LD=$(FC)
 # flags and libraries
 FFLAGS= -I/usr/include/hdf5/serial -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 #h5fc-show is equiv to nf-config --fflags/flibs to find these
-FLIBS= -L/usr/lib/x86_64-linux-gnu/hdf5/serial /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5_fortran.a /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5.a -lpthread -lsz -lz -ldl -lm -Wl,-rpath -Wl,/usr/lib/x86_64-linux-gnu/hdf5/serial
+FLIBS= -L/usr/lib/x86_64-linux-gnu/hdf5/serial /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5_fortran.a /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5.a -lpthread -lsz -lz -ldl -lm -Wl,-rpath -Wl,/usr/lib/x86_64-linux-gnu/hdf5/serial ./src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
 
 # executable names
 EXE=chsolver

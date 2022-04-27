@@ -24,6 +24,7 @@ module JSON_Parser
   !! @param[in]  CH_params [L, A, M, K, p0, p1]
   !! @param[in]  grid_init Grid initialisation type character
   !! @param[in]  grid_level Controls size of grid
+  !! @todo input validation 
   subroutine validate_json_params(CH_params, grid_init, grid_level)
     real(kind=dp), intent(in) :: CH_params(6)
     character(1), intent(in) :: grid_init
@@ -39,16 +40,21 @@ module JSON_Parser
   subroutine read_json(run_name, CH_params, grid_init, grid_level)
     character(*), intent(in) :: run_name
     real(kind=dp), intent(out) :: CH_params(6)
-    character(1), intent(out) :: grid_init
+    character(:), allocatable, intent(out) :: grid_init
     integer, intent(out) :: grid_level
 
-    grid_init = "r"
-    grid_level = 2
-    CH_params = (/1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp/)
+    type(json_file) :: json
+
+    json = open_json()
+
+    call get_json_params(json, run_name, CH_params, grid_init, grid_level)
+
+    call json%destroy()
   end subroutine
 
 
   !> @brief Opens JSON file
+  !! @todo check for failures in opening
   function open_json() result(json)
     type(json_file) :: json
 
@@ -167,6 +173,14 @@ module JSON_Parser
       call logger%error("get_json_params", "Input Parameter 'grid_type' not found")
       all_found = .FALSE.
     end if
+
+    ! Fill in CH_params array
+    CH_params(1) = L
+    CH_params(2) = A
+    CH_params(3) = M
+    CH_params(4) = K
+    CH_params(5) = p0
+    CH_params(6) = p1
   end subroutine
 
   !> @brief String formatter for JSON paths
