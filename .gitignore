@@ -33,3 +33,9 @@
 
 # Doxygen documentation
 doxygen/output/*
+
+# Log files
+*.log
+
+# Exe
+chsolver
