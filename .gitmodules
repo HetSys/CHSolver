@@ -1,0 +1,12 @@
+[submodule "src/submodules/FACE"]
+	path = src/submodules/FACE
+	url = https://github.com/szaghi/FACE.git
+[submodule "src/submodules/flogging"]
+	path = src/submodules/flogging
+	url = https://github.com/cmacmackin/flogging.git
+[submodule "src/submodules/json-fortran"]
+	path = src/submodules/json-fortran
+	url = https://github.com/jacobwilliams/json-fortran.git
+[submodule "src/submodules/pFUnit"]
+	path = src/submodules/pFUnit
+	url = https://github.com/Goddard-Fortran-Ecosystem/pFUnit.git
