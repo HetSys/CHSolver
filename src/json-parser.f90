@@ -19,19 +19,6 @@ module JSON_Parser
   end interface json_retrieve
   contains
 
-
-  !> @brief Validation of program inputs
-  !! @param[in]  CH_params [L, A, M, K, p0, p1]
-  !! @param[in]  grid_init Grid initialisation type character
-  !! @param[in]  grid_level Controls size of grid
-  !! @todo input validation 
-  subroutine validate_json_params(CH_params, grid_init, grid_level)
-    real(kind=dp), intent(in) :: CH_params(6)
-    character(1), intent(in) :: grid_init
-    integer, intent(in) :: grid_level
-
-  end subroutine
-
   !> @brief Reads JSON file, and searches for given params
   !! @param[in]  run_name  String key for input values
   !! @param[in]  CH_params [L, A, M, K, p0, p1]
@@ -45,30 +32,37 @@ module JSON_Parser
 
     type(json_file) :: json
 
-    json = open_json()
+    call open_json(json)
 
     call get_json_params(json, run_name, CH_params, grid_init, grid_level)
+
+    call validate_params(CH_params, grid_init, grid_level)
 
     call json%destroy()
   end subroutine
 
 
   !> @brief Opens JSON file
-  !! @todo check for failures in opening
-  function open_json() result(json)
-    type(json_file) :: json
+  subroutine open_json(json)
+    type(json_file), intent(inout) :: json
     character(:), allocatable :: j_string
 
     ! Initialise JSON, allowing for path mode
     ! Nested keys accessed via $["outer key"]["inner key"]
     call json%initialize(path_mode=3)
 
-    call json%load(filename=JSON_FILENAME)
-    call json%print_to_string(j_string)
     call logger%trivia("open_json", ("Opening "//JSON_FILENAME))
+    call json%load(filename=JSON_FILENAME)
+
+    if (json%failed()) then
+      call logger%critical(JSON_FILENAME // " could not be opened.")
+      stop
+    end if
+    
+    call json%print_to_string(j_string)
     call logger%debug("open_json", "Found:")
     call logger%debug("open_json", j_string)
-  end function
+  end subroutine
 
 
   !> @brief Grab required params from the JSON file opened by json_handler

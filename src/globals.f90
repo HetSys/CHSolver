@@ -22,7 +22,9 @@ module globals
 
   contains
 
-
+  !> @Brief Initialise logging
+  !! Wrapper for the flogging logger_init() subroutine
+  !! Automatically handles logfile creation and naming
   subroutine initialise()
     character(8) :: date 
     character(10) :: time
@@ -53,6 +55,16 @@ module globals
   end subroutine initialise
 
 
+  !> @brief Validation of program inputs
+  !! @param[in]  CH_params [L, A, M, K, p0, p1]
+  !! @param[in]  grid_init Grid initialisation type character
+  !! @param[in]  grid_level Controls size of grid
+  !! @todo input validation 
+  subroutine validate_params(CH_params, grid_init, grid_level)
+    real(kind=dp), intent(in) :: CH_params(6)
+    character(1), intent(in) :: grid_init
+    integer, intent(in) :: grid_level
 
+  end subroutine
 
 end module globals
