@@ -29,12 +29,22 @@ module globals
 
     character(128) :: logname
 
+    character(4) :: year
+    character(2) :: month, day, hr, min, sec
 
     call date_and_time(date=date, time=time)
 
+    year = date(:5)
+    month = date(5:7)
+    day = date(7:8)
+
+    hr = time(1:3)
+    min = time(3:5)
+    sec = time(5:7)
 
     ! Log filename = "<logfile_prefix>yyyy-mm-dd-hh-mm-ss.log
-    logname = logfolder // logfile_prefix // "-" // date // "-" // time(:7) // ".log"
+    logname = logfolder // logfile_prefix // "-" // year // "-" // month // "-" // &
+                day // "-" // hr // ":" // min // ":" // sec // ".log"
 
 
     ! Initialise master logger
