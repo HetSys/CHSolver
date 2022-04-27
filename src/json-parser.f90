@@ -4,6 +4,7 @@ module JSON_Parser
 
   use globals
   use json_module
+
   implicit none
   
 
@@ -63,10 +64,10 @@ module JSON_Parser
 
   !> @brief Grab required params from the JSON file opened by json_handler
   subroutine get_json_params(json, run_name, CH_params, grid_init, grid_level)
-    type(json_file), intent(in) ::json
+    type(json_file), intent(inout) ::json
     character(*), intent(in) :: run_name
     real(kind=dp), intent(out) :: CH_params(6)
-    character(1), intent(out) :: grid_init
+    character(:), allocatable, intent(out) :: grid_init
     integer, intent(out) :: grid_level
 
     logical :: found, all_found
@@ -177,7 +178,7 @@ module JSON_Parser
   end function
 
   function json_retrieve_real(json, run_name, key_name, val) result(found)
-    type(json_file), intent(in) ::json
+    type(json_file), intent(inout) :: json
     character(*), intent(in) :: run_name, key_name
     real(dp), intent(out) :: val
     logical :: found
@@ -190,9 +191,9 @@ module JSON_Parser
   end function
 
   function json_retrieve_char(json, run_name, key_name, val) result(found)
-    type(json_file), intent(in) ::json
+    type(json_file), intent(inout) :: json
     character(*), intent(in) :: run_name, key_name
-    character(1), intent(out) :: val
+    character(len=:), allocatable, intent(inout) :: val
     logical :: found
 
     character(128) :: path
@@ -203,7 +204,7 @@ module JSON_Parser
   end function
 
   function json_retrieve_int(json, run_name, key_name, val) result(found)
-    type(json_file), intent(in) ::json
+    type(json_file), intent(inout) :: json
     character(*), intent(in) :: run_name, key_name
     integer, intent(out) :: val
     logical :: found
