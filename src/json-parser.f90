@@ -55,7 +55,7 @@ module JSON_Parser
     call json%load(filename=JSON_FILENAME)
 
     if (json%failed()) then
-      call logger%fatal(JSON_FILENAME // " could not be opened.")
+      call logger%fatal("open_json", JSON_FILENAME // " could not be opened.")
       stop
     end if
     
@@ -79,6 +79,18 @@ module JSON_Parser
 
     character(100) :: val_string
 
+    ! Verify that run_name exists
+    call logger%trivia("get_json_params","Validating run name")
+
+    found = json%valid_path("$['"//run_name//"']")
+
+    if (.NOT. found) then
+      call logger%fatal("get_json_params", "Run name '"//run_name//"' not found")
+      stop
+    end if
+
+
+    ! Search run_name for input params
 
     all_found = .TRUE.
 
@@ -99,7 +111,7 @@ module JSON_Parser
 
     if (found) then
       write(val_string, *) A
-      call logger%trivia("get_json_params", "Found LAvalue of "// trim(val_string))
+      call logger%trivia("get_json_params", "Found A value of "// trim(val_string))
     else
       call logger%error("get_json_params", "Input Parameter A not found")
       all_found = .FALSE.

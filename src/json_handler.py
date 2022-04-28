@@ -70,9 +70,16 @@ def generate_json_file():
     Generates a fresh json file with sample input configs
 
     '''
-
-    data = {}
-
+    cwd = os.getcwd()
+    input_fname = "input-data.json"
+        # Recursive search to find file
+    filepath = glob.glob((cwd + os.sep + "**" + os.sep +
+                                   input_fname), recursive=True)
+    if filepath:
+        data = json.loads(open(filepath[0]).read())
+    else:
+        data = {}
+    
     data["default"] = {
         "grid_type": "r",
         "grid_level": 2,
