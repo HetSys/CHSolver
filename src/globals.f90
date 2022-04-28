@@ -17,7 +17,7 @@ module globals
 
   integer, parameter :: logfile_threshold = trivia ! set to debug for more info in the logfile
 
-  character(*), parameter :: logfile_prefix = "ch-log"
+  character(*), parameter :: logfile_prefix = "CH"
   character(*), parameter :: logfolder = "logs/"
 
   contains
