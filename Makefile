@@ -12,6 +12,7 @@ EXE=chsolver
 SRC_DIR=./src
 OBJ_DIR=./obj
 OUT_DIR=./out
+LOG_DIR=./logs
 
 FACEPATH = $(SRC_DIR)/submodules/FACE/src/lib/face.F90
 FLOGPATH = $(SRC_DIR)/submodules/flogging/src/logging.f90
@@ -45,12 +46,17 @@ $(OBJ_DIR)/logger_mod.o: $(FLOGPATH)
 # create required directories
 .PHONY: directories
 directories:
-	mkdir -p $(OBJ_DIR) $(OUT_DIR)
+	mkdir -p $(OBJ_DIR) $(OUT_DIR) $(LOG_DIR)
 
 # removes binaries, outputs etc.
 .PHONY: clean
 clean:
 	rm -f -r -d $(EXE) $(EXE_TEST) $(OBJ_DIR)/*.o $(SRC_DIR)/*.mod $(OUT_DIR)/** ./doxygen/output/*
+
+# removes logfiles
+.PHONY: logpurge
+logpurge:
+	rm -f -r -d $(LOG_DIR)/**
 
 # force rebuild of all files
 .PHONY: all
