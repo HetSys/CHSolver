@@ -8,7 +8,7 @@ module JSON_Parser
   implicit none
   
 
-  character(*), parameter :: JSON_FILENAME = "./src/input-data.json"
+  character(*), parameter :: JSON_FILENAME = "./input-data.json"
 
 
 
