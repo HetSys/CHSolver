@@ -32,11 +32,11 @@ module logging
     integer, intent(in) :: err, out, file
     character(100) :: cmd
 
-    this%log_enabled = .FALSE.
+    this%log_enabled = .TRUE.
 
     if (COMMAND_ARGUMENT_COUNT()==1)then
       call GET_COMMAND_ARGUMENT(1, cmd)
-      if (cmd=="-log" .OR. cmd=="-LOG") this%log_enabled = .TRUE.
+      if (cmd=="-nolog" .OR. cmd=="-NOLOG") this%log_enabled = .FALSE.
     end if
 
     if(this%log_enabled) call init_logfile(err, out, file)
