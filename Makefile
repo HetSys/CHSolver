@@ -12,6 +12,19 @@ EXE=chsolver
 SRC_DIR=./src
 OBJ_DIR=./obj
 OUT_DIR=./out
+TEST_DIR=./tests/unit-tests/
+
+
+# pFUnit
+PFUNIT_DIR = ./src/submodules/bin
+include $(PFUNIT_DIR)/PFUNIT-4.3/include/PFUNIT.mk
+
+my_tests_TESTS := $(TEST_DIR)/test-json-parser.pf
+my_tests_REGISTRY :=
+my_tests_OTHER_SOURCES :=
+my_tests_OTHER_LIBRARIES := -L. -lsut
+my_tests_OTHER_INCS :=
+
 
 FACEPATH = $(SRC_DIR)/submodules/FACE/src/lib/face.F90
 FLOGPATH = $(SRC_DIR)/submodules/flogging/src/logging.f90
@@ -41,6 +54,12 @@ $(OBJ_DIR)/logger_mod.o: $(FLOGPATH)
 
 #$(FLIBS) not needed for linking?
 
+
+# pFUnit
+.PHONY: tests
+tests:
+	FFLAGS += $(PFUNIT_EXTRA_FFLAGS)
+	$(eval $(call make_pfunit_test,my_tests))
 
 # create required directories
 .PHONY: directories

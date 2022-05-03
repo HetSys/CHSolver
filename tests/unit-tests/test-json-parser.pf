@@ -1,0 +1,12 @@
+module test_json
+  use funit
+  use JSON_parser
+
+  implicit none
+  contains
+
+  @test
+  submodule test()
+    @assertEqual(1, 1)
+  end submodule
+end module test_json
