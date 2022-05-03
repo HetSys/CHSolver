@@ -1,8 +1,13 @@
 # compiler and linker
 FC= gfortran # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
 LD=$(FC)
+
+# pFUnit
+PFUNIT_DIR = ./src/submodules/bin
+include $(PFUNIT_DIR)/PFUNIT-4.3/include/PFUNIT.mk
+
 # flags and libraries
-FFLAGS= -I/usr/include/hdf5/serial -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 #h5fc-show is equiv to nf-config --fflags/flibs to find these
+FFLAGS= -I/usr/include/hdf5/serial -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 $(PFUNIT_EXTRA_FFLAGS)#h5fc-show is equiv to nf-config --fflags/flibs to find these
 FLIBS= -L/usr/lib/x86_64-linux-gnu/hdf5/serial /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5_fortran.a /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5.a -lpthread -lsz -lz -ldl -lm -Wl,-rpath -Wl,/usr/lib/x86_64-linux-gnu/hdf5/serial ./src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
 
 # executable names
@@ -12,20 +17,9 @@ EXE=chsolver
 SRC_DIR=./src
 OBJ_DIR=./obj
 OUT_DIR=./out
-TEST_DIR=./tests/unit-tests/
-
-
-# pFUnit
-PFUNIT_DIR = ./src/submodules/bin
-include $(PFUNIT_DIR)/PFUNIT-4.3/include/PFUNIT.mk
-
-my_tests_TESTS := $(TEST_DIR)/test-json-parser.pf
-my_tests_REGISTRY :=
-my_tests_OTHER_SOURCES :=
-my_tests_OTHER_LIBRARIES := -L. -lsut
-my_tests_OTHER_INCS :=
-
+TEST_DIR=./tests/unit_tests
 LOG_DIR=./logs
+
 
 FACEPATH = $(SRC_DIR)/submodules/FACE/src/lib/face.F90
 FLOGPATH = $(SRC_DIR)/submodules/flogging/src/logging.f90
@@ -53,14 +47,22 @@ $(OBJ_DIR)/logger_mod.o: $(FLOGPATH)
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
 	$(FC) -std=f2008 -c -o $@ $< 
 
+# test_json_parser.o: test_json_parser.mod
+%.o: %.F90
+	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
+	$(FC) -J$(SRC_DIR) $(FFLAGS) -c -o $@ $< 
 #$(FLIBS) not needed for linking?
 
 
 # pFUnit
-.PHONY: tests
-tests:
-	FFLAGS += $(PFUNIT_EXTRA_FFLAGS)
-	$(eval $(call make_pfunit_test,my_tests))
+# .PHONY: tests
+my_tests: all
+my_tests_TESTS := test_json_parser.pf
+my_tests_REGISTRY :=
+my_tests_OTHER_SOURCES :=
+my_tests_OTHER_LIBRARIES := 
+my_tests_OTHER_INCS :=
+$(eval $(call make_pfunit_test,my_tests))
 
 # create required directories
 .PHONY: directories
