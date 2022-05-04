@@ -4,33 +4,6 @@ module setup
   implicit none
 
   contains
-  
-  !> @brief Initializes Seed for PRNG
-  !! @param[in]  seed Integer seed for PRNG. 
-  !! If Seed is set to -1, will use datetime for seed
-  subroutine set_ranseed(seed)
-    integer, intent(in) :: seed
-    
-    integer, allocatable :: state(:)
-    integer :: state_size
-    integer, dimension(8) :: datetime
-
-    call random_seed(size=state_size)
-    allocate(state(state_size))
-
-    if (seed == -1) then
-
-      !Current milisecond of the hour 
-      call date_and_time(values=datetime)
-      state = 60000*datetime(6) + 1000*datetime(7) + datetime(8)
-
-    else 
-      state = seed
-    end if
-
-    call random_seed(put=state)
-  
-  end subroutine
 
   !> @brief Initializes Grid
   !! @param[in] n integer, sets up grid to be divided into 2^n x 2^n squares
@@ -54,16 +27,19 @@ module setup
     select case(init)
 
       case ("r") ! Random
+        call logger%info("setup_grid", "Generating Random grid")
         call random_number(c)
         c = 0.4_DP*c - 0.2_DP
 
       case ("c") ! Circle
+        call logger%info("setup_grid", "Generating Circle grid")
         c = -1.0_dp
 
         do i = 1, grid
           do j = 1, grid
 
-            if( ((i - grid/2 - 0.5_DP))**2 + ((j - grid/2 - 0.5_DP))**2 .lt. grid**2*0.0625_DP) then
+            if( ((real(i, dp) - real(grid, dp)/2 - 0.5_DP))**2 + ((real(j, dp) - real(grid, dp)/2 - 0.5_DP))**2 &
+                    .lt. real(grid, dp)**2*0.0625_DP) then
               c(i, j) = 1.0_dp
             end if
 
@@ -71,38 +47,39 @@ module setup
         end do
 
       case ("b") ! Bar
+        call logger%info("setup_grid", "Generating Bar grid")
 
-        do i = 1, int(grid*0.4)
+        do i = 1, int(real(grid, dp)*0.4_dp)
           c(i, :) = -1.0_dp
         end do
 
-        do i = int(grid*0.6), grid
+        do i = int(real(grid, dp)*0.6_dp), grid
           c(i, :) = -1.0_dp
         end do
         
-        do i = int(grid*0.4), int(grid*0.6)
+        do i = int(real(grid, dp)*0.4_dp), int(real(grid, dp)*0.6_dp)
           
-          do j = 1, int(grid*0.25) 
+          do j = 1, int(real(grid, dp)*0.25_dp) 
             c(i, j) = -1.0_dp
           end do
         
-          do j = int(grid*0.25), int(grid*0.75)
+          do j = int(real(grid, dp)*0.25_dp), int(real(grid, dp)*0.75_dp)
             c(i,j) = 1.0_dp
           end do
           
-          do j = int(grid*0.75), grid 
+          do j = int(real(grid, dp)*0.75_dp), grid 
             c(i, j) = -1.0_dp
           end do
 
         end do
 
       case ("s") ! Split
-
-        do i = 1, int(grid*0.5)
+        call logger%info("setup_grid", "Generating Split grid")
+        do i = 1, int(real(grid, dp)*0.5_dp)
           c(i, :) = -1.0_dp
         end do
 
-        do i = int(grid*0.5 + 1), grid
+        do i = int(real(grid, dp)*0.5_dp + 1.0_dp), grid
           c(i, :) = 1.0_dp
         end do
 
@@ -130,7 +107,7 @@ module setup
     T(0) = start
 
     do i = 1, nsteps 
-      T(i) = start + (i)*(end - start)/(nsteps) 
+      T(i) = start + real(i, dp)*(end - start)/real(nsteps, dp) 
     end do
 
   end subroutine
@@ -147,10 +124,10 @@ module setup
     real(dp), intent(out), allocatable :: T(:)
     call t_validation(start, end, nsteps)
 
-    call lin_tspace(0.0_DP, log10(end - start + 1), nsteps, T)
+    call lin_tspace(0.0_DP, log10(end - start + 1.0_dp), nsteps, T)
     print *, T
-    T = 10**T
-    T = T - 1 + start
+    T = 10.0_dp**T
+    T = T - 1.0_dp + start
 
   end subroutine 
 
