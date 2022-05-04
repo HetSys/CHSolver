@@ -53,24 +53,24 @@ module setup
 
     select case(init)
 
-      case ("r")
+      case ("r") ! Random
         call random_number(c)
-        c = 0.4*c - 0.2
+        c = 0.4_DP*c - 0.2_DP
 
-      case ("c")
+      case ("c") ! Circle
         c = -1.0_dp
 
         do i = 1, grid
           do j = 1, grid
 
-            if( ((i - grid/2 - 0.5))**2 + ((j - grid/2 - 0.5))**2 .lt. grid**2*0.0625) then
+            if( ((i - grid/2 - 0.5_DP))**2 + ((j - grid/2 - 0.5_DP))**2 .lt. grid**2*0.0625_DP) then
               c(i, j) = 1.0_dp
             end if
 
           end do
         end do
 
-      case ("b")
+      case ("b") ! Bar
 
         do i = 1, int(grid*0.4)
           c(i, :) = -1.0_dp
@@ -86,7 +86,7 @@ module setup
             c(i, j) = -1.0_dp
           end do
         
-          do j = int(grid*0.25, grid*0.75)
+          do j = int(grid*0.25), int(grid*0.75)
             c(i,j) = 1.0_dp
           end do
           
@@ -96,7 +96,7 @@ module setup
 
         end do
 
-      case ("s")
+      case ("s") ! Split
 
         do i = 1, int(grid*0.5)
           c(i, :) = -1.0_dp
@@ -117,12 +117,13 @@ module setup
   !! @param[in] end, the finishing time
   !! @param[in] nsteps, the number of steps between start to finish
   !! @param[out] T, Result Array of Sample times with length nsteps+1
-  subroutine linspace(start, end, nsteps, T)
+  subroutine lin_tspace(start, end, nsteps, T)
     real(dp), intent(in) :: start, end
     integer, intent(in) :: nsteps
     real(dp), intent(out), allocatable :: T(:)
 
     integer :: i
+    call t_validation(start, end, nsteps)
 
     allocate(T(0:nsteps))
 
@@ -140,17 +141,55 @@ module setup
   !! @param[in] end, the finishing time
   !! @param[in] nsteps, the number of steps between start to finish
   !! @param[out] T, Result Array of Sample times with length nsteps+1
-  subroutine logspace(start, end, nsteps, T)
+  subroutine log_tspace(start, end, nsteps, T)
     real(dp), intent(in) :: start, end
     integer, intent(in) :: nsteps
     real(dp), intent(out), allocatable :: T(:)
+    call t_validation(start, end, nsteps)
 
-    call linspace(0, log10(end - start), nsteps, T)
-
+    call lin_tspace(0.0_DP, log10(end - start + 1), nsteps, T)
+    print *, T
     T = 10**T
     T = T - 1 + start
 
   end subroutine 
 
+
+  subroutine t_validation(start, end, nsteps)
+    real(dp), intent(in) :: start, end
+    integer, intent(in) :: nsteps
+    real(dp), parameter :: REAL_TOL = 1e-10_DP
+    logical :: error
+
+    error = .FALSE.
+
+    ! Start validation
+    if (start < 0) then
+      call logger%error("tspace_validation", "Start must be greater than zero")
+      error = .TRUE.
+    end if
+
+    ! End Validation
+
+    if (end < start) then
+      call logger%error("tspace_validation", "End must be greater than Start")
+      error = .TRUE.
+    end if
+
+    if (abs(start - end) .LT. REAL_TOL) then
+      call logger%error("tspace_validation", "Start and End cannot be equal")
+      error = .TRUE.
+    end if
+    ! Nsteps validation
+    if (nsteps <= 0) then
+      call logger%error("tspace_validation", "Number of steps must be at least 1")
+      error = .TRUE.
+    end if
+
+    if (error) then
+      call logger%fatal("tspace_validation", "Invalid timespace setup")
+      stop
+    end if
+  end subroutine
 end module
 
