@@ -26,18 +26,20 @@ module globals
   !> @Brief Initialise logging
   !! Wrapper for the flogging logger_init() subroutine
   !! Automatically handles logfile creation and naming
-  subroutine initialise(err_threshold, out_threshold, file_threshold)
-    integer, intent(in), optional :: err_threshold, out_threshold, file_threshold
+  subroutine initialise(err_threshold, out_threshold, file_threshold, ranseed)
+    integer, intent(in), optional :: err_threshold, out_threshold, file_threshold, ranseed
 
-    integer :: err, out, file
+    integer :: err, out, file, seed
 
     err = stderr_threshold
     out = stdout_threshold
     file = logfile_threshold
+    seed = -1
 
     if (present(err_threshold)) err = err_threshold
     if (present(out_threshold)) out = out_threshold
     if (present(file_threshold)) file = file_threshold
+    if (present(ranseed)) seed = ranseed
 
 
     call logger%init(err, out, file)
@@ -48,15 +50,14 @@ module globals
   !! @param[in]  CH_params [L, A, M, K, p0, p1]
   !! @param[in]  grid_init Grid initialisation type character
   !! @param[in]  grid_level Controls size of grid
+  !! @param[out] errors Returns true if error has been detected
   !! @todo grid_level validation
-  subroutine validate_params(CH_params, grid_init, grid_level)
+  subroutine validate_params(CH_params, grid_init, grid_level, errors)
     real(kind=dp), intent(in) :: CH_params(6)
     character(*), intent(in) :: grid_init
     integer, intent(in) :: grid_level
-
+    logical, intent(out) :: errors
     real(dp) :: L, A, M, K, p0, p1
-
-    logical :: errors
 
     real(dp), parameter :: REAL_TOL = 1e-10_DP
 
@@ -142,16 +143,6 @@ module globals
                         //") was less "//"than tolerance of "//adjustl(trim(to_string(REAL_TOL))))
       errors = .TRUE.
     end if
-
-
-    ! Check for any errors
-
-    if (errors) then
-      call logger%fatal("validate_params", "Issues found with input parameters")
-      stop
-    end if
-
-    call logger%trivia("validate_params", "No issues found in input parameters")
   end subroutine
 
 
@@ -171,5 +162,33 @@ module globals
     write(str, *) val
 
   end function int_to_string
+
+
+  !> @brief Initializes Seed for PRNG
+  !! @param[in]  seed Integer seed for PRNG. 
+  !! If Seed is set to -1, will use datetime for seed
+  subroutine set_ranseed(seed)
+    integer, intent(in) :: seed
+    
+    integer, allocatable :: state(:)
+    integer :: state_size
+    integer, dimension(8) :: datetime
+
+    call random_seed(size=state_size)
+    allocate(state(state_size))
+
+    if (seed == -1) then
+
+      !Current milisecond of the hour 
+      call date_and_time(values=datetime)
+      state = 60000*datetime(6) + 1000*datetime(7) + datetime(8)
+
+    else 
+      state = seed
+    end if
+
+    call random_seed(put=state)
+  
+  end subroutine
 
 end module globals
