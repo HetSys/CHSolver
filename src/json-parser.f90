@@ -51,7 +51,7 @@ module JSON_Parser
     ! Nested keys accessed via $["outer key"]["inner key"]
     call json%initialize(path_mode=3)
 
-    call logger%trivia("open_json", ("Opening "//JSON_FILENAME))
+    call logger%info("open_json", ("Reading "//JSON_FILENAME))
     call json%load(filename=JSON_FILENAME)
 
     if (json%failed()) then
