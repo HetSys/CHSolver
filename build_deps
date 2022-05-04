@@ -1,5 +1,6 @@
 #!/bin/bash
 
+git submodule update --init --recursive
 cd src/submodules
 
 echo Building json-fortran
@@ -7,7 +8,7 @@ echo Building json-fortran
 cd json-fortran
 mkdir build
 cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/.local/bin/ -DSKIP_DOC_GEN=TRUE
+cmake -D CMAKE_INSTALL_PREFIX=../../bin/ -D SKIP_DOC_GEN=TRUE ..
 cmake --build .
 cmake --install .
 cd ..
@@ -19,7 +20,7 @@ echo Building pfUnit
 cd pFUnit
 mkdir build
 cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/.local/bin/
+cmake -D CMAKE_INSTALL_PREFIX=../../bin/ ..
 cmake --build .
 cmake --install .
 cd ..
