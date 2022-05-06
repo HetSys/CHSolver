@@ -7,8 +7,7 @@ module solvers
   save
 
   ! solver codes to select the desired solver
-  integer, parameter :: SOLVER_FD1 = 0, &
-                        SOLVER_FD2 = 1
+  integer, parameter :: SOLVER_FD2 = 1
 
   contains
 
@@ -32,9 +31,6 @@ module solvers
 
     ! call relevant solver
     select case (code)
-      case (SOLVER_FD1)
-        call logger%info("solver_1", "Solving with fd1")
-        print *, "solver fd1"
       case (SOLVER_FD2)
         call logger%info("solver_1", "Solving with fd2")
         call solver_ufds2t2(Tout, c0, eps2)
