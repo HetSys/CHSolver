@@ -146,7 +146,7 @@ module fd_solvers
 
     ! output if required
     if (tout(it) < epsilon(tout(it))) then
-      write(msg, 24) "Output at t=", t
+      write(msg, 24) "Initial condition output at t=  0.000"
       call logger%info("solver_ufds2t2", msg)
       write(fname, 23) "out/phi-", it, ".dat"
       call temp_output_data(phi, fname)
@@ -220,8 +220,8 @@ module fd_solvers
     !   REMAINING TIMESTEPS (second order)                                       !
     ! ========================================================================== !
     do while (t < tmax)
-      ! set current timestep
-      if (t < 10.0_dp * eps) then
+      ! set current timestep TODO: condition on curvature rather than time
+      if (t < 100.0_dp * eps) then
         dt = 2.5_dp * eps2
       else
         dt = dx

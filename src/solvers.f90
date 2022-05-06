@@ -66,8 +66,6 @@ module solvers
 
     ! call relevant solver
     select case (code)
-      case (SOLVER_FD1)
-        call logger%info("solver_2", "Solving with fd1")
       case (SOLVER_FD2)
         call logger%info("solver_2", "Solving with fd2")
       case default

@@ -19,7 +19,7 @@ program main
   call read_json("default", CH_params, init, level)
 
   ! set output times
-  call log_tspace(0.0_dp, 5.0_dp, 10, Tout)
+  call lin_tspace(0.0_dp, 0.5_dp, 50, Tout)
 
   ! initial concentration
   call setup_grid(c0, level, init)
