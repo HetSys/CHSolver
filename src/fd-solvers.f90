@@ -91,7 +91,7 @@ module fd_solvers
     real(dp) :: eps
     integer :: it, i, j ! iterators
     logical :: outflag
-    character(len=64) :: msg ! logging message
+    character(len=32) :: msg ! logging message
 
     ! grid storage
     real(dp), pointer, contiguous :: phi(:), psi(:), g(:), b(:), &
