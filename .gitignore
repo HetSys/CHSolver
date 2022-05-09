@@ -49,4 +49,9 @@ src/submodules/bin/*
 
 # Exe
 chsolver
+test_all
 CH-docs.pdf
+
+# Unit tests additional
+tests/unit_tests/*.F90
+tests/unit_tests/*.inc
