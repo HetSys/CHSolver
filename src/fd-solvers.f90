@@ -437,7 +437,7 @@ module fd_solvers
     call smooth(A, E1, E2, R1, R2, eps2, N, dx, level)
 
     ! if the level we're at is greater than 0 then a smooth won't solve it
-    if (level > 0) then
+    if (level > 1) then
       ! restrict (level -> level-1)
       call restrict(R1, R2, N, level)
 
@@ -446,6 +446,10 @@ module fd_solvers
 
       ! prolongate (level-1 -> level) and correct
       call prolongate(E1, E2, N/2, level-1)
+    else
+      ! extra smooths on the 2x2 grid
+      call smooth(A, E1, E2, R1, R2, eps2, N, dx, level)
+      call smooth(A, E1, E2, R1, R2, eps2, N, dx, level)
     endif
 
     ! start smooth

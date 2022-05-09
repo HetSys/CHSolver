@@ -68,6 +68,7 @@ module solvers
     select case (code)
       case (SOLVER_FD2)
         call logger%info("solver_2", "Solving with fd2")
+        call logger%fatal("solver_2", "not implemented yet")
       case default
         call logger%fatal("solver_2", "Invalid solver code")
     endselect
