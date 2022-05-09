@@ -1,24 +1,19 @@
 module globals
   use iso_fortran_env
-  use logger_mod, only: logger => master_logger, logger_init, debug, trivia, info, &
-                                    warning, error, fatal
+  use logging, only: logger, debug, trivia, info, &
+                      warning, error, fatal
 
   implicit none
-
   ! Kind/precision of reals to use
   integer, parameter :: dp = real64
 
-
   ! Logging defaults
 
-  integer, parameter :: stderr_threshold = error
+  integer, parameter, private :: stderr_threshold = error
 
   integer, parameter :: stdout_threshold = info
 
   integer, parameter :: logfile_threshold = trivia ! set to debug for more info in the logfile
-
-  character(*), parameter :: logfile_prefix = "CH"
-  character(*), parameter :: logfolder = "logs/"
 
   interface to_string
     module procedure real_to_string
@@ -31,33 +26,23 @@ module globals
   !> @Brief Initialise logging
   !! Wrapper for the flogging logger_init() subroutine
   !! Automatically handles logfile creation and naming
-  subroutine initialise()
-    character(8) :: date 
-    character(10) :: time
+  subroutine initialise(err_threshold, out_threshold, file_threshold, ranseed)
+    integer, intent(in), optional :: err_threshold, out_threshold, file_threshold, ranseed
 
-    character(128) :: logname
+    integer :: err, out, file, seed
 
-    character(4) :: year
-    character(2) :: month, day, hr, min, sec
+    err = stderr_threshold
+    out = stdout_threshold
+    file = logfile_threshold
+    seed = -1
 
-    call date_and_time(date=date, time=time)
-
-    year = date(:5)
-    month = date(5:7)
-    day = date(7:8)
-
-    hr = time(1:3)
-    min = time(3:5)
-    sec = time(5:7)
-
-    ! Log filename = "<logfile_prefix>yyyy-mm-dd-hh-mm-ss.log
-    logname = logfolder // logfile_prefix // "-" // year // "-" // month // "-" // &
-                day // "-" // hr // ":" // min // ":" // sec // ".log"
+    if (present(err_threshold)) err = err_threshold
+    if (present(out_threshold)) out = out_threshold
+    if (present(file_threshold)) file = file_threshold
+    if (present(ranseed)) seed = ranseed
 
 
-    ! Initialise master logger
-    call logger_init(trim(logname), stderr_threshold, stdout_threshold, &
-                      logfile_threshold)
+    call logger%init(err, out, file)
   end subroutine initialise
 
 
@@ -65,15 +50,14 @@ module globals
   !! @param[in]  CH_params [L, A, M, K, p0, p1]
   !! @param[in]  grid_init Grid initialisation type character
   !! @param[in]  grid_level Controls size of grid
+  !! @param[out] errors Returns true if error has been detected
   !! @todo grid_level validation
-  subroutine validate_params(CH_params, grid_init, grid_level)
+  subroutine validate_params(CH_params, grid_init, grid_level, errors)
     real(kind=dp), intent(in) :: CH_params(6)
     character(*), intent(in) :: grid_init
     integer, intent(in) :: grid_level
-
+    logical, intent(out) :: errors
     real(dp) :: L, A, M, K, p0, p1
-
-    logical :: errors
 
     real(dp), parameter :: REAL_TOL = 1e-10_DP
 
@@ -159,16 +143,6 @@ module globals
                         //") was less "//"than tolerance of "//adjustl(trim(to_string(REAL_TOL))))
       errors = .TRUE.
     end if
-
-
-    ! Check for any errors
-
-    if (errors) then
-      call logger%fatal("validate_params", "Issues found with input parameters")
-      stop
-    end if
-
-    call logger%trivia("validate_params", "No issues found in input parameters")
   end subroutine
 
 
@@ -188,5 +162,33 @@ module globals
     write(str, *) val
 
   end function int_to_string
+
+
+  !> @brief Initializes Seed for PRNG
+  !! @param[in]  seed Integer seed for PRNG. 
+  !! If Seed is set to -1, will use datetime for seed
+  subroutine set_ranseed(seed)
+    integer, intent(in) :: seed
+    
+    integer, allocatable :: state(:)
+    integer :: state_size
+    integer, dimension(8) :: datetime
+
+    call random_seed(size=state_size)
+    allocate(state(state_size))
+
+    if (seed == -1) then
+
+      !Current milisecond of the hour 
+      call date_and_time(values=datetime)
+      state = 60000*datetime(6) + 1000*datetime(7) + datetime(8)
+
+    else 
+      state = seed
+    end if
+
+    call random_seed(put=state)
+  
+  end subroutine
 
 end module globals

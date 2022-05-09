@@ -29,6 +29,7 @@ module JSON_Parser
     real(kind=dp), intent(out) :: CH_params(6)
     character(:), allocatable, intent(out) :: grid_init
     integer, intent(out) :: grid_level
+    logical :: error
 
     type(json_file) :: json
 
@@ -36,7 +37,14 @@ module JSON_Parser
 
     call get_json_params(json, run_name, CH_params, grid_init, grid_level)
 
-    call validate_params(CH_params, grid_init, grid_level)
+    call validate_params(CH_params, grid_init, grid_level, error)
+
+    if (error) then
+      call logger%fatal("read_json", "Issues found with input parameters")
+      stop
+    end if
+
+    call logger%trivia("read_json", "No issues found in input parameters")
 
     call json%destroy()
   end subroutine
@@ -51,7 +59,7 @@ module JSON_Parser
     ! Nested keys accessed via $["outer key"]["inner key"]
     call json%initialize(path_mode=3)
 
-    call logger%trivia("open_json", ("Opening "//JSON_FILENAME))
+    call logger%info("open_json", ("Reading "//JSON_FILENAME))
     call json%load(filename=JSON_FILENAME)
 
     if (json%failed()) then

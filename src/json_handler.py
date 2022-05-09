@@ -72,22 +72,22 @@ def generate_json_file():
     '''
     cwd = os.getcwd()
     input_fname = "input-data.json"
-        # Recursive search to find file
+    # Recursive search to find file
     filepath = glob.glob((cwd + os.sep + "**" + os.sep +
-                                   input_fname), recursive=True)
+                          input_fname), recursive=True)
     if filepath:
         data = json.loads(open(filepath[0]).read())
     else:
         data = {}
-    
+
     data["default"] = {
         "grid_type": "r",
-        "grid_level": 2,
+        "grid_level": 7,
         "A": 1.0,
         "L": 1.0,
-        "M": 1.0,
-        "K":1.0,
-        "p0": 0.0,
+        "M": 0.25,
+        "K": 0.0004,
+        "p0": -1.0,
         "p1": 1.0
     }
 
