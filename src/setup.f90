@@ -16,7 +16,7 @@ module setup
   subroutine setup_grid(c, n, init)
     integer, intent(in) :: n
     character, intent(in) :: init
-    real(dp), intent(out), allocatable, dimension(:,:) :: c
+    real(dp), pointer, contiguous, intent(out) :: c(:,:)
 
     integer :: i, j, grid
 
@@ -125,7 +125,6 @@ module setup
     call t_validation(start, end, nsteps)
 
     call lin_tspace(0.0_DP, log10(end - start + 1.0_dp), nsteps, T)
-    print *, T
     T = 10.0_dp**T
     T = T - 1.0_dp + start
 
