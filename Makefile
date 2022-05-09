@@ -2,9 +2,7 @@
 FC= gfortran # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
 LD=$(FC)
 
-# pFUnit
-PFUNIT_DIR = ./src/submodules/bin
-include $(PFUNIT_DIR)/PFUNIT-4.3/include/PFUNIT.mk
+
 
 # flags and libraries
 FFLAGS= -I/usr/include/hdf5/serial -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 $(PFUNIT_EXTRA_FFLAGS)#h5fc-show is equiv to nf-config --fflags/flibs to find these
@@ -27,6 +25,9 @@ FLOGPATH = $(SRC_DIR)/submodules/flogging/src/logging.f90
 SRC= $(wildcard $(SRC_DIR)/*.f90)
 
 OBJ= $(OBJ_DIR)/face.o $(OBJ_DIR)/logger_mod.o  $(addprefix $(OBJ_DIR)/, $(notdir $(SRC:.f90=.o)))
+
+$(SRC_DIR)/libchsolver.a : $(wildcard $(OBJ_DIR)/*.o)
+	ar -r $@ $?
 
 chsolver: directories $(OBJ)
 	@printf "`tput bold``tput setaf 2`Linking`tput sgr0`\n"
@@ -56,13 +57,8 @@ $(OBJ_DIR)/logger_mod.o: $(FLOGPATH)
 
 # pFUnit
 # .PHONY: tests
-my_tests: all
-my_tests_TESTS := test_json_parser.pf
-my_tests_REGISTRY :=
-my_tests_OTHER_SOURCES :=
-my_tests_OTHER_LIBRARIES := 
-my_tests_OTHER_INCS :=
-$(eval $(call make_pfunit_test,my_tests))
+tests: all $(SRC_DIR)/libchsolver.a
+	make -C tests/unit_tests all
 
 # create required directories
 .PHONY: directories
@@ -72,7 +68,8 @@ directories:
 # removes binaries, outputs etc.
 .PHONY: clean
 clean:
-	rm -f -r -d $(EXE) $(EXE_TEST) $(OBJ_DIR)/*.o $(SRC_DIR)/*.mod $(OUT_DIR)/** ./doxygen/output/*
+	rm -f -r -d $(EXE) $(EXE_TEST) $(OBJ_DIR)/*.o $(SRC_DIR)/*.mod $(OUT_DIR)/** ./doxygen/output/* test_all
+	make -C tests/unit_tests clean
 
 # removes logfiles
 .PHONY: logpurge

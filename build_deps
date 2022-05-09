@@ -19,9 +19,8 @@ echo Building pfUnit
 cd pFUnit
 mkdir build
 cd build
-cmake -D CMAKE_INSTALL_PREFIX=../../bin/ ..
+cmake ..
 cmake --build .
 cmake --install .
 cd ..
-rm -r -d build
 
