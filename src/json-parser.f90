@@ -33,9 +33,15 @@ module JSON_Parser
 
     type(json_file) :: json
 
+    error = .FALSE.
+    
     call open_json(json)
 
-    call get_json_params(json, run_name, CH_params, grid_init, grid_level)
+    call get_json_params(json, run_name, CH_params, grid_init, grid_level, error)
+    if (error) then
+      call logger%fatal("read_json", "Issues found fetching JSON params")
+      stop
+    end if
 
     call validate_params(CH_params, grid_init, grid_level, error)
 
@@ -47,6 +53,11 @@ module JSON_Parser
     call logger%trivia("read_json", "No issues found in input parameters")
 
     call json%destroy()
+
+    if (json%failed()) then
+      call logger%fatal("open_json", "Failed to cleanup json object")
+      stop
+    end if
   end subroutine
 
 
@@ -74,19 +85,20 @@ module JSON_Parser
 
 
   !> @brief Grab required params from the JSON file opened by json_handler
-  subroutine get_json_params(json, run_name, CH_params, grid_init, grid_level)
-    type(json_file), intent(inout) ::json
+  subroutine get_json_params(json, run_name, CH_params, grid_init, grid_level, error)
+    type(json_file), intent(inout) :: json
     character(*), intent(in) :: run_name
     real(kind=dp), intent(out) :: CH_params(6)
     character(:), allocatable, intent(out) :: grid_init
     integer, intent(out) :: grid_level
 
-    logical :: found, all_found
+    logical :: found, all_found, error
 
     real(dp) :: L, A, M, K, p0, p1
 
     character(100) :: val_string
 
+    error = .FALSE.
     ! Verify that run_name exists
     call logger%trivia("get_json_params","Validating run name")
 
@@ -94,7 +106,7 @@ module JSON_Parser
 
     if (.NOT. found) then
       call logger%fatal("get_json_params", "Run name '"//run_name//"' not found")
-      stop
+      error = .TRUE.
     end if
 
 
@@ -194,7 +206,7 @@ module JSON_Parser
 
     if (.NOT. all_found) then
       call logger%fatal("get_json_params", "Missing Input Parameters")
-      stop
+      error = .TRUE.
     end if
 
     ! Fill in CH_params array

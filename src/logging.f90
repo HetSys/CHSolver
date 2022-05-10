@@ -5,9 +5,9 @@ module logging
 
   implicit none
 
-
   type :: logger_type
     logical, private :: log_enabled
+    logical :: disable_all_logging
 
     contains
     procedure :: init => log_init
@@ -31,7 +31,7 @@ module logging
     class(logger_type) :: this
     integer, intent(in) :: err, out, file
     character(100) :: cmd
-
+    this%disable_all_logging = .FALSE.
     this%log_enabled = .TRUE.
 
     if (COMMAND_ARGUMENT_COUNT()==1)then
@@ -75,11 +75,12 @@ end subroutine
   subroutine log_fatal(this, source, msg)
     class(logger_type), intent(in) :: this
     character(*), intent(in) :: source, msg
-    
-    if (this%log_enabled) then
-      call flogger%fatal(source, msg)
-    else
-      write(ERROR_UNIT, *) "["//source//"]"//"<fatal> "//msg
+    if(.NOT. logger%disable_all_logging) then
+      if (this%log_enabled) then
+        call flogger%fatal(source, msg)
+      else
+        write(ERROR_UNIT, *) "["//source//"]"//"<fatal> "//msg
+      end if
     end if
 
   end subroutine
@@ -87,22 +88,24 @@ end subroutine
   subroutine log_error(this, source, msg)
     class(logger_type), intent(in) :: this
     character(*), intent(in) :: source, msg
-    
-    if (this%log_enabled) then
-      call flogger%error(source, msg)
-    else
-      write(ERROR_UNIT, *) "["//source//"]"//"<error> "//msg
+    if(.NOT. logger%disable_all_logging) then
+      if (this%log_enabled) then
+        call flogger%error(source, msg)
+      else
+        write(ERROR_UNIT, *) "["//source//"]"//"<error> "//msg
+      end if
     end if
   end subroutine
 
   subroutine log_warn(this, source, msg)
     class(logger_type), intent(in) :: this
     character(*), intent(in) :: source, msg
-    
-    if (this%log_enabled) then
-      call flogger%warning(source, msg)
-    else
-      write(ERROR_UNIT, *) "["//source//"]"//"<warning> "//msg
+    if(.NOT. logger%disable_all_logging) then
+      if (this%log_enabled) then
+        call flogger%warning(source, msg)
+      else
+        write(ERROR_UNIT, *) "["//source//"]"//"<warning> "//msg
+      end if
     end if
   end subroutine
 
@@ -110,21 +113,21 @@ end subroutine
     class(logger_type), intent(in) :: this
     character(*), intent(in) :: source, msg
     
-    if (this%log_enabled) call flogger%info(source, msg)
+    if(.NOT. logger%disable_all_logging .AND. this%log_enabled) call flogger%info(source, msg)
   end subroutine
 
   subroutine log_trivia(this, source, msg)
     class(logger_type), intent(in) :: this
     character(*), intent(in) :: source, msg
     
-    if (this%log_enabled) call flogger%trivia(source, msg)
+    if(.NOT. logger%disable_all_logging .AND. this%log_enabled) call flogger%trivia(source, msg)
   end subroutine
 
   subroutine log_debug(this, source, msg)
     class(logger_type), intent(in) :: this
     character(*), intent(in) :: source, msg
     
-    if (this%log_enabled) call flogger%debug(source, msg)
+    if(.NOT. logger%disable_all_logging .AND. this%log_enabled) call flogger%debug(source, msg)
   end subroutine
 
 end module logging

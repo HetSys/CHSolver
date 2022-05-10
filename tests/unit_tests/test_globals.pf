@@ -1,0 +1,27 @@
+module test_json_parser
+  use funit
+  use globals
+
+  ! Parameter validation constants
+  integer, parameter :: good_levels    = (/2, 3, 4/), &
+                        invalid_levels = (/-1, 0/)
+  
+  real(dp), parameter :: good_Ls       = (//), &
+                         invalid_Ls    = (//), &
+                         good_As       = (//), &
+                         invalid_As    = (//), &
+                         good_Ms       = (//), &
+                         invalid_Ms    = (//), &
+                         good_Ks       = (//), &
+                         invalid_Ks    = (//), &
+                         good_p0s      = (//), &
+                         invalid_p0s   = (//), &
+                         good_p1s      = (//), &
+                         invalid_p1s   = (//), &
+
+  character(*), parameter :: good_init = (//), &
+                          invalid_init = (//)
+                         
+contains
+
+end module test_globals

@@ -9,9 +9,8 @@ FFLAGS += -I/usr/include/hdf5/serial -I../../src/submodules/bin/jsonfortran-gnu-
 
 FFLAGS += $(PFUNIT_EXTRA_FFLAGS)
 
-FLIBS= -L/usr/lib/x86_64-linux-gnu/hdf5/serial /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5_fortran.a /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5.a -lpthread -lsz -lz -ldl -lm -Wl,-rpath -Wl,/usr/lib/x86_64-linux-gnu/hdf5/serial ../../src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
+FLIBS= -L/usr/lib/x86_64-linux-gnu/hdf5/serial /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5_fortran.a /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5.a -lpthread -lsz -lz -ldl -lm -Wl,-rpath -Wl,/usr/lib/x86_64-linux-gnu/hdf5/serial
 FLIBS += $(filter-out ../../obj/main.o, $(wildcard ../../obj/*.o))
-
 # directories
 SRC_DIR=../../src
 OBJ_DIR=../../obj
@@ -26,13 +25,13 @@ FLOGPATH = $(SRC_DIR)/submodules/flogging/src/logging.f90
 
 
 %.o : %.F90
-	$(FC) -c $(FFLAGS) $< 
+	$(FC) $(FFLAGS) -c -o $@ $< 
 
 all: test_all
-	$(shell cp test_all ../..)
+	$(shell mv test_all ../..)
 
 test_all_TESTS := test_json_parser.pf
-test_all_OTHER_LIBRARIES := $(FLIBS)
+test_all_OTHER_LIBRARIES := ../../src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a $(filter-out ../../obj/main.o, $(wildcard ../../obj/*.o))
 $(eval $(call make_pfunit_test,test_all))
 
 clean:
