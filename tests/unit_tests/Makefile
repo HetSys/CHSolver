@@ -30,7 +30,7 @@ FLOGPATH = $(SRC_DIR)/submodules/flogging/src/logging.f90
 all: test_all
 	$(shell mv test_all ../..)
 
-test_all_TESTS := test_json_parser.pf
+test_all_TESTS := test_json_parser.pf test_globals.pf
 test_all_OTHER_LIBRARIES := ../../src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a $(filter-out ../../obj/main.o, $(wildcard ../../obj/*.o))
 $(eval $(call make_pfunit_test,test_all))
 
