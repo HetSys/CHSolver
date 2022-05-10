@@ -1,0 +1,38 @@
+module test_json_parser
+  use funit
+  use JSON_Parser
+
+contains
+
+  !!! Note: no test annotation !!!
+  subroutine not_a_test()
+     print*,'this procedure should not be called'
+  end subroutine not_a_test
+
+
+  @test
+  subroutine test_assert_true_and_false()
+     @assertTrue(1 == -1)
+     @assertFalse(1 == 2)
+  end subroutine test_assert_true_and_false
+
+
+  @test
+  subroutine test_assert_equal_with_tolerance()
+     real, parameter :: x_expected = 7.
+
+     ! Absolute tolerance
+     @assertEqual(x_expected, 7.0, tolerance=0.0)
+     @assertEqual(x_expected, 7.1, tolerance=0.2)
+     
+     ! Relative tolerance
+     @assertRelativelyEqual(x_expected, 8.0, tolerance=0.5)
+  end subroutine test_assert_equal_with_tolerance
+
+  @test
+  subroutine test_open()
+    type(json_file) :: json
+    @assertTrue(1==1)
+    call open_json(json)
+  end subroutine
+end module test_json_parser
