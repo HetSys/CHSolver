@@ -1,4 +1,4 @@
-PFUNIT_DIR=/home/u2180064/Documents/GitHub/pFUnit/build/installed/PFUNIT-4.3
+PFUNIT_DIR=../../src/submodules/pFUnit/build/installed/PFUNIT-4.3
 include $(PFUNIT_DIR)/include/PFUNIT.mk
 FC= gfortran # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
 LD=$(FC)
