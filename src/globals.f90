@@ -9,7 +9,7 @@ module globals
 
   ! Logging defaults
 
-  integer, parameter, private :: stderr_threshold = error
+  integer, parameter :: stderr_threshold = error
 
   integer, parameter :: stdout_threshold = info
 
@@ -22,29 +22,6 @@ module globals
 
 
   contains
-
-  !> @Brief Initialise logging
-  !! Wrapper for the flogging logger_init() subroutine
-  !! Automatically handles logfile creation and naming
-  subroutine initialise(err_threshold, out_threshold, file_threshold, ranseed)
-    integer, intent(in), optional :: err_threshold, out_threshold, file_threshold, ranseed
-
-    integer :: err, out, file, seed
-
-    err = stderr_threshold
-    out = stdout_threshold
-    file = logfile_threshold
-    seed = -1
-
-    if (present(err_threshold)) err = err_threshold
-    if (present(out_threshold)) out = out_threshold
-    if (present(file_threshold)) file = file_threshold
-    if (present(ranseed)) seed = ranseed
-
-
-    call logger%init(err, out, file)
-  end subroutine initialise
-
 
   !> @brief Validation of program inputs
   !! @param[in]  CH_params [L, A, M, K, p0, p1]

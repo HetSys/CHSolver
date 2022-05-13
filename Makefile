@@ -5,7 +5,7 @@ LD=$(FC)
 
 
 # flags and libraries
-FFLAGS= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 #h5fc-show is equiv to nf-config --fflags/flibs to find these
+FFLAGS= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 -g#h5fc-show is equiv to nf-config --fflags/flibs to find these
 FLIBS= -lpthread -lsz -lz -ldl -lm ./src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
 
 # executable names
@@ -25,9 +25,6 @@ FLOGPATH = $(SRC_DIR)/submodules/flogging/src/logging.f90
 SRC= $(wildcard $(SRC_DIR)/*.f90)
 
 OBJ= $(OBJ_DIR)/face.o $(OBJ_DIR)/logger_mod.o  $(addprefix $(OBJ_DIR)/, $(notdir $(SRC:.f90=.o)))
-
-$(SRC_DIR)/libchsolver.a : $(wildcard $(OBJ_DIR)/*.o)
-	ar -r $@ $?
 
 chsolver: directories $(OBJ)
 	@printf "`tput bold``tput setaf 2`Linking`tput sgr0`\n"
@@ -52,6 +49,9 @@ $(OBJ_DIR)/logger_mod.o: $(FLOGPATH)
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
 	$(FC) -J$(SRC_DIR) $(FFLAGS) -c -o $@ $< 
 #$(FLIBS) not needed for linking?
+
+$(SRC_DIR)/libchsolver.a : $(wildcard $(OBJ_DIR)/*.o)
+	ar -r $@ $?
 
 
 # pFUnit
@@ -94,6 +94,6 @@ $(OBJ_DIR)/solvers.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o $(OBJ_DIR)
 $(OBJ_DIR)/fd-solvers.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o
 $(OBJ_DIR)/logging.o : $(OBJ_DIR)/logger_mod.o
 $(OBJ_DIR)/json-parser.o $(OBJ_DIR)/hdf5-io.o $(OBJ_DIR)/setup.o $(OBJ_DIR)/solvers.o $(OBJ_DIR)/progress.o : $(OBJ_DIR)/globals.o 
-
+$(OBJ_DIR)/command-line.o : $(OBJ_DIR)/globals.o
 $(OBJ_DIR)/main.o : $(OBJ_DIR)/json-parser.o $(OBJ_DIR)/solvers.o $(OBJ_DIR)/globals.o $(OBJ_DIR)/progress.o $(OBJ_DIR)/hdf5-io.o $(OBJ_DIR)/setup.o $(OBJ_DIR)/globals.o
 

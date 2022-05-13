@@ -3,6 +3,7 @@ program main
   use json_parser
   use setup
   use solvers
+  use command_line
 
   implicit none
 

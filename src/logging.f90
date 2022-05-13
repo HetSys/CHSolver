@@ -6,8 +6,9 @@ module logging
   implicit none
 
   type :: logger_type
-    logical, private :: log_enabled
+    logical :: log_enabled
     logical :: disable_all_logging
+    character(128), private :: logdir
 
     contains
     procedure :: init => log_init
@@ -17,33 +18,34 @@ module logging
     procedure :: info => log_info
     procedure :: trivia => log_trivia
     procedure :: debug => log_debug
+    procedure, private :: init_logfile
   end type logger_type
 
   character(*), parameter :: logfile_prefix = "CH"
-  character(*), parameter :: logfolder = "logs/"
+  character(*), parameter :: logfolder = "logs"
 
 
   type(logger_type) :: logger
 
   contains
 
-  subroutine log_init(this, err, out, file)
+  subroutine log_init(this, err, out, file, logdir)
     class(logger_type) :: this
     integer, intent(in) :: err, out, file
-    character(100) :: cmd
-    this%disable_all_logging = .FALSE.
-    this%log_enabled = .TRUE.
+    character(*), intent(in), optional :: logdir
 
-    if (COMMAND_ARGUMENT_COUNT()==1)then
-      call GET_COMMAND_ARGUMENT(1, cmd)
-      if (cmd=="-nolog" .OR. cmd=="-NOLOG") this%log_enabled = .FALSE.
+    if (present(logdir)) then
+      this%logdir = logdir
+    else
+      this%logdir = logfolder
     end if
 
-    if(this%log_enabled) call init_logfile(err, out, file)
+    if(this%log_enabled) call this%init_logfile(err, out, file)
 
   end subroutine
 
-subroutine init_logfile(err, out, file)
+subroutine init_logfile(this, err, out, file)
+  class(logger_type) :: this
   integer :: err, out, file
   character(8) :: date
   character(10) :: time
@@ -64,7 +66,7 @@ subroutine init_logfile(err, out, file)
   sec = time(5:7)
 
   ! Log filename = "<logfile_prefix>yyyy-mm-dd-hh-mm-ss.log
-  logname = logfolder // logfile_prefix // "-" // year // "-" // month // "-" // &
+  logname = trim(this%logdir) // "/" // logfile_prefix // "-" // year // "-" // month // "-" // &
               day // "-" // hr // ":" // min // ":" // sec // ".log"
 
 
