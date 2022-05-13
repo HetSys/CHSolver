@@ -18,6 +18,7 @@ module globals
   interface to_string
     module procedure real_to_string
     module procedure int_to_string
+    module procedure realarr_to_string
   end interface to_string
 
 
@@ -29,10 +30,11 @@ module globals
   !! @param[in]  grid_level Controls size of grid
   !! @param[out] errors Returns true if error has been detected
   !! @todo grid_level validation
-  subroutine validate_params(CH_params, grid_init, grid_level, errors)
+  subroutine validate_params(CH_params, grid_init, grid_level, Tout, errors)
     real(kind=dp), intent(in) :: CH_params(6)
     character(*), intent(in) :: grid_init
     integer, intent(in) :: grid_level
+    real(dp), allocatable, intent(in) :: Tout(:)
     logical, intent(out) :: errors
     real(dp) :: L, A, M, K, p0, p1
 
@@ -120,13 +122,26 @@ module globals
                         //") was less "//"than tolerance of "//adjustl(trim(to_string(REAL_TOL))))
       errors = .TRUE.
     end if
+
+    ! Tout validation
+
+    if (.not. allocated(Tout)) then
+      call logger%error("validate_params", "Output Timesteps not specified")
+      errors = .TRUE.
+    else if (any(Tout .LT. 0)) then
+      call logger%error("validate_params", "Cannot output at negative timesteps")
+      errors = .TRUE.
+    else if (any(Tout(2:) .LT. Tout(:size(Tout)))) then
+      call logger%error("validate_params", "Timestep array must be in ascending order")
+      errors = .TRUE.
+    end if
   end subroutine
 
 
 
   function real_to_string(val) result(str)
     real(dp), intent(in) :: val
-    character(128) :: str
+    character(128):: str
 
     write(str, *) val
 
@@ -139,6 +154,13 @@ module globals
     write(str, *) val
 
   end function int_to_string
+
+  function realarr_to_string(val) result(str)
+    real(dp), dimension(:), intent(in) :: val
+    character(2048) :: str
+    write(str, *) val
+    str = "{" // trim(str) // "}"
+  end function realarr_to_string
 
 
   !> @brief Initializes Seed for PRNG

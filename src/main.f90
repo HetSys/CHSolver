@@ -8,19 +8,40 @@ program main
   implicit none
 
   real(dp) :: CH_params(6) ! equation parameters
-  character(:), allocatable :: init ! initial condition type
+  character(:), allocatable :: init, fname, run_name, outdir ! initial condition type
   integer :: level ! grid level
   real(dp), allocatable :: Tout(:) ! output times
   real(dp), pointer, contiguous :: c0(:,:) ! initial concentration
+  logical :: errors
+
+  ! Default fname, run_name, and outdir
+  fname = "input-data.json"
+  run_name = "default"
+  outdir = "./out"
 
   ! set up logging
   call initialise()
 
+  ! Get JSON filename, run name, and output directory
+  call get_io_commands()
+
   ! input parameters from JSON file
-  call read_json("default", CH_params, init, level)
+  call read_json(fname, run_name, CH_params, init, level, Tout)
+
+  ! Grab any overriding input params from the command line
+  call get_input_commands(CH_params, level, init, Tout)
+
 
   ! set output times
-  call lin_tspace(0.0_dp, 0.5_dp, 50, Tout)
+  !call lin_tspace(0.0_dp, 0.5_dp, 50, Tout)
+
+  ! Validate input params
+  call validate_params(CH_params, init, level, Tout, errors)
+
+  if (errors) then
+    call logger%fatal("main", "Errors found in input params, aborting.")
+    stop
+  end if
 
   ! initial concentration
   call setup_grid(c0, level, init)

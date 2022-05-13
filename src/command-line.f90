@@ -26,6 +26,10 @@ module command_line
     logger%disable_all_logging = .FALSE.
     logger%log_enabled = .TRUE.
 
+    CH_fnd = .FALSE.
+    init_fnd = .FALSE.
+    level_fnd = .FALSE.
+
     call parse_args()
 
     err = stderr_threshold
@@ -65,10 +69,10 @@ module command_line
   !! Grab CH Params, grid level, grid init, and output times from parsed command line args
   !> Will only modify parts of CH_params, or level, init, time_arr
   !> if relevant overrides were found
-  subroutine get_input_command(CH_params, level, init, time_arr)
+  subroutine get_input_commands(CH_params, level, init, time_arr)
     real(dp), intent(inout), optional :: CH_params(6)
     integer, intent(inout), optional :: level
-    character, allocatable, intent(inout), optional :: init
+    character(*), intent(inout), optional :: init
     real(dp), allocatable, intent(inout), optional :: time_arr(:)
 
     integer :: idx

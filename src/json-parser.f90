@@ -6,16 +6,12 @@ module JSON_Parser
   use json_module
 
   implicit none
-  
-
-  character(*), parameter :: JSON_FILENAME = "./input-data.json"
-
-
 
   interface json_retrieve
     module procedure json_retrieve_real
     module procedure json_retrieve_char
     module procedure json_retrieve_int 
+    module procedure json_retrieve_realarr
   end interface json_retrieve
   contains
 
@@ -24,10 +20,11 @@ module JSON_Parser
   !! @param[in]  CH_params [L, A, M, K, p0, p1]
   !! @param[in]  grid_init Grid initialisation type character
   !! @param[in]  grid_level Controls size of grid
-  subroutine read_json(run_name, CH_params, grid_init, grid_level)
-    character(*), intent(in) :: run_name
+  subroutine read_json(fname, run_name, CH_params, grid_init, grid_level, Tout)
+    character(*), intent(in) :: fname, run_name
     real(kind=dp), intent(out) :: CH_params(6)
     character(:), allocatable, intent(out) :: grid_init
+    real(dp), allocatable, intent(out), optional :: Tout(:)
     integer, intent(out) :: grid_level
     logical :: error
 
@@ -35,22 +32,18 @@ module JSON_Parser
 
     error = .FALSE.
     
-    call open_json(json)
+    call open_json(json, fname)
 
-    call get_json_params(json, run_name, CH_params, grid_init, grid_level, error)
+    if (present(Tout)) then
+      call get_json_params(json, run_name, CH_params, grid_init, grid_level, Tout, error)
+    else
+      call get_json_params(json, run_name, CH_params, grid_init, grid_level, error=error)
+    end if
+    
     if (error) then
       call logger%fatal("read_json", "Issues found fetching JSON params")
       stop
     end if
-
-    call validate_params(CH_params, grid_init, grid_level, error)
-
-    if (error) then
-      call logger%fatal("read_json", "Issues found with input parameters")
-      stop
-    end if
-
-    call logger%trivia("read_json", "No issues found in input parameters")
 
     call json%destroy()
 
@@ -59,22 +52,21 @@ module JSON_Parser
       stop
     end if
   end subroutine
-
-
   !> @brief Opens JSON file
-  subroutine open_json(json)
+  subroutine open_json(json, fname)
     type(json_file), intent(inout) :: json
+    character(*), intent(in) :: fname
     character(:), allocatable :: j_string
 
     ! Initialise JSON, allowing for path mode
     ! Nested keys accessed via $["outer key"]["inner key"]
     call json%initialize(path_mode=3)
 
-    call logger%info("open_json", ("Reading "//JSON_FILENAME))
-    call json%load(filename=JSON_FILENAME)
+    call logger%info("open_json", ("Reading "//fname))
+    call json%load(filename=fname)
 
     if (json%failed()) then
-      call logger%fatal("open_json", JSON_FILENAME // " could not be opened.")
+      call logger%fatal("open_json", fname // " could not be opened.")
       stop
     end if
     
@@ -85,11 +77,12 @@ module JSON_Parser
 
 
   !> @brief Grab required params from the JSON file opened by json_handler
-  subroutine get_json_params(json, run_name, CH_params, grid_init, grid_level, error)
+  subroutine get_json_params(json, run_name, CH_params, grid_init, grid_level, Tout, error)
     type(json_file), intent(inout) :: json
     character(*), intent(in) :: run_name
     real(kind=dp), intent(out) :: CH_params(6)
     character(:), allocatable, intent(out) :: grid_init
+    real(dp), allocatable, intent(out), optional :: Tout(:)
     integer, intent(out) :: grid_level
 
     logical :: found, all_found, error
@@ -193,7 +186,7 @@ module JSON_Parser
     end if
 
 
-    ! Search for level
+    ! Search for init
     found = json_retrieve(json, run_name, "grid_type", grid_init)
 
     if (found) then
@@ -201,6 +194,16 @@ module JSON_Parser
     else
       call logger%error("get_json_params", "Input Parameter 'grid_type' not found")
       all_found = .FALSE.
+    end if
+
+    ! Search for T
+    found = .TRUE.
+    if (present(Tout)) found = json_retrieve(json, run_name, "T", Tout)
+
+    if (found) then
+      call logger%trivia("get_json_params", "Found T array of '"// trim(to_string(Tout)) // "'")
+    else
+      call logger%warning("get_json_params", "Input Parameter 'grid_type' not found in JSON file.")
     end if
 
 
@@ -262,6 +265,22 @@ module JSON_Parser
     character(128) :: path
 
     path = json_get_path(run_name, key_name)
+
+    call json%get(trim(path), val, found)
+  end function
+
+
+  function json_retrieve_realarr(json, run_name, key_name, val) result(found)
+    type(json_file), intent(inout) :: json
+    character(*), intent(in) :: run_name, key_name
+    real(dp), allocatable, intent(out) :: val(:)
+    logical :: found
+
+    character(128) :: path
+
+    path = json_get_path(run_name, key_name)
+
+    if (allocated(val)) deallocate(val)
 
     call json%get(trim(path), val, found)
   end function
