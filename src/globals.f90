@@ -34,7 +34,7 @@ module globals
     real(kind=dp), intent(in) :: CH_params(6)
     character(*), intent(in) :: grid_init
     integer, intent(in) :: grid_level
-    real(dp), allocatable, intent(in) :: Tout(:)
+    real(dp), allocatable, intent(in), optional :: Tout(:)
     logical, intent(out) :: errors
     real(dp) :: L, A, M, K, p0, p1
 
@@ -124,16 +124,17 @@ module globals
     end if
 
     ! Tout validation
-
-    if (.not. allocated(Tout)) then
-      call logger%error("validate_params", "Output Timesteps not specified")
-      errors = .TRUE.
-    else if (any(Tout .LT. 0)) then
-      call logger%error("validate_params", "Cannot output at negative timesteps")
-      errors = .TRUE.
-    else if (any(Tout(2:) .LT. Tout(:size(Tout)))) then
-      call logger%error("validate_params", "Timestep array must be in ascending order")
-      errors = .TRUE.
+    if (present(Tout)) then
+      if (.not. allocated(Tout)) then
+        call logger%error("validate_params", "Output Timesteps not specified")
+        errors = .TRUE.
+      else if (any(Tout .LT. 0)) then
+        call logger%error("validate_params", "Cannot output at negative timesteps")
+        errors = .TRUE.
+      else if (any(Tout(2:) .LT. Tout(:size(Tout)))) then
+        call logger%error("validate_params", "Timestep array must be in ascending order")
+        errors = .TRUE.
+      end if
     end if
   end subroutine
 

@@ -197,7 +197,7 @@ module JSON_Parser
     end if
 
     ! Search for T
-    found = .TRUE.
+    found = .False.
     if (present(Tout)) found = json_retrieve(json, run_name, "T", Tout)
 
     if (found) then

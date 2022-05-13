@@ -29,7 +29,7 @@ contains
     grid_init = "r"
     grid_level = 4
 
-    call validate_params(CH_params, grid_init, grid_level, error)
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
     @assertFalse(error, "validate_params shouldn't error for this working case")
   end subroutine
 
@@ -53,7 +53,7 @@ contains
     grid_init = "r"
     grid_level = 4
 
-    call validate_params(CH_params, grid_init, grid_level, error)
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
     @assertTrue(error, message="validate_params should error for negative L")
   end subroutine
 
@@ -72,7 +72,7 @@ contains
     grid_init = "r"
     grid_level = 4
 
-    call validate_params(CH_params, grid_init, grid_level, error)
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
     @assertTrue(error, message="validate_params should error for negative A")
 
     error = .FALSE.
@@ -81,7 +81,7 @@ contains
     grid_init = "r"
     grid_level = 4
 
-    call validate_params(CH_params, grid_init, grid_level, error)
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
     @assertTrue(error, message="validate_params should error for A=0")
   end subroutine
 
@@ -100,7 +100,7 @@ contains
     grid_init = "r"
     grid_level = 4
 
-    call validate_params(CH_params, grid_init, grid_level, error)
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
     @assertTrue(error, message="validate_params should error for negative M")
   end subroutine
 
@@ -119,7 +119,7 @@ contains
     grid_init = "r"
     grid_level = 4
 
-    call validate_params(CH_params, grid_init, grid_level, error)
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
     @assertTrue(error, message="validate_params should error for negative K")
   end subroutine
 
@@ -138,7 +138,7 @@ contains
     grid_init = "r"
     grid_level = 4
 
-    call validate_params(CH_params, grid_init, grid_level, error)
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
     @assertTrue(error, message="validate_params should error for p0==p1")
   end subroutine
 
@@ -157,7 +157,7 @@ contains
     grid_init = "r"
     grid_level = -1
 
-    call validate_params(CH_params, grid_init, grid_level, error)
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
     @assertTrue(error, message="validate_params should error for negative grid level")
   end subroutine
 
@@ -175,7 +175,7 @@ contains
     grid_init = "long_char"
     grid_level = 4
 
-    call validate_params(CH_params, grid_init, grid_level, error)
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
     @assertTrue(error, message="validate_params should error for len(grid_init)>1")
     
     
@@ -185,7 +185,7 @@ contains
     grid_init = "z"
     grid_level = 4
 
-    call validate_params(CH_params, grid_init, grid_level, error)
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
     @assertTrue(error, message="validate_params should error for grid_init not in accepted inits")
   end subroutine
 
