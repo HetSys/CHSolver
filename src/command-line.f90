@@ -338,12 +338,12 @@ module command_line
     print *, "-t <arr>, --time_array=<arr>       Sets the array of output times to <arr>"
     print *, "                                     <arr> is a colon separated list inside curly braces"
     print *, "                                     EG: -t {0.0:1.0:2.0}"
-    print *, "--lin_tspace=<arr>                  Sets the array of output times to a linear space array"
-    print *, "                                     <arr> is a colon separated list inside curly braces of the form"
-    print *, "                                     {<start_time>:<stop_time>:<number_of_output_timesteps>}"
-    print *, "--log_tspace=<arr>                  Sets the array of output times to a logarithmic space array"
-    print *, "                                     <arr> is a colon separated list inside curly braces of the form"
-    print *, "                                     {<start_time>:<stop_time>:<number_of_output_timesteps>}", newline
+    print *, "--lin_tspace=<arr>                 Sets the array of output times to a linear space array"
+    print *, "                                    <arr> is a colon separated list inside curly braces of the form"
+    print *, "                                    {<start_time>:<stop_time>:<number_of_output_timesteps>}"
+    print *, "--log_tspace=<arr>                 Sets the array of output times to a logarithmic space array"
+    print *, "                                    <arr> is a colon separated list inside curly braces of the form"
+    print *, "                                    {<start_time>:<stop_time>:<number_of_output_timesteps>}", newline
     print *, "Multiple characters in the 'short form' -<key> <val> key will be expanded"
     print *, "  EG: -lap0 1.0 is equivalent to -l 1.0 -a 1.0 -p0 1.0"
   end subroutine
