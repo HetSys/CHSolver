@@ -15,6 +15,10 @@ program main
   real(dp), pointer, contiguous :: c0(:,:) ! initial concentration
   logical :: errors
 
+  ! Lin/Logspace params
+  integer :: space_selected, num_outputs
+  real(dp) :: start_val, stop_val
+
   ! Default fname, run_name, and outdir
   fname = "input-data.json"
   run_name = "default"
@@ -32,9 +36,11 @@ program main
   ! Grab any overriding input params from the command line
   call get_input_commands(CH_params, level, init, Tout)
 
+  ! Grab overriding linspace or logspace args
+  call get_lin_log_args(space_selected, start_val, stop_val, num_outputs)
 
-  ! set output times
-  !call lin_tspace(0.0_dp, 0.5_dp, 50, Tout)
+  if (space_selected == LINSPACE_SELECTED) call lin_tspace(start_val, stop_val, num_outputs, Tout)
+  if (space_selected == LOGSPACE_SELECTED) call log_tspace(start_val, stop_val, num_outputs, Tout)
 
   ! Validate input params
   call validate_params(CH_params, init, level, Tout, errors)

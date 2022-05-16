@@ -6,15 +6,17 @@ module command_line
   character(1), private :: cmd_grid_init
   integer, private :: cmd_level
   character, allocatable, private :: cmd_fname, cmd_runname, cmd_outpath, cmd_logdir
-  real(dp), allocatable, private :: cmd_timearray(:)
+  real(dp), allocatable, private :: cmd_timearray(:), cmd_space_params(:)
 
   integer, private :: cmd_stdout_val
 
-  logical, private :: CH_fnd(6), init_fnd, level_fnd
+  logical, private :: CH_fnd(6), init_fnd, level_fnd, linspace_fnd, logspace_fnd
 
   logical, allocatable, private :: is_val(:)
 
   integer, private :: current_arg
+
+  integer, parameter :: LINSPACE_SELECTED = 10, LOGSPACE_SELECTED=20, NONE_SELECTED = 0
 
   contains
 
@@ -34,6 +36,9 @@ module command_line
     CH_fnd = .FALSE.
     init_fnd = .FALSE.
     level_fnd = .FALSE.
+
+    linspace_fnd = .FALSE.
+    logspace_fnd = .FALSE.
 
     call parse_args()
 
@@ -65,17 +70,17 @@ module command_line
 
     if (present(filename) .AND. allocated(cmd_fname)) then
       filename = cmd_fname
-      call logger%debug("get_io_commands", "JSON file "// filename // "set from CLI")
+      call logger%debug("get_io_commands", "JSON file "// trim(filename) // "set from CLI")
     end if
 
     if (present(run_name) .AND. allocated(cmd_runname)) then
       run_name = cmd_runname
-      call logger%debug("get_io_commands", "Run name "// run_name // "set from CLI")
+      call logger%debug("get_io_commands", "Run name "// trim(run_name) // "set from CLI")
     end if
 
     if (present(output_dir) .AND. allocated(cmd_fname)) then
       output_dir = cmd_outpath
-      call logger%debug("get_io_commands", "Output directory "// output_dir // "set from CLI")
+      call logger%debug("get_io_commands", "Output directory "// trim(output_dir) // "set from CLI")
     end if
   end subroutine
 
@@ -97,19 +102,19 @@ module command_line
       do idx=1,6
         if (CH_fnd(idx)) then
           CH_params(idx) = cmd_CH_params(idx)
-          call logger%trivia("get_input_commands", "Setting " // ch_names(idx) // "to " // to_string(CH_params(idx)))
+          call logger%trivia("get_input_commands", "Setting " // ch_names(idx) // "to " // trim(to_string(CH_params(idx))))
         end if
       end do
     end if
 
     if (present(level) .AND. level_fnd) then
       level = cmd_level
-      call logger%trivia("get_input_commands", "Setting level to " // to_string(level))
+      call logger%trivia("get_input_commands", "Setting level to " // trim(to_string(level)))
     end if
 
     if (present(init) .AND. init_fnd) then
       init = cmd_grid_init
-      call logger%trivia("get_input_commands", "Setting grid initialisation character to " // init)
+      call logger%trivia("get_input_commands", "Setting grid initialisation character to " // trim(init))
     end if
 
     if (present(time_arr) .AND. allocated(cmd_timearray)) then
@@ -117,9 +122,28 @@ module command_line
 
       allocate(time_arr(size(cmd_timearray)))
       time_arr = cmd_timearray
-      call logger%trivia("get_input_commands", "Setting output timesteps to " // to_string(time_arr))
+      call logger%trivia("get_input_commands", "Setting output timesteps to " // trim(to_string(time_arr)))
     end if
     
+  end subroutine
+
+  subroutine get_lin_log_args(selected, start_val, stop_val, num_outputs)
+    integer, intent(out) :: selected, num_outputs
+    real(dp), intent(out) :: start_val, stop_val
+
+    selected = NONE_SELECTED
+    num_outputs = 0
+    start_val = 0.0_DP
+    stop_val = 1.0_DP
+
+    if (linspace_fnd) selected = LINSPACE_SELECTED
+    if (logspace_fnd) selected = LOGSPACE_SELECTED
+
+    if (selected /= NONE_SELECTED) then
+      start_val = cmd_space_params(1)
+      stop_val = cmd_space_params(2)
+      num_outputs = int(cmd_space_params(3))
+    end if
   end subroutine
 
   !! Parse command line args, modifying private variables when overriding values found from the command line
@@ -156,7 +180,7 @@ module command_line
         
         arg = arg(equals_pos + 1 :)
         val_arg = trim(arg)
-        call parse_keyval_arg(key_arg, val_arg)
+        call parse_keyval_arg(key_arg, val_arg, is_short_arg=.FALSE.)
 
       else if (arg(1:1) == "-") then
         ! Short arg (-{key {val})
@@ -169,7 +193,7 @@ module command_line
           ! Loop through all chars in key_arg
           ! EG if -lamk 1.0 specified
           ! Should be equivalent to -l 1.0 -a 1.0...
-          call  parse_keyval_arg(key_arg(idx:idx), val_arg)
+          call  parse_keyval_arg(key_arg(idx:idx), val_arg, is_short_arg=.TRUE.)
         end do
       end if
     end do
@@ -182,9 +206,10 @@ module command_line
   !! Parses given key arg and val arg
   !> Specified either by -{key} {val} or by 
   !> --{key}={val}
-  subroutine parse_keyval_arg(key_arg, val_arg)
+  subroutine parse_keyval_arg(key_arg, val_arg, is_short_arg)
     character(*), intent(in) :: key_arg
     character(*), intent(in), optional :: val_arg
+    logical, intent(in) :: is_short_arg
 
     integer :: idx
 
@@ -207,24 +232,36 @@ module command_line
         logger%log_enabled = .FALSE.
       case ("log_dir")
         cmd_logdir = val_arg
-        is_val(current_arg+1) = .TRUE.
+        is_val(current_arg+1) = is_short_arg
       ! JSON
       case ("j", "json_file")
         if (present(val_arg)) then
           cmd_fname = val_arg
-          is_val(current_arg+1) = .TRUE.
+          is_val(current_arg+1) = is_short_arg
         end if
       case ("r", "run_name")
         if (present(val_arg)) then
           cmd_runname = val_arg
-          is_val(current_arg+1) = .TRUE.
+          is_val(current_arg+1) = is_short_arg
         end if
-      ! INPUT PARAM OVERRIDES
+
+      ! OUTPUT TIME OVERRIDES
       case ("t", "time_array")
         if (present(val_arg)) then
-          call allocate_t_array(val_arg)
-          is_val(current_arg+1) = .TRUE.
+          call allocate_array(val_arg, cmd_timearray)
+          is_val(current_arg+1) = is_short_arg
         end if
+      case ("lin_tspace")
+        if (present(val_arg)) then
+          call allocate_array(val_arg, cmd_space_params)
+          linspace_fnd = .TRUE.
+        end if
+      case ("log_tspace")
+        if (present(val_arg)) then
+          call allocate_array(val_arg, cmd_space_params)
+          logspace_fnd = .TRUE.
+        end if
+      ! CH PARAM OVERRIDES
       case ("l", "a", "m", "k", "0", "1", "p0", "p1")
         select case (key_arg)
         case ("l")
@@ -242,22 +279,22 @@ module command_line
         end select
         if (present(val_arg)) then
           cmd_CH_params(idx) = str_to_real(val_arg)
-          is_val(current_arg+1) = .TRUE.
+          is_val(current_arg+1) = is_short_arg
         end if
       case ("i", "init")
         if (present(val_arg)) then
           cmd_grid_init = val_arg
-          is_val(current_arg+1) = .TRUE.
+          is_val(current_arg+1) = is_short_arg
         end if
       case ("L", "level")
         if (present(val_arg)) then
           cmd_level = str_to_int(val_arg)
-          is_val(current_arg+1) = .TRUE.
+          is_val(current_arg+1) = is_short_arg
         end if
       case ("o", "out_dir")
         if (present(val_arg)) then
           cmd_outpath = val_arg
-          is_val(current_arg+1) = .TRUE.
+          is_val(current_arg+1) = is_short_arg
         end if
       case ("p")
       end select
@@ -286,27 +323,35 @@ module command_line
     print *, "                                     defaulting to './output'"
     print *, "--log_dir=<dir>                    Sets the path o the directory to save log files to, defaulting"
     print *, "                                     to './logs'", newline
-    print *, "Input Parameter Overrides:"
+    print *, "Input Parameter Options:"
     print *, "-l <val>, --l=<val>                Sets the 'L' Cahn-Hilliard parameter to <val>"
     print *, "-a <val>, --a=<val>                Sets the 'A' Cahn-Hilliard parameter to <val>"
     print *, "-m <val>, --m=<val>                Sets the 'M' Cahn-Hilliard parameter to <val>"
     print *, "-k <val>, --k=<val>                Sets the 'K' Cahn-Hilliard parameter to <val>"
     print *, "-p0 <val>, -0 <val> , --p0=<val>   Sets the 'p0' Cahn-Hilliard parameter to <val>"
     print *, "-p1 <val>, -1 <val> , --p1=<val>   Sets the 'p1' Cahn-Hilliard parameter to <val>", newline
-    print *, "-L <val> --level=<val>             Set the grid level to <val>."
+    print *, "-L <val> --level=<val>             Sets the grid level to <val>."
     print *, "                                     The resulting grid of concentrations will be  of shape (2^<val>, 2^<val>)"
     print *, "-i <val>, --init=<val>             Sets the grid initialisation type to <val>"
-    print *, "                                     EG: -i r gives an initial grid containing random concentrations"
+    print *, "                                     EG: -i r gives an initial grid containing random concentrations", newline
+    print *, "Output Timestep Options:"
     print *, "-t <arr>, --time_array=<arr>       Sets the array of output times to <arr>"
     print *, "                                     <arr> is a colon separated list inside curly braces"
-    print *, "                                     EG: -t {0.0:1.0:2.0}", newline
+    print *, "                                     EG: -t {0.0:1.0:2.0}"
+    print *, "--lin_tspace=<arr>                  Sets the array of output times to a linear space array"
+    print *, "                                     <arr> is a colon separated list inside curly braces of the form"
+    print *, "                                     {<start_time>:<stop_time>:<number_of_output_timesteps>}"
+    print *, "--log_tspace=<arr>                  Sets the array of output times to a logarithmic space array"
+    print *, "                                     <arr> is a colon separated list inside curly braces of the form"
+    print *, "                                     {<start_time>:<stop_time>:<number_of_output_timesteps>}", newline
     print *, "Multiple characters in the 'short form' -<key> <val> key will be expanded"
     print *, "  EG: -lap0 1.0 is equivalent to -l 1.0 -a 1.0 -p0 1.0"
   end subroutine
 
 
-  subroutine allocate_t_array(str_array)
+  subroutine allocate_array(str_array, arr)
     character(*), intent(in) :: str_array
+    real(dp), allocatable :: arr(:)
     integer :: n_elements, idx, last_idx, t_idx
 
     character(1), parameter :: separator = ":"
@@ -316,19 +361,19 @@ module command_line
       if (str_array(idx:idx) == separator) n_elements = n_elements + 1
     end do
     
-    allocate(cmd_timearray(n_elements))
+    allocate(arr(n_elements))
 
     t_idx = 1
     last_idx = 2
     do idx=2, len(str_array) - 1
       ! Find length of t array to allocate
       if (str_array(idx:idx) == separator) then
-        cmd_timearray(t_idx) = str_to_real(str_array(last_idx : idx - 1))
+        arr(t_idx) = str_to_real(str_array(last_idx : idx - 1))
         t_idx = t_idx + 1
         last_idx = idx + 1
       end if
     end do
-    cmd_timearray(t_idx) = str_to_real(str_array(last_idx : idx - 1))
+    arr(t_idx) = str_to_real(str_array(last_idx : idx - 1))
   end subroutine
 
   function str_to_real(str_val) result(real_val)
