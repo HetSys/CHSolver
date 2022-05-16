@@ -11,6 +11,11 @@ module command_line
   integer, private :: cmd_stdout_val
 
   logical, private :: CH_fnd(6), init_fnd, level_fnd
+
+  logical, allocatable, private :: is_val(:)
+
+  integer, private :: current_arg
+
   contains
 
   !> @Brief Parse command line args, Initialise logging
@@ -58,11 +63,20 @@ module command_line
   subroutine get_io_commands(filename, run_name, output_dir)
     character, allocatable, optional, intent(inout) :: filename, run_name, output_dir
 
-    if (present(filename) .AND. allocated(cmd_fname)) filename = cmd_fname
+    if (present(filename) .AND. allocated(cmd_fname)) then
+      filename = cmd_fname
+      call logger%debug("get_io_commands", "JSON file "// filename // "set from CLI")
+    end if
 
-    if (present(run_name) .AND. allocated(cmd_runname)) run_name = cmd_runname
+    if (present(run_name) .AND. allocated(cmd_runname)) then
+      run_name = cmd_runname
+      call logger%debug("get_io_commands", "Run name "// run_name // "set from CLI")
+    end if
 
-    if (present(output_dir) .AND. allocated(cmd_fname)) output_dir = cmd_outpath
+    if (present(output_dir) .AND. allocated(cmd_fname)) then
+      output_dir = cmd_outpath
+      call logger%debug("get_io_commands", "Output directory "// output_dir // "set from CLI")
+    end if
   end subroutine
 
 
@@ -75,23 +89,35 @@ module command_line
     character(*), intent(inout), optional :: init
     real(dp), allocatable, intent(inout), optional :: time_arr(:)
 
+    character(2), parameter :: ch_names(*) = (/"L ", "A ", "M ", "K ", "p0", "p1"/)
+
     integer :: idx
 
     if (present(CH_params)) then
       do idx=1,6
-        if (CH_fnd(idx)) CH_params(idx) = cmd_CH_params(idx)
+        if (CH_fnd(idx)) then
+          CH_params(idx) = cmd_CH_params(idx)
+          call logger%trivia("get_input_commands", "Setting " // ch_names(idx) // "to " // to_string(CH_params(idx)))
+        end if
       end do
     end if
 
-    if (present(level) .AND. level_fnd) level = cmd_level
+    if (present(level) .AND. level_fnd) then
+      level = cmd_level
+      call logger%trivia("get_input_commands", "Setting level to " // to_string(level))
+    end if
 
-    if (present(init) .AND. init_fnd) init = cmd_grid_init
+    if (present(init) .AND. init_fnd) then
+      init = cmd_grid_init
+      call logger%trivia("get_input_commands", "Setting grid initialisation character to " // init)
+    end if
 
     if (present(time_arr) .AND. allocated(cmd_timearray)) then
       if (allocated(time_arr)) deallocate(time_arr)
 
       allocate(time_arr(size(cmd_timearray)))
       time_arr = cmd_timearray
+      call logger%trivia("get_input_commands", "Setting output timesteps to " // to_string(time_arr))
     end if
     
   end subroutine
@@ -101,42 +127,44 @@ module command_line
     integer :: num_args
     character(:), allocatable :: key_arg, val_arg
     character(len=100) :: arg
-    integer :: current_arg, len_arg, equals_pos, idx
+    integer :: len_arg, equals_pos, idx
+
     num_args = command_argument_count()
+    allocate(is_val(num_args))
+    is_val = .FALSE.
 
     cmd_CH_params = -1.0_dp
 
-    !if (num_args == 0) return ! Nothing to do if no args provided
-    current_arg = 1
+    if (num_args == 0) return ! Nothing to do if no args provided
+
+    ! Loop through supplied args
     do current_arg=1, num_args
+
+      if (is_val(current_arg) .EQV. .TRUE.) cycle ! Skip values for short -{key} {val} notation
+
       call get_command_argument(current_arg, arg, len_arg)
       ! Ignore arg if it's not a -{key} or --{key}
       if (len_arg < 2 .OR. arg(1:1) /= "-") cycle
       ! Check if arg is short (-{key}), or long (--{key})
       if (arg(1:2) == "--") then
         ! Long arg (--{key}={val})
+
         equals_pos = index(arg, "=")
-        if (equals_pos==0) equals_pos = len_arg + 1 ! No val_arg found
-        key_arg = trim(arg(3:equals_pos - 1))
+        if (equals_pos==0) equals_pos = len_arg + 1 ! No val_arg found, --{key}
+
+        key_arg = trim(arg(3:equals_pos - 1)) ! Grab Key component of string
+        
         arg = arg(equals_pos + 1 :)
-        if (verify("{", arg) /= 0) then
-          ! arg is the start of an array
-          val_arg =  trim(parse_array_arg(current_arg, trim(arg)))
-        else
-          val_arg = trim(arg)
-        end if
+        val_arg = trim(arg)
         call parse_keyval_arg(key_arg, val_arg)
 
       else if (arg(1:1) == "-") then
-        ! Short arg
-        key_arg = trim(arg(2:))
+        ! Short arg (-{key {val})
+
+        key_arg = trim(arg(2:)) ! Grab key part
+
         call get_command_argument(current_arg+1, arg)
-        if (verify("{", arg) == 0) then
-          ! arg is the start of an array
-          val_arg =  trim(parse_array_arg(current_arg+2, arg))
-        else
-          val_arg = trim(arg)
-        end if
+        val_arg = trim(arg)
         do idx=1, len_arg - 1
           ! Loop through all chars in key_arg
           ! EG if -lamk 1.0 specified
@@ -146,22 +174,6 @@ module command_line
       end if
     end do
   end subroutine
-  
-  !! Find the extent of an array argument, returning the full found array
-  function parse_array_arg(current_arg, start_val) result(arr)
-    integer, intent(in) :: current_arg
-    character(*), intent(in) :: start_val
-    character(256) :: arr, arg
-    integer :: arg_len, idx
-    arr = trim(start_val)
-    do idx = current_arg, command_argument_count()
-      call get_command_argument(idx, arg, arg_len)
-      arr = trim(arr) // " " // trim(arg)
-      if (verify("}", arg) == 0) then
-        exit ! End of array found
-      end if
-    end do
-  end function
 
 
 
@@ -195,19 +207,23 @@ module command_line
         logger%log_enabled = .FALSE.
       case ("log_dir")
         cmd_logdir = val_arg
+        is_val(current_arg+1) = .TRUE.
       ! JSON
       case ("j", "json_file")
         if (present(val_arg)) then
           cmd_fname = val_arg
+          is_val(current_arg+1) = .TRUE.
         end if
       case ("r", "run_name")
         if (present(val_arg)) then
           cmd_runname = val_arg
+          is_val(current_arg+1) = .TRUE.
         end if
       ! INPUT PARAM OVERRIDES
       case ("t", "time_array")
         if (present(val_arg)) then
           call allocate_t_array(val_arg)
+          is_val(current_arg+1) = .TRUE.
         end if
       case ("l", "a", "m", "k", "0", "1", "p0", "p1")
         select case (key_arg)
@@ -226,18 +242,22 @@ module command_line
         end select
         if (present(val_arg)) then
           cmd_CH_params(idx) = str_to_real(val_arg)
+          is_val(current_arg+1) = .TRUE.
         end if
       case ("i", "init")
         if (present(val_arg)) then
           cmd_grid_init = val_arg
+          is_val(current_arg+1) = .TRUE.
         end if
       case ("L", "level")
         if (present(val_arg)) then
           cmd_level = str_to_int(val_arg)
+          is_val(current_arg+1) = .TRUE.
         end if
       case ("o", "out_dir")
         if (present(val_arg)) then
           cmd_outpath = val_arg
+          is_val(current_arg+1) = .TRUE.
         end if
       case ("p")
       end select
@@ -278,8 +298,8 @@ module command_line
     print *, "-i <val>, --init=<val>             Sets the grid initialisation type to <val>"
     print *, "                                     EG: -i r gives an initial grid containing random concentrations"
     print *, "-t <arr>, --time_array=<arr>       Sets the array of output times to <arr>"
-    print *, "                                     <arr> is a space separated list inside curly braces"
-    print *, "                                     EG: -t {0.0, 1.0, 2.0}", newline
+    print *, "                                     <arr> is a colon separated list inside curly braces"
+    print *, "                                     EG: -t {0.0:1.0:2.0}", newline
     print *, "Multiple characters in the 'short form' -<key> <val> key will be expanded"
     print *, "  EG: -lap0 1.0 is equivalent to -l 1.0 -a 1.0 -p0 1.0"
   end subroutine
@@ -288,10 +308,12 @@ module command_line
   subroutine allocate_t_array(str_array)
     character(*), intent(in) :: str_array
     integer :: n_elements, idx, last_idx, t_idx
+
+    character(1), parameter :: separator = ":"
     n_elements = 1
     do idx=2, len(str_array) - 1
       ! Find length of t array to allocate
-      if (str_array(idx:idx) == " ") n_elements = n_elements + 1
+      if (str_array(idx:idx) == separator) n_elements = n_elements + 1
     end do
     
     allocate(cmd_timearray(n_elements))
@@ -300,7 +322,7 @@ module command_line
     last_idx = 2
     do idx=2, len(str_array) - 1
       ! Find length of t array to allocate
-      if (str_array(idx:idx) == " ") then
+      if (str_array(idx:idx) == separator) then
         cmd_timearray(t_idx) = str_to_real(str_array(last_idx : idx - 1))
         t_idx = t_idx + 1
         last_idx = idx + 1
