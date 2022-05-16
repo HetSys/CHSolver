@@ -8,7 +8,8 @@ program main
   implicit none
 
   real(dp) :: CH_params(6) ! equation parameters
-  character(:), allocatable :: init, fname, run_name, outdir ! initial condition type
+  character(120) :: fname, run_name, outdir
+  character(:), allocatable :: init
   integer :: level ! grid level
   real(dp), allocatable :: Tout(:) ! output times
   real(dp), pointer, contiguous :: c0(:,:) ! initial concentration
@@ -26,7 +27,7 @@ program main
   call get_io_commands()
 
   ! input parameters from JSON file
-  call read_json(fname, run_name, CH_params, init, level, Tout)
+  call read_json(trim(fname), trim(run_name), CH_params, init, level, Tout)
 
   ! Grab any overriding input params from the command line
   call get_input_commands(CH_params, level, init, Tout)
