@@ -71,7 +71,7 @@ module test_json_parser
     logical :: error
     
     error = .FALSE.
-    call get_json_params(jfile, "name_not_in_json", CH_params, grid_init, grid_level, error)
+    call get_json_params(jfile, "name_not_in_json", CH_params, grid_init, grid_level, error=error)
     @assertTrue(error, message="Did not correctly flag missing run name") 
   end subroutine
 
@@ -88,7 +88,7 @@ module test_json_parser
     logical :: error
     
     error = .FALSE.
-    call get_json_params(jfile, good_run_name, CH_params, grid_init, grid_level, error)
+    call get_json_params(jfile, good_run_name, CH_params, grid_init, grid_level, error=error)
     @assertFalse(error, message="Incorrectly raised error for run which should be populated") 
   end subroutine
 
@@ -100,7 +100,7 @@ module test_json_parser
     logical :: error
     
     error = .FALSE.
-    call get_json_params(jfile, missing_L_name, CH_params, grid_init, grid_level, error)
+    call get_json_params(jfile, missing_L_name, CH_params, grid_init, grid_level, error=error)
     @assertTrue(error, message="Did not correctly flag missing L parameter") 
   end subroutine
 
@@ -112,7 +112,7 @@ module test_json_parser
     logical :: error
     
     error = .FALSE.
-    call get_json_params(jfile, missing_A_name, CH_params, grid_init, grid_level, error)
+    call get_json_params(jfile, missing_A_name, CH_params, grid_init, grid_level, error=error)
     @assertTrue(error, message="Did not correctly flag missing A parameter") 
   end subroutine
 
@@ -124,7 +124,7 @@ module test_json_parser
     logical :: error
     
     error = .FALSE.
-    call get_json_params(jfile, missing_M_name, CH_params, grid_init, grid_level, error)
+    call get_json_params(jfile, missing_M_name, CH_params, grid_init, grid_level, error=error)
     @assertTrue(error, message="Did not correctly flag missing M parameter") 
   end subroutine
 
@@ -136,7 +136,7 @@ module test_json_parser
     logical :: error
     
     error = .FALSE.
-    call get_json_params(jfile, missing_K_name, CH_params, grid_init, grid_level, error)
+    call get_json_params(jfile, missing_K_name, CH_params, grid_init, grid_level, error=error)
     @assertTrue(error, message="Did not correctly flag missing K parameter") 
   end subroutine
 
@@ -148,7 +148,7 @@ module test_json_parser
     logical :: error
     
     error = .FALSE.
-    call get_json_params(jfile, missing_p0_name, CH_params, grid_init, grid_level, error)
+    call get_json_params(jfile, missing_p0_name, CH_params, grid_init, grid_level, error=error)
     @assertTrue(error, message="Did not correctly flag missing p0 parameter") 
   end subroutine
 
@@ -160,7 +160,7 @@ module test_json_parser
     logical :: error
     
     error = .FALSE.
-    call get_json_params(jfile, missing_p1_name, CH_params, grid_init, grid_level, error)
+    call get_json_params(jfile, missing_p1_name, CH_params, grid_init, grid_level, error=error)
     @assertTrue(error, message="Did not correctly flag missing p1 parameter") 
   end subroutine
 
@@ -172,7 +172,7 @@ module test_json_parser
     logical :: error
     
     error = .FALSE.
-    call get_json_params(jfile, missing_init_name, CH_params, grid_init, grid_level, error)
+    call get_json_params(jfile, missing_init_name, CH_params, grid_init, grid_level, error=error)
     @assertTrue(error, message="Did not correctly flag missing initialisation parameter") 
   end subroutine
 
@@ -184,7 +184,7 @@ module test_json_parser
     logical :: error
     
     error = .FALSE.
-    call get_json_params(jfile, missing_level_name, CH_params, grid_init, grid_level, error)
+    call get_json_params(jfile, missing_level_name, CH_params, grid_init, grid_level, error=error)
     @assertTrue(error, message="Did not correctly flag missing level parameter") 
   end subroutine
 
