@@ -90,7 +90,7 @@ def generate_json_file():
         "K": 0.0004,
         "p0": -1.0,
         "p1": 1.0,
-        "T" : tuple(np.linspace(0, 0.5, 20))
+        "T" : tuple(np.linspace(0, 0.1, 3))
     }
 
     with open(Json_handler._input_fname, 'w') as f:

@@ -65,8 +65,11 @@ module command_line
   !! Grab JSON filename, run name, and directory to store outputs from parsed command line args
   !> Will only modify filename, run_name, and output_dir if
   !> relevant command line overrides were found
-  subroutine get_io_commands(filename, run_name, output_dir)
+  subroutine get_io_commands(filename, run_name, output_dir, all_params_fnd)
     character, allocatable, optional, intent(inout) :: filename, run_name, output_dir
+    logical, intent(out) :: all_params_fnd
+
+    logical :: all_ch_params_fnd, cmd_t_fnd
 
     if (present(filename) .AND. allocated(cmd_fname)) then
       filename = cmd_fname
@@ -82,6 +85,13 @@ module command_line
       output_dir = cmd_outpath
       call logger%debug("get_io_commands", "Output directory "// trim(output_dir) // "set from CLI")
     end if
+
+    all_params_fnd = .TRUE.
+
+    all_ch_params_fnd = all(CH_fnd)
+    cmd_t_fnd = linspace_fnd .OR. logspace_fnd .OR. allocated(cmd_timearray)
+
+    all_params_fnd = (all_ch_params_fnd .AND. cmd_t_fnd .AND. level_fnd .AND. init_fnd)
   end subroutine
 
 
@@ -91,7 +101,7 @@ module command_line
   subroutine get_input_commands(CH_params, level, init, time_arr)
     real(dp), intent(inout), optional :: CH_params(6)
     integer, intent(inout), optional :: level
-    character(*), intent(inout), optional :: init
+    character(:), intent(inout), allocatable, optional :: init
     real(dp), allocatable, intent(inout), optional :: time_arr(:)
 
     character(2), parameter :: ch_names(*) = (/"L ", "A ", "M ", "K ", "p0", "p1"/)
@@ -102,7 +112,7 @@ module command_line
       do idx=1,6
         if (CH_fnd(idx)) then
           CH_params(idx) = cmd_CH_params(idx)
-          call logger%trivia("get_input_commands", "Setting " // ch_names(idx) // "to " // trim(to_string(CH_params(idx))))
+          call logger%trivia("get_input_commands", "Setting " // ch_names(idx) // " to " // trim(to_string(CH_params(idx))))
         end if
       end do
     end if
@@ -113,6 +123,7 @@ module command_line
     end if
 
     if (present(init) .AND. init_fnd) then
+      if (allocated(init)) deallocate(init)
       init = cmd_grid_init
       call logger%trivia("get_input_commands", "Setting grid initialisation character to " // trim(init))
     end if
@@ -280,16 +291,19 @@ module command_line
         if (present(val_arg)) then
           cmd_CH_params(idx) = str_to_real(val_arg)
           is_val(current_arg+1) = is_short_arg
+          CH_fnd(idx) = .TRUE.
         end if
       case ("i", "init")
         if (present(val_arg)) then
           cmd_grid_init = val_arg
           is_val(current_arg+1) = is_short_arg
+          init_fnd = .TRUE.
         end if
       case ("L", "level")
         if (present(val_arg)) then
           cmd_level = str_to_int(val_arg)
           is_val(current_arg+1) = is_short_arg
+          level_fnd = .TRUE.
         end if
       case ("o", "out_dir")
         if (present(val_arg)) then
