@@ -305,47 +305,49 @@ module command_line
   subroutine print_help_text()
     character(1), parameter :: newline = NEW_LINE('a')
     print *, "CHSolver Command Line Options", newline
-    print *, "Usage:", newline, "  chsolver [options]", newline
+    print *, "Usage:", newline, "   chsolver [options]", newline
     print *, "General Options:"
-    print *, "-h, --help                         Show helper message for command line interface and exit."
-    print *, "-V, --version                      Print the current version and exit.", newline
+    print *, "  -h, --help                         Show helper message for command line interface and exit."
+    print *, "  -V, --version                      Print the current version and exit.", newline
     print *, "Verbosity Options:"
-    print *, "-v, --verbose                      Increase the amount of information printed to standard output."
-    print *, "                                     Can be called twice to add debug messages."
-    print *, "-q, --quiet                        Limits standard output messages to warning messages only."
-    print *, "                                     Can be called twice to ignore warnings."
-    print *, "-s, --silent                       Disable all messages to standard output and error."
-    print *, "                                     WARNING: Will silently abort if errors are found.", newline
+    print *, "  -v, --verbose                      Increase the amount of information printed to standard output."
+    print *, "                                       Can be called twice to add debug messages."
+    print *, "  -q, --quiet                        Limits standard output messages to warning messages only."
+    print *, "                                       Can be called twice to ignore warnings."
+    print *, "  -s, --silent                       Disable all messages to standard output and error."
+    print *, "                                       WARNING: Will silently abort if errors are found.", newline
     print *, "File IO Options:"
-    print *, "-j <file>, --json_file=<file>      Sets the path of the JSON input file, defaulting to './input-data.json."
-    print *, "-r <name>, --run_name=<name>       Sets the run name to search for input parameters"
-    print *, "-o <dir>, --out_dir=<dir>          Sets the path of the directory to save output trajectories to,"
-    print *, "                                     defaulting to './output'"
-    print *, "--log_dir=<dir>                    Sets the path o the directory to save log files to, defaulting"
-    print *, "                                     to './logs'", newline
+    print *, "  -j <file>, --json_file=<file>      Sets the path of the JSON input file, defaulting to './input-data.json."
+    print *, "  -r <name>, --run_name=<name>       Sets the run name to search for input parameters"
+    print *, "  -o <dir>, --out_dir=<dir>          Sets the path of the directory to save output trajectories to,"
+    print *, "                                       defaulting to './output'"
+    print *, "  --log_dir=<dir>                    Sets the path o the directory to save log files to, defaulting"
+    print *, "                                       to './logs'", newline
     print *, "Input Parameter Options:"
-    print *, "-l <val>, --l=<val>                Sets the 'L' Cahn-Hilliard parameter to <val>"
-    print *, "-a <val>, --a=<val>                Sets the 'A' Cahn-Hilliard parameter to <val>"
-    print *, "-m <val>, --m=<val>                Sets the 'M' Cahn-Hilliard parameter to <val>"
-    print *, "-k <val>, --k=<val>                Sets the 'K' Cahn-Hilliard parameter to <val>"
-    print *, "-p0 <val>, -0 <val> , --p0=<val>   Sets the 'p0' Cahn-Hilliard parameter to <val>"
-    print *, "-p1 <val>, -1 <val> , --p1=<val>   Sets the 'p1' Cahn-Hilliard parameter to <val>", newline
-    print *, "-L <val> --level=<val>             Sets the grid level to <val>."
-    print *, "                                     The resulting grid of concentrations will be  of shape (2^<val>, 2^<val>)"
-    print *, "-i <val>, --init=<val>             Sets the grid initialisation type to <val>"
-    print *, "                                     EG: -i r gives an initial grid containing random concentrations", newline
+    print *, "  -l <val>, --l=<val>                Sets the 'L' Cahn-Hilliard parameter to <val>"
+    print *, "  -a <val>, --a=<val>                Sets the 'A' Cahn-Hilliard parameter to <val>"
+    print *, "  -m <val>, --m=<val>                Sets the 'M' Cahn-Hilliard parameter to <val>"
+    print *, "  -k <val>, --k=<val>                Sets the 'K' Cahn-Hilliard parameter to <val>"
+    print *, "  -p0 <val>, -0 <val> , --p0=<val>   Sets the 'p0' Cahn-Hilliard parameter to <val>"
+    print *, "  -p1 <val>, -1 <val> , --p1=<val>   Sets the 'p1' Cahn-Hilliard parameter to <val>", newline
+    print *, "  -L <val> --level=<val>             Sets the grid level to <val>."
+    print *, "                                       The resulting grid of concentrations will be  of shape (2^<val>, 2^<val>)"
+    print *, "  -i <val>, --init=<val>             Sets the grid initialisation type to <val>"
+    print *, "                                       Currently supported initialisations:"
+    print *, "                                         r : random concentration field"
+    print *, "                                         b : Bar of strong concentration"
+    print *, "                                         c : Circle of strong concentration"
+    print *, "                                         s : Split field of strong concentration", newline
     print *, "Output Timestep Options:"
-    print *, "-t <arr>, --time_array=<arr>       Sets the array of output times to <arr>"
-    print *, "                                     <arr> is a colon separated list inside curly braces"
-    print *, "                                     EG: -t {0.0:1.0:2.0}"
-    print *, "--lin_tspace=<arr>                 Sets the array of output times to a linear space array"
-    print *, "                                    <arr> is a colon separated list inside curly braces of the form"
-    print *, "                                    {<start_time>:<stop_time>:<number_of_output_timesteps>}"
-    print *, "--log_tspace=<arr>                 Sets the array of output times to a logarithmic space array"
-    print *, "                                    <arr> is a colon separated list inside curly braces of the form"
-    print *, "                                    {<start_time>:<stop_time>:<number_of_output_timesteps>}", newline
-    print *, "Multiple characters in the 'short form' -<key> <val> key will be expanded"
-    print *, "  EG: -lap0 1.0 is equivalent to -l 1.0 -a 1.0 -p0 1.0"
+    print *, "  -t <arr>, --time_array=<arr>       Sets the array of output times to <arr>"
+    print *, "                                       <arr> is a colon separated list inside curly braces"
+    print *, "                                       EG: -t {0.0:1.0:2.0}"
+    print *, "  --lin_tspace=<arr>                 Sets the array of output times to a linear space array"
+    print *, "                                      <arr> is a colon separated list inside curly braces of the form"
+    print *, "                                      {<start_time>:<stop_time>:<number_of_output_timesteps>}"
+    print *, "  --log_tspace=<arr>                 Sets the array of output times to a logarithmic space array"
+    print *, "                                      <arr> is a colon separated list inside curly braces of the form"
+    print *, "                                      {<start_time>:<stop_time>:<number_of_output_timesteps>}", newline
   end subroutine
 
 
