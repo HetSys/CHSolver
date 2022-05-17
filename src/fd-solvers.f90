@@ -1,5 +1,6 @@
 module multigrid
   use globals
+  use hdf5_io
 
   implicit none
   save
