@@ -5,7 +5,7 @@ LD=$(FC)
 
 
 # flags and libraries
-FFLAGS= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 -g#h5fc-show is equiv to nf-config --fflags/flibs to find these
+FFLAGS= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 -g -fall-intrinsics#h5fc-show is equiv to nf-config --fflags/flibs to find these
 FLIBS= -lpthread -lsz -lz -ldl -lm ./src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
 
 # executable names
