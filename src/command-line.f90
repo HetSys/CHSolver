@@ -66,7 +66,7 @@ module command_line
   !> Will only modify filename, run_name, and output_dir if
   !> relevant command line overrides were found
   subroutine get_io_commands(filename, run_name, output_dir, all_params_fnd)
-    character, allocatable, optional, intent(inout) :: filename, run_name, output_dir
+    character(120), optional, intent(inout) :: filename, run_name, output_dir
     logical, intent(out) :: all_params_fnd
 
     logical :: all_ch_params_fnd, cmd_t_fnd
