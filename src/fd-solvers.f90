@@ -76,18 +76,20 @@ module fd_solvers
   !! @param[in] Tout  output times
   !! @param[in] c0    initial concentration
   !! @param[in] eps2  dimensionless number
-  subroutine solver_ufds2t2(Tout, c0, eps2)
+  subroutine solver_ufds2t2(Tout, CH_params, c0, eps2, errors)
     implicit none
     real(dp), intent(in) :: Tout(:)
     real(dp), intent(in) :: eps2
+    real(dp), intent(in), dimension(6) :: CH_params
     real(dp), pointer, contiguous, intent(in) :: c0(:,:)
+    integer :: errors
 
     integer :: N ! grid size
     integer :: level ! grid level
     real(dp) :: dx ! grid spacing
-    real(dp) :: dt, dt0, dt1 ! timesteps
+    real(dp) :: dt, dt0, dt1, dt_out ! timesteps
     real(dp) :: a0, a1, a2, b0, b1 ! time constants
-    real(dp) :: t, tmax
+    real(dp) :: t, t_out,  tmax
     real(dp), dimension(2,2) :: A ! smoothing matrix
     real(dp) :: eps
     integer :: it, i, j ! iterators
@@ -97,10 +99,9 @@ module fd_solvers
     ! grid storage
     real(dp), pointer, contiguous :: phi(:), psi(:), g(:), b(:), &
                                      phi_prev(:), g_prev(:), work(:)
+                                     
+    real(dp), pointer, contiguous :: c(:,:), c_prev(:,:)
     type(t_grid), pointer, contiguous :: E1(:), E2(:), R1(:), R2(:)
-
-    ! temp variables
-    character(len=128) :: fname
 
 
     ! ======================================================================== !
@@ -116,7 +117,6 @@ module fd_solvers
     it = 1
     eps = sqrt(eps2)
 
-    23 format(A, I0.5, A) ! output file format
     24 format(A, F7.3) ! output message
 
     ! allocate storage
@@ -127,6 +127,8 @@ module fd_solvers
     allocate(phi_prev(N*N))
     allocate(g_prev(N*N))
     allocate(work(N*N))
+    allocate(c(N, N))
+    allocate(c_prev(N, N))
 
     ! allocate multigrid storage
     call multigrid_alloc(E1, level)
@@ -145,15 +147,24 @@ module fd_solvers
     call laplacian(phi, psi, dx, N)
     psi = tau*phi - eps2*psi
 
+    !! TO OUT 
     ! output if required
     if (tout(it) < epsilon(tout(it))) then
       write(msg, 24) "Initial condition output at t=  0.000"
       call logger%info("solver_ufds2t2", msg)
-      write(fname, 23) "out/phi-", it, ".dat"
-      call temp_output_data(phi, fname)
-      write(fname, 23) "out/psi-", it, ".dat"
-      call temp_output_data(psi, fname)
+      dt_out = dt
+      t_out = t
+      do j=1,n
+        do i=1,n
+          c(j,i) = phi(i+n*(j-1))
+          c_prev(j,i) = phi_prev(i+n*(j-1))
+        enddo
+      enddo
+      call dimensionalise(CH_params, c, t_out)
+      call dimensionalise(CH_params, c_prev, dt_out)
 
+      call write_to_traj(c, c_prev, t_out, dt_out, errors)
+      
       it = it + 1
     endif
 
@@ -204,15 +215,25 @@ module fd_solvers
       psi = psi + E2(level)%grid
     enddo
 
+    !! TO OUT 
     ! conditionally output
     if (outflag) then
       write(msg, 24) "Output at t=", t
       call logger%info("solver_ufds2t2", msg)
-      write(fname, 23) "out/phi-", it, ".dat"
-      call temp_output_data(phi, fname)
-      write(fname, 23) "out/psi-", it, ".dat"
-      call temp_output_data(psi, fname)
 
+      dt_out = dt
+      t_out = t
+      do j=1,n
+        do i=1,n
+          c(j,i) = phi(i+n*(j-1))
+          c_prev(j,i) = phi_prev(i+n*(j-1))
+        enddo
+      enddo
+      call dimensionalise(CH_params, c, t_out)
+      call dimensionalise(CH_params, c_prev, dt_out)
+
+      call write_to_traj(c, c_prev, t_out, dt_out, errors)
+      
       it = it + 1
     endif
 
@@ -282,15 +303,24 @@ module fd_solvers
         ! print *, i, "r1 max = ", maxval(abs(R1(level)%grid))
       enddo
 
+      !! TO OUT 
       ! conditionally output
       if (outflag) then
         write(msg, 24) "Output at t=", t
         call logger%info("solver_ufds2t2", msg)
-        write(fname, 23) "out/phi-", it, ".dat"
-        call temp_output_data(phi, fname)
-        write(fname, 23) "out/psi-", it, ".dat"
-        call temp_output_data(psi, fname)
-
+        dt_out = dt
+        t_out = t
+        do j=1,n
+          do i=1,n
+            c(j,i) = phi(i+n*(j-1))
+            c_prev(j,i) = phi_prev(i+n*(j-1))
+          enddo
+        enddo
+        call dimensionalise(CH_params, c, t_out)
+        call dimensionalise(CH_params, c_prev, dt_out)
+  
+        call write_to_traj(c, c_prev, t_out, dt_out, errors)
+        
         it = it + 1
       endif
     enddo

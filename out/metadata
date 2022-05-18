@@ -1,0 +1,8 @@
+chkpnts     3
+grid_params     2     7                                                                                                         
+system_params         1.00000         1.00000         0.25000                                                                   
+system_params         0.00040        -1.00000         1.00000                                                                   
+
+    1            0.00000
+    2            0.05000
+    3            0.10000

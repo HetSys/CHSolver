@@ -8,7 +8,7 @@ module hdf5_io
   use hdf5
   use globals
   use iso_fortran_env
-  
+
   implicit none
 
   !Format for Meta Data Records
@@ -20,24 +20,13 @@ module hdf5_io
   !Concentration Metadata
   integer(hid_t) :: c_dset_id !dataset id for c
   integer(hid_t) :: c_prev_dset_id !dataset id for c_prev
-  integer(hid_t) :: c_dspace_id ! dataspace identifier for 3/4D
+  integer(hid_t) :: c_dspace_id ! dataspace identifier for 2/3D
   integer(hsize_t), allocatable, dimension(:) :: c_dims !dimensions for dataspace for 2/3D
   
-  ! !dt Metadata
-  integer(hid_t) :: dt_dset_id !dataset id for dt
-  integer(hid_t) :: dt_dspace_id ! dataspace identifier dt
-  integer(hsize_t), dimension(1) :: dt_dims !dimensions for dataspace for dt
-
-  
-  
-  ! !Time Metadata
-  ! integer(hid_t) :: t_dset_id !dataset id for t
-  ! integer(hid_t) :: t_dspace_id ! dataspace identifier for 1D
-  ! integer(hid_t) :: t_mspace_id ! memspace identifier for 1D
-  ! integer(hsize_t), dimension(1) :: t_dims_d !dimensions for dataspace for 1D
-  ! integer(hsize_t), dimension(1) :: t_dims_m !dimensions for memory space for 1D
-  ! integer(hsize_t), dimension(1) :: t_offset!hyperslab offset in the file for 1D
-  ! integer(hsize_t), dimension(1) :: t_count
+  !dt Metadata
+  integer(hid_t) :: dt_dset_id !dataset id for c
+  integer(hid_t) :: dt_dspace_id ! dataspace identifier for 3/4D
+  integer(hsize_t), allocatable, dimension(:) :: dt_dims
 
   interface write_to_traj
     module procedure write_to_traj_2D
@@ -49,23 +38,24 @@ module hdf5_io
   !This function should create a folder to store the trajectory 
   !In the folder, a metadata file should be created
   !Alongside this, hdf5 variables should be allocated to fit grid lengths/ranks
-  subroutine output_init(foldername, grid_params, sys_params, ioerr)
+  subroutine output_init(foldername, grid_params, sys_params, error)
     character(*), intent(in) :: foldername
     integer, intent(in), dimension(2) :: grid_params
     real(dp), intent(in), dimension(6) :: sys_params
-    integer, intent(out) :: ioerr
+    integer, intent(out) :: error
     
     integer :: iu
 
     allocate(c_dims(grid_params(1)))
+    allocate(dt_dims(1))
 
     folder = foldername 
 
-    c_dims = grid_params(2)
+    c_dims = int(grid_params(2), hsize_t)
+    dt_dims = 1
 
-
-    call execute_command_line("rm -r "//trim(foldername), wait = .True.)
-    call execute_command_line("mkdir "//trim(foldername), wait = .True.)
+    call execute_command_line("rm -r "//trim(foldername), wait=.true.)
+    call execute_command_line("mkdir "//trim(foldername), wait=.true.)
 
     open(newunit=iu, file=trim(foldername)//"/metadata", status="new")
 
@@ -79,14 +69,14 @@ module hdf5_io
 
     cur_chkpnt = 0
 
-    call h5open_f(ioerr)
+    call h5open_f(error)
 
   end subroutine
 
-  subroutine write_to_traj_2D(c, c_prev, time, ioerr)
+  subroutine write_to_traj_2D(c, c_prev, time, dt, error)
     real(dp), intent(in), dimension(:, :) :: c, c_prev
-    real(dp), intent(in) :: time
-    integer, intent(out) :: ioerr
+    real(dp), intent(in) :: time, dt
+    integer, intent(out) :: error
 
     integer(hid_t) ::  file_id
     integer :: iu, i
@@ -95,24 +85,29 @@ module hdf5_io
     cur_chkpnt = cur_chkpnt + 1
 
     
-    call h5fcreate_f(trim(folder)//"/"//TRIM(adjustl(to_string(cur_chkpnt)))//".chkpnt", h5f_acc_trunc_f, file_id, ioerr)
+    call h5fcreate_f(trim(folder)//"/"//TRIM(adjustl(to_string(cur_chkpnt)))//".chkpnt", h5f_acc_trunc_f, file_id, error)
     
-    call h5screate_simple_f(2, c_dims, c_dspace_id, ioerr)
+    call h5screate_simple_f(2, c_dims, c_dspace_id, error)
+    call h5screate_simple_f(1, dt_dims, dt_dspace_id, error)
     
-    call h5dcreate_f(file_id,"c", h5t_native_double, c_dspace_id, c_dset_id, ioerr)
-    call h5dcreate_f(file_id,"c_prev", h5t_native_double, c_dspace_id, c_prev_dset_id, ioerr)
+    call h5dcreate_f(file_id,"c", h5t_native_double, c_dspace_id, c_dset_id, error)
+    call h5dcreate_f(file_id,"c_prev", h5t_native_double, c_dspace_id, c_prev_dset_id, error)
+    call h5dcreate_f(file_id,"dt", h5t_native_double, dt_dspace_id, dt_dset_id, error)
     
-    call h5dwrite_f(c_dset_id, h5t_native_real, c, c_dims, ioerr, c_dspace_id)
-    call h5dwrite_f(c_prev_dset_id, h5t_native_real, c_prev, c_dims, ioerr, c_dspace_id)
+    call h5dwrite_f(c_dset_id, h5t_native_real, c, c_dims, error, c_dspace_id)
+    call h5dwrite_f(c_prev_dset_id, h5t_native_real, c_prev, c_dims, error, c_dspace_id)
+    call h5dwrite_f(dt_dset_id, h5t_native_real, dt, dt_dims, error, dt_dspace_id)
 
-    call h5dclose_f(c_dset_id,ioerr)
-    call h5dclose_f(c_prev_dset_id,ioerr)
+    call h5dclose_f(c_dset_id,error)
+    call h5dclose_f(c_prev_dset_id,error)
+    call h5dclose_f(dt_dset_id,error)
 
-    call h5sclose_f(c_dspace_id,ioerr)
+    call h5sclose_f(c_dspace_id,error)
+    call h5sclose_f(dt_dspace_id,error)
 
-    call h5fclose_f(file_id, ioerr)
+    call h5fclose_f(file_id, error)
 
-    open(newunit=iu, file=folder//"/metadata", status="old")
+    open(newunit=iu, file=trim(folder)//"/metadata", status="old")
     
     do i = 1, cur_chkpnt + 4
       read(iu, *)
@@ -125,35 +120,42 @@ module hdf5_io
 
   end subroutine
 
-  subroutine write_to_traj_3D(c, c_prev, time, ioerr)
+  subroutine write_to_traj_3D(c, c_prev, time, dt, error)
     real(dp), intent(in), dimension(:, :, :) :: c, c_prev
-    real(dp), intent(in) :: time
-    integer, intent(out) :: ioerr
+    real(dp), intent(in) :: time, dt 
+    integer, intent(out) :: error
 
     integer(hid_t) ::  file_id
     integer :: iu, i
 
+    cur_chkpnt = cur_chkpnt + 1
 
-    call h5fcreate_f(trim(folder)//"/"//TRIM(adjustl(to_string(cur_chkpnt)))//".chkpnt", h5f_acc_trunc_f, file_id, ioerr)
     
-    call h5screate_simple_f(3, c_dims, c_dspace_id, ioerr)
+    call h5fcreate_f(trim(folder)//"/"//TRIM(adjustl(to_string(cur_chkpnt)))//".chkpnt", h5f_acc_trunc_f, file_id, error)
     
-    call h5dcreate_f(file_id,"c", h5t_native_double, c_dspace_id, c_dset_id, ioerr)
-    call h5dcreate_f(file_id,"c_prev", h5t_native_double, c_dspace_id, c_prev_dset_id, ioerr)
+    call h5screate_simple_f(3, c_dims, c_dspace_id, error)
+    call h5screate_simple_f(1, dt_dims, dt_dspace_id, error)
     
-    call h5dwrite_f(c_dset_id, h5t_native_real, c, c_dims, ioerr, c_dspace_id)
-    call h5dwrite_f(c_prev_dset_id, h5t_native_real, c_prev, c_dims, ioerr, c_dspace_id)
-
-    call h5dclose_f(c_dset_id,ioerr)
-    call h5dclose_f(c_prev_dset_id,ioerr)
-
-    call h5sclose_f(c_dspace_id,ioerr)
-
-    call h5fclose_f(file_id, ioerr)
-
-    open(newunit=iu, file=folder//"/metadata", status="old")
+    call h5dcreate_f(file_id,"c", h5t_native_double, c_dspace_id, c_dset_id, error)
+    call h5dcreate_f(file_id,"c_prev", h5t_native_double, c_dspace_id, c_prev_dset_id, error)
+    call h5dcreate_f(file_id,"dt", h5t_native_double, dt_dspace_id, dt_dset_id, error)
     
-    do i = 1, cur_chkpnt+4
+    call h5dwrite_f(c_dset_id, h5t_native_real, c, c_dims, error, c_dspace_id)
+    call h5dwrite_f(c_prev_dset_id, h5t_native_real, c_prev, c_dims, error, c_dspace_id)
+    call h5dwrite_f(dt_dset_id, h5t_native_real, dt, dt_dims, error, dt_dspace_id)
+
+    call h5dclose_f(c_dset_id,error)
+    call h5dclose_f(c_prev_dset_id,error)
+    call h5dclose_f(dt_dset_id,error)
+
+    call h5sclose_f(c_dspace_id,error)
+    call h5sclose_f(dt_dspace_id,error)
+
+    call h5fclose_f(file_id, error)
+
+    open(newunit=iu, file=trim(folder)//"/metadata", status="old")
+    
+    do i = 1, cur_chkpnt + 4
       read(iu, *)
     end do
 
@@ -163,15 +165,15 @@ module hdf5_io
 
   end subroutine
 
-  subroutine output_final(ioerr)
-    integer, intent(out) :: ioerr
+  subroutine output_final(error)
+    integer, intent(out) :: error
 
     integer :: iu, iu2, i, current
     real(dp) :: time
     character(128) :: buffer
 
-    open(newunit=iu, file=folder//"/metadata", status="old")
-    open(newunit=iu2, file=folder//"/metadata2", status="new")
+    open(newunit=iu, file=trim(folder)//"/metadata", status="old")
+    open(newunit=iu2, file=trim(folder)//"/metadata2", status="new")
 
 
     read(iu, *)
@@ -193,17 +195,29 @@ module hdf5_io
     close(iu, status="delete")
     close(iu2)
 
-    call rename(folder//"/metadata2", folder//"/metadata" )
+    call rename(trim(folder)//"/metadata2", trim(folder)//"/metadata" )
 
 
-    call h5close_f(ioerr)
+    call h5close_f(error)
 
   end subroutine
 
-  subroutine continue_from_chkpnt(chkpnt_folder, sys_params, current_time, ioerr, n_chkpnt, start_before_time)
+
+  ! subroutine read_hdf5_slice(filename, c, c_prev, dt)
+  !   character(*), intent(in) :: filename
+  !   real(dp), dimension(:, :) :: c, c_prev
+  !   real(dp) :: dt
+  !   integer 
+      
+
+
+
+  ! end subroutine 
+
+  subroutine continue_from_chkpnt(chkpnt_folder, sys_params, current_time, error, n_chkpnt, start_before_time)
     character(*), intent(in) :: chkpnt_folder
     integer, optional, intent(in) :: n_chkpnt
-    integer, intent(out) :: ioerr
+    integer, intent(out) :: error
     real(dp), optional, intent(in) :: start_before_time
     real(dp), intent(out) :: current_time
     real(dp), intent(out) , dimension(6):: sys_params
@@ -250,11 +264,11 @@ module hdf5_io
 
 
       if(present(start_before_time)) then
-        call logger%error("start_from_chkpnt", "Only specify which checkpoint or before which time, defaulting to checkpint")
+        !call logger%error("start_from_chkpnt", "Only specify which checkpoint or before which time, defaulting to checkpint")
       end if
 
         if (n_chkpnt > tot_chkpnt) then
-          call logger%error("start_from_chkpnt", "checkpoint specified was never reached, defaulting to final checkpoint")
+          !call logger%error("start_from_chkpnt", "checkpoint specified was never reached, defaulting to final checkpoint")
           res_chkpnt = tot_chkpnt
         end if
 
@@ -277,7 +291,7 @@ module hdf5_io
         if (current_time .ge. start_before_time) then
         
           close(iu)
-          open(newunit=iu, file=chkpnt_folder//"/metadata", status="old")
+          open(newunit=iu, file=trim(chkpnt_folder)//"/metadata", status="old")
 
           do i =1,current+3
             read(iu, *)
@@ -290,8 +304,8 @@ module hdf5_io
 
       end do
 
-      if (tot_chkpnt == current_time) then
-        call logger%error("start_from_chkpnt", "Time specified was never reached, choosing the last chkpnt")
+      if (tot_chkpnt == current) then
+        !call logger%error("start_from_chkpnt", "Time specified was never reached, choosing the last chkpnt")
         res_chkpnt = tot_chkpnt
       end if
 
@@ -309,8 +323,8 @@ module hdf5_io
     close(iu)
 
 
-    open(newunit=iu, file=chkpnt_folder//"/metadata", status="old")
-    open(newunit=iu2, file=chkpnt_folder//"/metadata2", status="new")
+    open(newunit=iu, file=trim(chkpnt_folder)//"/metadata", status="old")
+    open(newunit=iu2, file=trim(chkpnt_folder)//"/metadata2", status="new")
 
 
     read(iu, *)
@@ -335,10 +349,10 @@ module hdf5_io
     close(iu2)
 
 
-    call rename(chkpnt_folder//"/metadata2",chkpnt_folder//"/metadata" )
+    call rename(trim(chkpnt_folder)//"/metadata2", trim(chkpnt_folder)//"/metadata" )
 
     do i = res_chkpnt+1, tot_chkpnt 
-      open(newunit=iu, file=chkpnt_folder//"/"//trim(adjustl(to_string(i)))//".chkpnt", status="old")
+      open(newunit=iu, file=trim(chkpnt_folder)//"/"//trim(adjustl(to_string(i)))//".chkpnt", status="old")
       close(iu, status="delete")
     end do
 
@@ -349,11 +363,13 @@ module hdf5_io
     end if
 
     allocate(c_dims(grid_rank))
-    c_dims = grid_len
+    c_dims = int(grid_len, hsize_t)
 
     folder = chkpnt_folder
 
-    call h5open_f(ioerr)
+
+
+    call h5open_f(error)
 
   end subroutine 
 
