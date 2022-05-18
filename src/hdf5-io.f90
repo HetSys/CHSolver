@@ -12,7 +12,9 @@ module hdf5_io
   implicit none
 
   !Format for Meta Data Records
-  character(*), parameter :: metaformat = "(I5,4X,F15.5)"
+  character(*), parameter, private :: metaformat = "(I5,4X,F15.5)", &
+                                      metadata_fname = "/metadata.dat", &
+                                      metadata2_fname = "/metadata2.dat"
 
   integer :: cur_chkpnt
   character(len=:), allocatable :: folder
@@ -56,7 +58,7 @@ module hdf5_io
     call execute_command_line("rm -r "//trim(foldername), wait=.true.)
     call execute_command_line("mkdir "//trim(foldername), wait=.true.)
 
-    open(newunit=iu, file=trim(foldername)//"/metadata", status="new")
+    open(newunit=iu, file=trim(foldername)//metadata_fname, status="new")
 
     write(iu, "('chkpnts',1X,I5)") 0
     write(iu, "('grid_params',1X,I5,1X,I5)") grid_params(1), grid_params(2)
@@ -108,7 +110,7 @@ module hdf5_io
 
     call h5fclose_f(file_id, error)
 
-    open(newunit=iu, file=trim(folder)//"/metadata", status="old")
+    open(newunit=iu, file=trim(folder)//metadata_fname, status="old")
     
     do i = 1, cur_chkpnt + 4
       read(iu, *)
@@ -154,7 +156,7 @@ module hdf5_io
 
     call h5fclose_f(file_id, error)
 
-    open(newunit=iu, file=trim(folder)//"/metadata", status="old")
+    open(newunit=iu, file=trim(folder)//metadata_fname, status="old")
     
     do i = 1, cur_chkpnt + 4
       read(iu, *)
@@ -173,8 +175,8 @@ module hdf5_io
     real(dp) :: time
     character(128) :: buffer
 
-    open(newunit=iu, file=trim(folder)//"/metadata", status="old")
-    open(newunit=iu2, file=trim(folder)//"/metadata2", status="new")
+    open(newunit=iu, file=trim(folder)//metadata_fname, status="old")
+    open(newunit=iu2, file=trim(folder)//metadata2_fname, status="new")
 
 
     read(iu, *)
@@ -196,7 +198,7 @@ module hdf5_io
     close(iu, status="delete")
     close(iu2)
 
-    call rename(trim(folder)//"/metadata2", trim(folder)//"/metadata" )
+    call rename(trim(folder)//metadata2_fname, trim(folder)//metadata_fname)
 
 
     call h5close_f(error)
@@ -233,7 +235,7 @@ module hdf5_io
     current = 1
 
  
-    open(newunit=iu, file=chkpnt_folder//"/metadata", status="old")
+    open(newunit=iu, file=chkpnt_folder//metadata_fname, status="old")
 
     read(iu, "(A)") buffer
     pos = scan(buffer, " ")
@@ -292,7 +294,7 @@ module hdf5_io
         if (current_time .ge. start_before_time) then
         
           close(iu)
-          open(newunit=iu, file=trim(chkpnt_folder)//"/metadata", status="old")
+          open(newunit=iu, file=trim(chkpnt_folder)//metadata_fname, status="old")
 
           do i =1,current+3
             read(iu, *)
@@ -324,8 +326,8 @@ module hdf5_io
     close(iu)
 
 
-    open(newunit=iu, file=trim(chkpnt_folder)//"/metadata", status="old")
-    open(newunit=iu2, file=trim(chkpnt_folder)//"/metadata2", status="new")
+    open(newunit=iu, file=trim(chkpnt_folder)//metadata_fname, status="old")
+    open(newunit=iu2, file=trim(chkpnt_folder)//metadata2_fname, status="new")
 
 
     read(iu, *)
@@ -350,7 +352,7 @@ module hdf5_io
     close(iu2)
 
 
-    call rename(trim(chkpnt_folder)//"/metadata2", trim(chkpnt_folder)//"/metadata" )
+    call rename(trim(chkpnt_folder)//metadata2_fname, trim(chkpnt_folder)//metadata_fname )
 
     do i = res_chkpnt+1, tot_chkpnt 
       open(newunit=iu, file=trim(chkpnt_folder)//"/"//trim(adjustl(to_string(i)))//".chkpnt", status="old")
