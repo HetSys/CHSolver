@@ -164,7 +164,6 @@ module fd_solvers
       call dimensionalise(CH_params, c_prev, dt_out)
 
       call write_to_traj(c, c_prev, t_out, dt_out, errors)
-      
       it = it + 1
     endif
 
@@ -183,7 +182,7 @@ module fd_solvers
     dt0 = dt ! store current timestep
 
     ! compute RHS
-    call compute_g(g, phi, dx, tau, N, work)
+    call compute_g(g, phi, dx, N, work)
     b = phi/dt + g
 
     ! store current variables
@@ -233,7 +232,7 @@ module fd_solvers
       call dimensionalise(CH_params, c_prev, dt_out)
 
       call write_to_traj(c, c_prev, t_out, dt_out, errors)
-      
+
       it = it + 1
     endif
 
@@ -268,7 +267,7 @@ module fd_solvers
       dt0 = dt ! store current timestep
 
       ! compute RHS
-      call compute_g(g, phi, dx, tau, N, work)
+      call compute_g(g, phi, dx, N, work)
       b = -a1/dt*phi - a0/dt*phi_prev + b1*g + b0*g_prev
 
       ! store current variables
@@ -426,12 +425,12 @@ module fd_solvers
   !! @param tau  solver parameter
   !! @param n    grid size
   !! @param work allocated work vector (same size as g)
-  subroutine compute_g(g, phi, dx, tau, n, work)
+  subroutine compute_g(g, phi, dx, n, work)
     implicit none
     real(dp), pointer, contiguous, intent(in) :: phi(:)
     real(dp), pointer, contiguous, intent(out) :: work(:)
     real(dp), pointer, contiguous, intent(out) :: g(:)
-    real(dp), intent(in) :: dx, tau
+    real(dp), intent(in) :: dx
     integer, intent(in) :: n
     integer :: i
 

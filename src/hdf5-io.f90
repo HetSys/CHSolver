@@ -50,8 +50,7 @@ module hdf5_io
     allocate(dt_dims(1))
 
     folder = foldername 
-
-    c_dims = int(grid_params(2), hsize_t)
+    c_dims = int(2**grid_params(2), hsize_t)
     dt_dims = 1
 
     call execute_command_line("rm -r "//trim(foldername), wait=.true.)
@@ -94,9 +93,11 @@ module hdf5_io
     call h5dcreate_f(file_id,"c_prev", h5t_native_double, c_dspace_id, c_prev_dset_id, error)
     call h5dcreate_f(file_id,"dt", h5t_native_double, dt_dspace_id, dt_dset_id, error)
     
-    call h5dwrite_f(c_dset_id, h5t_native_real, c, c_dims, error, c_dspace_id)
-    call h5dwrite_f(c_prev_dset_id, h5t_native_real, c_prev, c_dims, error, c_dspace_id)
-    call h5dwrite_f(dt_dset_id, h5t_native_real, dt, dt_dims, error, dt_dspace_id)
+    ! print *, c
+    
+    call h5dwrite_f(c_dset_id, h5t_native_double, c, c_dims, error, c_dspace_id)
+    call h5dwrite_f(c_prev_dset_id, h5t_native_double, c_prev, c_dims, error, c_dspace_id)
+    call h5dwrite_f(dt_dset_id, h5t_native_double, dt, dt_dims, error, dt_dspace_id)
 
     call h5dclose_f(c_dset_id,error)
     call h5dclose_f(c_prev_dset_id,error)

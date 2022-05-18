@@ -58,7 +58,7 @@ program main
 
   !!! START GRID AND HDF5 SETUP 
   ! initial concentration
-  call setup_grid(c0, grid_res, init)
+  call setup_grid(c0, grid_res, ch_params, init)
 
   call output_init(outdir, [2, grid_res], CH_params, ierr)
 
