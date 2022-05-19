@@ -1178,20 +1178,4 @@ module fd_solvers
     E2f(ijf+2-2*Nf) = E2f(ijf+2-2*Nf) + w3*E2c(ij)
     E2f(if+2-Nf) = E2f(if+2-Nf) + w3*E2c(ij)
   end subroutine prolongate
-
-
-  ! TODO: remove, for testing only
-  subroutine temp_output_data(b, fname)
-    implicit none
-    real(dp), dimension(:), allocatable, intent(in) :: b
-    character(*), intent(in) :: fname
-    integer :: i
-    integer :: fid
-
-    open(newunit=fid, file=fname, form='formatted')
-    do i=1,ubound(b,1)
-      write(fid, *) b(i)
-    enddo
-    close(fid)
-  end subroutine temp_output_data
 end module fd_solvers
