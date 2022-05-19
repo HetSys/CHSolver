@@ -1,6 +1,7 @@
 module setup
 
   use globals
+  use solver_utils
   implicit none
 
   contains
@@ -13,12 +14,14 @@ module setup
   !! @param[in] init option b: A centered bar with dimensions (0.2, 0.5) with concetration 1 and -1 everywhere else
   !! @param[in] init option s: Splits the grid into left half with -1 and right half with 1
   !! @param[out] c allocatable rank 2 real64 array that stores concentration
-  subroutine setup_grid(c, n, init)
+  subroutine setup_grid(c, n, CH_params, init)
     integer, intent(in) :: n
+    real(dp), intent(in), dimension(6) :: CH_params
     character, intent(in) :: init
     real(dp), pointer, contiguous, intent(out) :: c(:,:)
 
     integer :: i, j, grid
+    real(dp) :: t
 
     grid = 2**n
 
@@ -86,6 +89,7 @@ module setup
 
       end select
 
+      call dimensionalise(CH_params, c, t)
 
   end subroutine
 

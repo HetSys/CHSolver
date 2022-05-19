@@ -37,13 +37,15 @@ __pycache__/*
 
 # Data files
 *.json
-*.htf5
+*.chkpnt
+*.dat
 
 # Doxygen documentation
 doxygen/output/*
 
 # Compiled submodules
 src/submodules/bin/*
+
 # Log files
 *.log
 
