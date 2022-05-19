@@ -243,7 +243,7 @@ module fd_solvers
       if (t < 100.0_dp * eps) then
         dt = 2.5_dp * eps2
       else
-        dt = dx
+        dt = 2.5_dp * eps2
       endif
 
       ! restrict timestep if we would otherwise exceed an output time
