@@ -12,7 +12,7 @@ program main
   character(:), allocatable :: init
   integer :: grid_res ! grid level
   real(dp), allocatable :: Tout(:) ! output times
-  real(dp), pointer, contiguous :: c0(:,:) ! initial concentration
+  real(dp), dimension(:,:), allocatable :: c0 ! initial concentration
   logical :: errors, all_params_fnd
   integer :: ierr
 

@@ -57,3 +57,6 @@ CH-docs.pdf
 # Unit tests additional
 tests/unit_tests/*.F90
 tests/unit_tests/*.inc
+
+# Other
+**/.DS_Store

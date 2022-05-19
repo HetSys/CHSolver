@@ -40,7 +40,7 @@ module globals
 
     real(dp), parameter :: REAL_TOL = 1e-10_DP
 
-    character(*), parameter :: ACCEPTED_INITS = "r"
+    character(*), parameter :: ACCEPTED_INITS = "rcbs"
 
 
     errors = .FALSE.
@@ -126,13 +126,13 @@ module globals
     ! Tout validation
     if (present(Tout)) then
       if (.not. allocated(Tout)) then
-        call logger%error("validate_params", "Output Timesteps not specified")
+        call logger%error("validate_params", "Output times not specified")
         errors = .TRUE.
       else if (any(Tout .LT. 0)) then
         call logger%error("validate_params", "Cannot output at negative timesteps")
         errors = .TRUE.
-      else if (any(Tout(2:) .LT. Tout(:size(Tout)))) then
-        call logger%error("validate_params", "Timestep array must be in ascending order")
+      else if (any(Tout(2:) .LE. Tout(:size(Tout)))) then
+        call logger%error("validate_params", "Output times must be strictly increasing")
         errors = .TRUE.
       end if
     end if
