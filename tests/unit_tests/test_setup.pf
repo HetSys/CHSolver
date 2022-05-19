@@ -1,0 +1,14 @@
+module test_setup
+  use funit
+  use globals
+  use setup
+                         
+contains
+
+  @before
+  subroutine before()
+    logger%disable_all_logging = .TRUE.
+
+  end subroutine
+
+end module test_setup

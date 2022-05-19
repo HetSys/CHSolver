@@ -1,0 +1,87 @@
+module test_cli
+  use funit
+  use globals
+  use command_line
+                         
+contains
+
+  @before
+  subroutine setup()
+    logger%disable_all_logging = .TRUE.
+
+  end subroutine
+
+
+  !===================================================================================!
+  ! STR CONVERSIONS TESTS                                                             !
+  ! Test conversions between strings and ints/reals/real arrays work as expected      !
+  !===================================================================================!
+
+  @test
+  subroutine test_str_to_int()
+    character(len=3), parameter, dimension(4) :: str_form = (/"  1", " 21", "123", " 5 "/)
+    integer, parameter, dimension(4) :: int_form = (/1, 21, 123, 5/)
+    integer :: num_tests, idx
+
+    character(len=3) :: test_str
+    integer :: test_int
+
+    num_tests = size(str_form)
+
+    do idx=1,num_tests
+      test_str = str_form(idx)
+      test_int = int_form(idx)
+      @assertEqual(test_int, str_to_int(test_str))
+    end do
+  end subroutine
+
+
+  @test
+  subroutine test_str_to_real()
+    character(len=5), parameter, dimension(4) :: str_form = (/"0.000", "1.000", "6.021", "10.13"/)
+    real(dp), parameter, dimension(4) :: real_form = (/0.0_DP, 1.0_DP, 6.021_DP, 10.13_DP/)
+    integer :: num_tests, idx
+
+    character(len=5) :: test_str
+    real(dp) :: test_real
+
+    num_tests = size(str_form)
+
+    do idx=1,num_tests
+      test_str = str_form(idx)
+      test_real = real_form(idx)
+      @assertEqual(test_real, str_to_real(test_str), tolerance=1E-10_DP)
+    end do
+  end subroutine
+
+
+  @test
+  subroutine test_allocate_array()
+    character(len=*), parameter :: simple_strarr = "{0.0:0.1:0.2:0.3:0.4}", &
+                                  unequal_strarr = "{0.0021:1:123.4567}", &
+                                     long_strarr = "{1:2:3:4:5:6:7:8:9:10:11:12}"
+                                     
+    real(dp), parameter, dimension(5) :: simple_realarr = (/0.0_dp, 0.1_dp, 0.2_dp, 0.3_dp, 0.4_dp/)
+    real(dp), parameter, dimension(3) :: unequal_realarr = (/0.0021_dp, 1.0_dp, 123.4567_dp/)
+    real(dp), parameter, dimension(12) :: long_realarr = (/1.0_dp, 2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp, 6.0_dp, 7.0_dp, &
+                                                          8.0_dp, 9.0_dp, 10.0_dp, 11.0_dp, 12.0_dp/)
+
+    real(dp), allocatable :: buf(:)
+
+    call allocate_array(simple_strarr, buf)
+    @assertEqual(simple_realarr, buf, tolerance=1E-10_DP)
+
+    deallocate(buf)
+
+    call allocate_array(unequal_strarr, buf)
+    @assertEqual(unequal_realarr, buf, tolerance=1E-10_DP)
+
+    deallocate(buf)
+
+    call allocate_array(long_strarr, buf)
+    @assertEqual(long_realarr, buf, tolerance=1E-10_DP)
+
+    deallocate(buf)
+  end subroutine
+
+end module test_cli

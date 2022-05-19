@@ -1,0 +1,14 @@
+module test_solver_utils
+  use funit
+  use globals
+  use solver_utils
+                         
+contains
+
+  @before
+  subroutine setup()
+    logger%disable_all_logging = .TRUE.
+
+  end subroutine
+
+end module test_solver_utils

@@ -76,7 +76,7 @@ module test_json_parser
   end subroutine
 
   !============================================================================!
-  ! PARAM JSON TESTS                                                           !
+  ! MISSING PARAM JSON TESTS                                                   !
   ! Check that get_json_params correctly flags missing parameters as errors    !
   !============================================================================!
 
