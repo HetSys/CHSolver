@@ -11,4 +11,136 @@ contains
 
   end subroutine
 
+
+  !===============================================================================!
+  ! DIMENSIONAL SCALING TESTS                                                     !
+  ! Check nondimensionalise and dimensionalise perform required spacetime scaling !
+  !===============================================================================!
+
+  @test
+  subroutine test_nondimensionalise()
+
+    real(dp), parameter, dimension(6) :: invariant_params = (/1.0_dp, 1.0_dp, 0.25_dp, 0.0004_dp, -1.0_dp, 1.0_dp/)
+
+    real(dp), allocatable :: C(:, :), T(:), C_ref(:, :), T_ref(:)
+
+    real(dp) :: eps2, eps_ref
+
+    integer, parameter :: T_len=8, C_len = 5, num_repeats=10
+
+    integer :: i, n
+
+
+    allocate(C(C_len, C_len), C_ref(C_len, C_len))
+
+    allocate(T(T_len), T_ref(T_len))
+
+    do n=1,num_repeats
+      call random_number(C)
+
+      C = C * 0.5_dp - 1.0_dp
+      C_ref = C
+
+      do i=1, T_len
+        T(i) = real(n*i, dp)
+      end do
+
+      T_ref = T
+
+
+      eps_ref = invariant_params(3) * invariant_params(4)
+
+
+      ! Test nondimensionalise on a known invariant parameter set
+      ! Subroutine should return the original grid and time array
+
+      call nondimensionalise(invariant_params, C, T, eps2)
+
+      @assertEqual(C_ref, C, tolerance=1E-7)
+
+      @assertEqual(T_ref, T, tolerance=1E-7)
+
+      ! In the invariant case, eps2 should be equal to K*M
+      @assertEqual(eps_ref, eps2, tolerance=1E-7)
+    end do
+
+  end subroutine
+
+
+  @test
+  subroutine test_dimensionalise()
+
+    real(dp), parameter, dimension(6) :: invariant_params = (/1.0_dp, 1.0_dp, 0.25_dp, 0.0004_dp, -1.0_dp, 1.0_dp/)
+
+    real(dp), allocatable :: C(:, :), C_ref(:, :)
+
+    real(dp) :: T, T_ref
+
+    integer, parameter :: C_len = 5, num_repeats=10
+
+    integer :: n
+
+
+    allocate(C(C_len, C_len), C_ref(C_len, C_len))
+
+    do n=1,num_repeats
+      call random_number(C)
+
+      C = C * 0.5_dp - 1.0_dp
+      C_ref = C
+
+      T = real(n, dp)
+
+      T_ref = T
+
+
+      ! Test nondimensionalise on a known invariant parameter set
+      ! Subroutine should return the original grid and time array
+
+      call dimensionalise(invariant_params, C, T)
+
+      @assertEqual(C_ref, C, tolerance=1E-7)
+
+      @assertEqual(T_ref, T, tolerance=1E-7)
+
+      ! In the invariant case, eps2 should be equal to K*M
+      @assertEqual(eps_ref, eps2, tolerance=1E-7)
+    end do
+
+  end subroutine
+
+  @test
+  subroutine test_dimerr()
+    ! Test floating point precision error is small when repeatedly nondimensionalising and dimensionalising
+    real(dp), parameter, dimension(6) :: CH_params = (/1.0_dp, 1.0_dp, 1.0_dp, 0.001_dp, -1.0_dp, 1.0_dp/)
+
+    real(dp), allocatable :: C(:, :), C_ref(:, :)
+
+    real(dp), dimension(1) :: T, T_ref
+
+    integer, parameter :: C_len = 5, num_repeats=10
+
+    integer :: iter
+
+    real(dp) :: eps
+
+    allocate(C(C_len, C_len), C_ref(C_len, C_len))
+
+    call random_number(C)
+
+    C = C * 0.5_dp - 1.0_dp
+    C_ref = C
+
+    T(1) = 1.0_dp
+
+    T_ref = T
+
+    do iter=1,num_repeats
+      call nondimensionalise(CH_params, C, T, eps)
+      call dimensionalise(CH_params, C, T(1))
+      @assertEqual(C_ref, C, tolerance=1E-7)
+      @assertEqual(T_ref, T, tolerance=1E-7)
+    end do
+  end subroutine
+
 end module test_solver_utils
