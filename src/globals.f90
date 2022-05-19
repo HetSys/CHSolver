@@ -131,8 +131,8 @@ module globals
       else if (any(Tout .LT. 0)) then
         call logger%error("validate_params", "Cannot output at negative timesteps")
         errors = .TRUE.
-      else if (any(Tout(2:) .LT. Tout(:size(Tout)))) then
-        call logger%error("validate_params", "Timestep array must be in ascending order")
+      else if (any(Tout(2:) .LE. Tout(:size(Tout)))) then
+        call logger%error("validate_params", "Timestep array must be in a strictly ascending order")
         errors = .TRUE.
       end if
     end if
