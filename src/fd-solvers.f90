@@ -451,7 +451,7 @@ module fd_solvers
   !! @param N      grid size
   !! @param dx     grid spacing
   !! @param level  grid level
-  subroutine vcycle_flat(A, E1, E2, R1, R2, eps2, N, dx, level)
+  subroutine vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
     implicit none
     real(dp), dimension(2,2), intent(in) :: A
     type(t_grid), dimension(:), allocatable, intent(inout) :: E1, E2, R1, R2
@@ -470,7 +470,7 @@ module fd_solvers
       E2(l)%grid = 0.0_dp
 
       call smooth(A, E1(l)%grid, E2(l)%grid, R1(l)%grid, R2(l)%grid, eps2, nl, dxl)
-      call restrict(R1, R2, nl, l)
+      call restrict(R1(l)%grid, R2(l)%grid, R1(l-1)%grid, R2(l-1)%grid, nl)
 
       nl = nl/2;
       dxl = dxl * 2.0_dp
@@ -486,14 +486,14 @@ module fd_solvers
 
     ! go down, smoothing and prolongating
     do l=1,level-1
-      call prolongate(E1, E2, nl, l)
+      call prolongate(E1(l+1)%grid, E2(l+1)%grid, E1(l)%grid, E2(l)%grid, nl)
 
       nl = nl*2;
       dxl = dxl * 0.5_dp
 
       call smooth(A, E1(l+1)%grid, E2(l+1)%grid, R1(l+1)%grid, R2(l+1)%grid, eps2, nl, dxl)
     enddo
-  end subroutine vcycle_flat
+  end subroutine vcycle
 
 
   !> @brief performs a single red/black smooth
@@ -506,7 +506,6 @@ module fd_solvers
   !! @param eps2   PDE parameter
   !! @param N      grid size
   !! @param dx     grid spacing
-  !! @param level  grid level
   subroutine smooth(A, E1, E2, R1, R2, eps2, N, dx)
     implicit none
     real(dp), dimension(2,2), intent(in) :: A
@@ -654,34 +653,26 @@ module fd_solvers
   !! @param R1     residual multigrid for the first variable
   !! @param R2     residual multigrid for the second variable
   !! @param N      grid size
-  !! @param level  grid level
-  subroutine restrict(R1, R2, N, level)
+  subroutine restrict(R1f, R2f, R1c, R2c, N)
     implicit none
-    type(t_grid), dimension(:), allocatable, intent(inout) :: R1, R2
-    integer, intent(in) :: N, level
+    real(dp), dimension(:), allocatable, intent(inout) :: R1f, R2f, R1c, R2c
+    integer, intent(in) :: N
 
-    integer :: i, j, ij, im, jm, ijm
+    integer :: i, j, ij, im, jm, ijm, nc
+    nc = n/2
 
     ! use a simple average across the grid
-    do j=1,2**(level-1)
+    do j=1,nc
       jm = 2*j-1
-      do i=1,2**(level-1)
+      do i=1,nc
         im = 2*i-1
 
-        ij = i+(n/2)*(j-1)
+        ij = i+nc*(j-1)
         ijm = im+n*(jm-1)
 
         ! fine -> coarse
-        R1(level-1)%grid(ij) = 0.25_dp*(  R1(level)%grid(ijm) &
-                                        + R1(level)%grid(ijm+1) &
-                                        + R1(level)%grid(ijm+N) &
-                                        + R1(level)%grid(ijm+N+1) )
-
-
-        R2(level-1)%grid(ij) = 0.25_dp*(  R2(level)%grid(ijm) &
-                                        + R2(level)%grid(ijm+1) &
-                                        + R2(level)%grid(ijm+N) &
-                                        + R2(level)%grid(ijm+N+1) )
+        R1c(ij) = 0.25_dp*(  R1f(ijm) + R1f(ijm+1) + R1f(ijm+N) + R1f(ijm+N+1) )
+        R2c(ij) = 0.25_dp*(  R2f(ijm) + R2f(ijm+1) + R2f(ijm+N) + R2f(ijm+N+1) )
       enddo
     enddo
   end subroutine restrict
@@ -692,11 +683,10 @@ module fd_solvers
   !! @param E1     error multigrid for the first variable
   !! @param E2     error multigrid for the second variable
   !! @param N      grid size
-  !! @param level  grid level
-  subroutine prolongate(E1, E2, N, level)
+  subroutine prolongate(E1f, E2f, E1c, E2c, N)
     implicit none
-    type(t_grid), dimension(:), allocatable, intent(inout) :: E1, E2
-    integer, intent(in) :: N, level
+    real(dp), dimension(:), allocatable, intent(inout) :: E1f, E2f, E1c, E2c
+    integer, intent(in) :: N
 
     integer :: Nf
     integer :: i, j, ij, if, jf, ijf
@@ -716,48 +706,48 @@ module fd_solvers
         ijf = if+Nf*(jf-1)
 
         ! largest contribution to nearest
-        E1(level+1)%grid(ijf) = E1(level+1)%grid(ijf) + w1*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+1) = E1(level+1)%grid(ijf+1) + w1*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+Nf) = E1(level+1)%grid(ijf+Nf) + w1*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+Nf+1) = E1(level+1)%grid(ijf+Nf+1) + w1*E1(level)%grid(ij)
+        E1f(ijf) = E1f(ijf) + w1*E1c(ij)
+        E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
+        E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
+        E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
 
         ! lesser contribution to intermediate
-        E1(level+1)%grid(ijf-1) = E1(level+1)%grid(ijf-1) + w2*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+Nf-1) = E1(level+1)%grid(ijf+Nf-1) + w2*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf-Nf) = E1(level+1)%grid(ijf-Nf) + w2*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+2*Nf) = E1(level+1)%grid(ijf+2*Nf) + w2*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+1-Nf) = E1(level+1)%grid(ijf+1-Nf) + w2*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+1+2*Nf) = E1(level+1)%grid(ijf+1+2*Nf) + w2*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+2) = E1(level+1)%grid(ijf+2) + w2*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+2+Nf) = E1(level+1)%grid(ijf+2+Nf) + w2*E1(level)%grid(ij)
+        E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
+        E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
+        E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
+        E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
+        E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
+        E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
+        E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
+        E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
 
         ! least contribution to furthest
-        E1(level+1)%grid(ijf-1-Nf) = E1(level+1)%grid(ijf-1-Nf) + w3*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf-1+2*Nf) = E1(level+1)%grid(ijf-1+2*Nf) + w3*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+2-Nf) = E1(level+1)%grid(ijf+2-Nf) + w3*E1(level)%grid(ij)
-        E1(level+1)%grid(ijf+2+2*Nf) = E1(level+1)%grid(ijf+2+2*Nf) + w3*E1(level)%grid(ij)
+        E1f(ijf-1-Nf) = E1f(ijf-1-Nf) + w3*E1c(ij)
+        E1f(ijf-1+2*Nf) = E1f(ijf-1+2*Nf) + w3*E1c(ij)
+        E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w3*E1c(ij)
+        E1f(ijf+2+2*Nf) = E1f(ijf+2+2*Nf) + w3*E1c(ij)
 
         ! largest contribution to nearest
-        E2(level+1)%grid(ijf) = E2(level+1)%grid(ijf) + w1*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+1) = E2(level+1)%grid(ijf+1) + w1*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+Nf) = E2(level+1)%grid(ijf+Nf) + w1*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+Nf+1) = E2(level+1)%grid(ijf+Nf+1) + w1*E2(level)%grid(ij)
+        E2f(ijf) = E2f(ijf) + w1*E2c(ij)
+        E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
+        E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
+        E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
 
         ! lesser contribution to intermediate
-        E2(level+1)%grid(ijf-1) = E2(level+1)%grid(ijf-1) + w2*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+Nf-1) = E2(level+1)%grid(ijf+Nf-1) + w2*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf-Nf) = E2(level+1)%grid(ijf-Nf) + w2*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+2*Nf) = E2(level+1)%grid(ijf+2*Nf) + w2*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+1-Nf) = E2(level+1)%grid(ijf+1-Nf) + w2*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+1+2*Nf) = E2(level+1)%grid(ijf+1+2*Nf) + w2*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+2) = E2(level+1)%grid(ijf+2) + w2*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+2+Nf) = E2(level+1)%grid(ijf+2+Nf) + w2*E2(level)%grid(ij)
+        E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
+        E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
+        E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
+        E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
+        E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
+        E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
+        E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
+        E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
 
         ! least contribution to furthest
-        E2(level+1)%grid(ijf-1-Nf) = E2(level+1)%grid(ijf-1-Nf) + w3*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf-1+2*Nf) = E2(level+1)%grid(ijf-1+2*Nf) + w3*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+2-Nf) = E2(level+1)%grid(ijf+2-Nf) + w3*E2(level)%grid(ij)
-        E2(level+1)%grid(ijf+2+2*Nf) = E2(level+1)%grid(ijf+2+2*Nf) + w3*E2(level)%grid(ij)
+        E2f(ijf-1-Nf) = E2f(ijf-1-Nf) + w3*E2c(ij)
+        E2f(ijf-1+2*Nf) = E2f(ijf-1+2*Nf) + w3*E2c(ij)
+        E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w3*E2c(ij)
+        E2f(ijf+2+2*Nf) = E2f(ijf+2+2*Nf) + w3*E2c(ij)
       enddo
     enddo
 
@@ -771,48 +761,48 @@ module fd_solvers
       ijf = if+Nf*(jf-1)
 
       ! largest contribution to nearest
-      E1(level+1)%grid(ijf) = E1(level+1)%grid(ijf) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1) = E1(level+1)%grid(ijf+1) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf) = E1(level+1)%grid(ijf+Nf) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf+1) = E1(level+1)%grid(ijf+Nf+1) + w1*E1(level)%grid(ij)
+      E1f(ijf) = E1f(ijf) + w1*E1c(ij)
+      E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
+      E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
+      E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
 
       ! lesser contribution to intermediate
-      E1(level+1)%grid(ijf-1+Nf) = E1(level+1)%grid(ijf-1+Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2*Nf-1) = E1(level+1)%grid(ijf+2*Nf-1) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf-Nf) = E1(level+1)%grid(ijf-Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2*Nf) = E1(level+1)%grid(ijf+2*Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1-Nf) = E1(level+1)%grid(ijf+1-Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1+2*Nf) = E1(level+1)%grid(ijf+1+2*Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2) = E1(level+1)%grid(ijf+2) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2+Nf) = E1(level+1)%grid(ijf+2+Nf) + w2*E1(level)%grid(ij)
+      E1f(ijf-1+Nf) = E1f(ijf-1+Nf) + w2*E1c(ij)
+      E1f(ijf+2*Nf-1) = E1f(ijf+2*Nf-1) + w2*E1c(ij)
+      E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
+      E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
+      E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
+      E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
+      E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
+      E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
 
       ! least contribution to furthest
-      E1(level+1)%grid(ijf-1) = E1(level+1)%grid(ijf-1) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf-1+3*Nf) = E1(level+1)%grid(ijf-1+3*Nf) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2-Nf) = E1(level+1)%grid(ijf+2-Nf) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2+2*Nf) = E1(level+1)%grid(ijf+2+2*Nf) + w3*E1(level)%grid(ij)
+      E1f(ijf-1) = E1f(ijf-1) + w3*E1c(ij)
+      E1f(ijf-1+3*Nf) = E1f(ijf-1+3*Nf) + w3*E1c(ij)
+      E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w3*E1c(ij)
+      E1f(ijf+2+2*Nf) = E1f(ijf+2+2*Nf) + w3*E1c(ij)
 
       ! largest contribution to nearest
-      E2(level+1)%grid(ijf) = E2(level+1)%grid(ijf) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1) = E2(level+1)%grid(ijf+1) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf) = E2(level+1)%grid(ijf+Nf) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf+1) = E2(level+1)%grid(ijf+Nf+1) + w1*E2(level)%grid(ij)
+      E2f(ijf) = E2f(ijf) + w1*E2c(ij)
+      E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
+      E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
+      E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
 
       ! lesser contribution to intermediate
-      E2(level+1)%grid(ijf-1+Nf) = E2(level+1)%grid(ijf-1+Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2*Nf-1) = E2(level+1)%grid(ijf+2*Nf-1) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf-Nf) = E2(level+1)%grid(ijf-Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2*Nf) = E2(level+1)%grid(ijf+2*Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1-Nf) = E2(level+1)%grid(ijf+1-Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1+2*Nf) = E2(level+1)%grid(ijf+1+2*Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2) = E2(level+1)%grid(ijf+2) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2+Nf) = E2(level+1)%grid(ijf+2+Nf) + w2*E2(level)%grid(ij)
+      E2f(ijf-1+Nf) = E2f(ijf-1+Nf) + w2*E2c(ij)
+      E2f(ijf+2*Nf-1) = E2f(ijf+2*Nf-1) + w2*E2c(ij)
+      E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
+      E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
+      E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
+      E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
+      E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
+      E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
 
       ! least contribution to furthest
-      E2(level+1)%grid(ijf-1) = E2(level+1)%grid(ijf-1) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf-1+3*Nf) = E2(level+1)%grid(ijf-1+3*Nf) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2-Nf) = E2(level+1)%grid(ijf+2-Nf) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2+2*Nf) = E2(level+1)%grid(ijf+2+2*Nf) + w3*E2(level)%grid(ij)
+      E2f(ijf-1) = E2f(ijf-1) + w3*E2c(ij)
+      E2f(ijf-1+3*Nf) = E2f(ijf-1+3*Nf) + w3*E2c(ij)
+      E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w3*E2c(ij)
+      E2f(ijf+2+2*Nf) = E2f(ijf+2+2*Nf) + w3*E2c(ij)
     enddo
 
     ! right edge
@@ -825,48 +815,48 @@ module fd_solvers
       ijf = if+Nf*(jf-1)
 
       ! largest contribution to nearest
-      E1(level+1)%grid(ijf) = E1(level+1)%grid(ijf) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1) = E1(level+1)%grid(ijf+1) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf) = E1(level+1)%grid(ijf+Nf) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf+1) = E1(level+1)%grid(ijf+Nf+1) + w1*E1(level)%grid(ij)
+      E1f(ijf) = E1f(ijf) + w1*E1c(ij)
+      E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
+      E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
+      E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
 
       ! lesser contribution to intermediate
-      E1(level+1)%grid(ijf-1) = E1(level+1)%grid(ijf-1) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf-1) = E1(level+1)%grid(ijf+Nf-1) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf-Nf) = E1(level+1)%grid(ijf-Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2*Nf) = E1(level+1)%grid(ijf+2*Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1-Nf) = E1(level+1)%grid(ijf+1-Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1+2*Nf) = E1(level+1)%grid(ijf+1+2*Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2-Nf) = E1(level+1)%grid(ijf+2-Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2) = E1(level+1)%grid(ijf+2) + w2*E1(level)%grid(ij)
+      E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
+      E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
+      E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
+      E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
+      E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
+      E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
+      E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w2*E1c(ij)
+      E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
 
       ! least contribution to furthest
-      E1(level+1)%grid(ijf-1-Nf) = E1(level+1)%grid(ijf-1-Nf) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf-1+2*Nf) = E1(level+1)%grid(ijf-1+2*Nf) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2-2*Nf) = E1(level+1)%grid(ijf+2-2*Nf) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2*Nf) = E1(level+1)%grid(ijf+2+Nf) + w3*E1(level)%grid(ij)
+      E1f(ijf-1-Nf) = E1f(ijf-1-Nf) + w3*E1c(ij)
+      E1f(ijf-1+2*Nf) = E1f(ijf-1+2*Nf) + w3*E1c(ij)
+      E1f(ijf+2-2*Nf) = E1f(ijf+2-2*Nf) + w3*E1c(ij)
+      E1f(ijf+2*Nf) = E1f(ijf+2+Nf) + w3*E1c(ij)
 
       ! largest contribution to nearest
-      E2(level+1)%grid(ijf) = E2(level+1)%grid(ijf) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1) = E2(level+1)%grid(ijf+1) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf) = E2(level+1)%grid(ijf+Nf) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf+1) = E2(level+1)%grid(ijf+Nf+1) + w1*E2(level)%grid(ij)
+      E2f(ijf) = E2f(ijf) + w1*E2c(ij)
+      E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
+      E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
+      E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
 
       ! lesser contribution to intermediate
-      E2(level+1)%grid(ijf-1) = E2(level+1)%grid(ijf-1) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf-1) = E2(level+1)%grid(ijf+Nf-1) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf-Nf) = E2(level+1)%grid(ijf-Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2*Nf) = E2(level+1)%grid(ijf+2*Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1-Nf) = E2(level+1)%grid(ijf+1-Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1+2*Nf) = E2(level+1)%grid(ijf+1+2*Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2-Nf) = E2(level+1)%grid(ijf+2-Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2) = E2(level+1)%grid(ijf+2) + w2*E2(level)%grid(ij)
+      E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
+      E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
+      E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
+      E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
+      E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
+      E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
+      E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w2*E2c(ij)
+      E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
 
       ! least contribution to furthest
-      E2(level+1)%grid(ijf-1-Nf) = E2(level+1)%grid(ijf-1-Nf) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf-1+2*Nf) = E2(level+1)%grid(ijf-1+2*Nf) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2-2*Nf) = E2(level+1)%grid(ijf+2-2*Nf) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2*Nf) = E2(level+1)%grid(ijf+2+Nf) + w3*E2(level)%grid(ij)
+      E2f(ijf-1-Nf) = E2f(ijf-1-Nf) + w3*E2c(ij)
+      E2f(ijf-1+2*Nf) = E2f(ijf-1+2*Nf) + w3*E2c(ij)
+      E2f(ijf+2-2*Nf) = E2f(ijf+2-2*Nf) + w3*E2c(ij)
+      E2f(ijf+2*Nf) = E2f(ijf+2+Nf) + w3*E2c(ij)
     enddo
 
     ! top edge
@@ -879,48 +869,48 @@ module fd_solvers
       ijf = if+Nf*(jf-1)
 
       ! largest contribution to nearest
-      E1(level+1)%grid(ijf) = E1(level+1)%grid(ijf) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1) = E1(level+1)%grid(ijf+1) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf) = E1(level+1)%grid(ijf+Nf) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf+1) = E1(level+1)%grid(ijf+Nf+1) + w1*E1(level)%grid(ij)
+      E1f(ijf) = E1f(ijf) + w1*E1c(ij)
+      E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
+      E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
+      E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
 
       ! lesser contribution to intermediate
-      E1(level+1)%grid(ijf-1) = E1(level+1)%grid(ijf-1) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf-1) = E1(level+1)%grid(ijf+Nf-1) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf*(Nf-1)) = E1(level+1)%grid(ijf+Nf*(Nf-1)) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2*Nf) = E1(level+1)%grid(ijf+2*Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1+Nf*(Nf-1)) = E1(level+1)%grid(ijf+1+Nf*(Nf-1)) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1+2*Nf) = E1(level+1)%grid(ijf+1+2*Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2) = E1(level+1)%grid(ijf+2) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2+Nf) = E1(level+1)%grid(ijf+2+Nf) + w2*E1(level)%grid(ij)
+      E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
+      E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
+      E1f(ijf+Nf*(Nf-1)) = E1f(ijf+Nf*(Nf-1)) + w2*E1c(ij)
+      E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
+      E1f(ijf+1+Nf*(Nf-1)) = E1f(ijf+1+Nf*(Nf-1)) + w2*E1c(ij)
+      E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
+      E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
+      E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
 
       ! least contribution to furthest
-      E1(level+1)%grid(ijf-1+Nf*(Nf-1)) = E1(level+1)%grid(ijf-1+Nf*(Nf-1)) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf-1+2*Nf) = E1(level+1)%grid(ijf-1+2*Nf) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2+Nf*(Nf-1)) = E1(level+1)%grid(ijf+2+Nf*(Nf-1)) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2+2*Nf) = E1(level+1)%grid(ijf+2+2*Nf) + w3*E1(level)%grid(ij)
+      E1f(ijf-1+Nf*(Nf-1)) = E1f(ijf-1+Nf*(Nf-1)) + w3*E1c(ij)
+      E1f(ijf-1+2*Nf) = E1f(ijf-1+2*Nf) + w3*E1c(ij)
+      E1f(ijf+2+Nf*(Nf-1)) = E1f(ijf+2+Nf*(Nf-1)) + w3*E1c(ij)
+      E1f(ijf+2+2*Nf) = E1f(ijf+2+2*Nf) + w3*E1c(ij)
 
       ! largest contribution to nearest
-      E2(level+1)%grid(ijf) = E2(level+1)%grid(ijf) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1) = E2(level+1)%grid(ijf+1) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf) = E2(level+1)%grid(ijf+Nf) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf+1) = E2(level+1)%grid(ijf+Nf+1) + w1*E2(level)%grid(ij)
+      E2f(ijf) = E2f(ijf) + w1*E2c(ij)
+      E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
+      E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
+      E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
 
       ! lesser contribution to intermediate
-      E2(level+1)%grid(ijf-1) = E2(level+1)%grid(ijf-1) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf-1) = E2(level+1)%grid(ijf+Nf-1) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf*(Nf-1)) = E2(level+1)%grid(ijf+Nf*(Nf-1)) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2*Nf) = E2(level+1)%grid(ijf+2*Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1+Nf*(Nf-1)) = E2(level+1)%grid(ijf+1+Nf*(Nf-1)) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1+2*Nf) = E2(level+1)%grid(ijf+1+2*Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2) = E2(level+1)%grid(ijf+2) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2+Nf) = E2(level+1)%grid(ijf+2+Nf) + w2*E2(level)%grid(ij)
+      E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
+      E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
+      E2f(ijf+Nf*(Nf-1)) = E2f(ijf+Nf*(Nf-1)) + w2*E2c(ij)
+      E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
+      E2f(ijf+1+Nf*(Nf-1)) = E2f(ijf+1+Nf*(Nf-1)) + w2*E2c(ij)
+      E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
+      E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
+      E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
 
       ! least contribution to furthest
-      E2(level+1)%grid(ijf-1+Nf*(Nf-1)) = E2(level+1)%grid(ijf-1+Nf*(Nf-1)) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf-1+2*Nf) = E2(level+1)%grid(ijf-1+2*Nf) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2+Nf*(Nf-1)) = E2(level+1)%grid(ijf+2+Nf*(Nf-1)) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2+2*Nf) = E2(level+1)%grid(ijf+2+2*Nf) + w3*E2(level)%grid(ij)
+      E2f(ijf-1+Nf*(Nf-1)) = E2f(ijf-1+Nf*(Nf-1)) + w3*E2c(ij)
+      E2f(ijf-1+2*Nf) = E2f(ijf-1+2*Nf) + w3*E2c(ij)
+      E2f(ijf+2+Nf*(Nf-1)) = E2f(ijf+2+Nf*(Nf-1)) + w3*E2c(ij)
+      E2f(ijf+2+2*Nf) = E2f(ijf+2+2*Nf) + w3*E2c(ij)
     enddo
 
     ! bottom edge
@@ -933,48 +923,48 @@ module fd_solvers
       ijf = if+Nf*(jf-1)
 
       ! largest contribution to nearest
-      E1(level+1)%grid(ijf) = E1(level+1)%grid(ijf) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1) = E1(level+1)%grid(ijf+1) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf) = E1(level+1)%grid(ijf+Nf) + w1*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf+1) = E1(level+1)%grid(ijf+Nf+1) + w1*E1(level)%grid(ij)
+      E1f(ijf) = E1f(ijf) + w1*E1c(ij)
+      E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
+      E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
+      E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
 
       ! lesser contribution to intermediate
-      E1(level+1)%grid(ijf-1) = E1(level+1)%grid(ijf-1) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+Nf-1) = E1(level+1)%grid(ijf+Nf-1) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf-Nf) = E1(level+1)%grid(ijf-Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(if) = E1(level+1)%grid(if) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+1-Nf) = E1(level+1)%grid(ijf+1-Nf) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(if+1) = E1(level+1)%grid(if+1) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2) = E1(level+1)%grid(ijf+2) + w2*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2+Nf) = E1(level+1)%grid(ijf+2+Nf) + w2*E1(level)%grid(ij)
+      E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
+      E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
+      E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
+      E1f(if) = E1f(if) + w2*E1c(ij)
+      E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
+      E1f(if+1) = E1f(if+1) + w2*E1c(ij)
+      E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
+      E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
 
       ! least contribution to furthest
-      E1(level+1)%grid(ijf-1-Nf) = E1(level+1)%grid(ijf-1-Nf) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(if-1) = E1(level+1)%grid(if-1) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(ijf+2-Nf) = E1(level+1)%grid(ijf+2-Nf) + w3*E1(level)%grid(ij)
-      E1(level+1)%grid(if+2) = E1(level+1)%grid(if+2) + w3*E1(level)%grid(ij)
+      E1f(ijf-1-Nf) = E1f(ijf-1-Nf) + w3*E1c(ij)
+      E1f(if-1) = E1f(if-1) + w3*E1c(ij)
+      E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w3*E1c(ij)
+      E1f(if+2) = E1f(if+2) + w3*E1c(ij)
 
       ! largest contribution to nearest
-      E2(level+1)%grid(ijf) = E2(level+1)%grid(ijf) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1) = E2(level+1)%grid(ijf+1) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf) = E2(level+1)%grid(ijf+Nf) + w1*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf+1) = E2(level+1)%grid(ijf+Nf+1) + w1*E2(level)%grid(ij)
+      E2f(ijf) = E2f(ijf) + w1*E2c(ij)
+      E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
+      E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
+      E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
 
       ! lesser contribution to intermediate
-      E2(level+1)%grid(ijf-1) = E2(level+1)%grid(ijf-1) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+Nf-1) = E2(level+1)%grid(ijf+Nf-1) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf-Nf) = E2(level+1)%grid(ijf-Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(if) = E2(level+1)%grid(if) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+1-Nf) = E2(level+1)%grid(ijf+1-Nf) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(if+1) = E2(level+1)%grid(if+1) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2) = E2(level+1)%grid(ijf+2) + w2*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2+Nf) = E2(level+1)%grid(ijf+2+Nf) + w2*E2(level)%grid(ij)
+      E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
+      E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
+      E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
+      E2f(if) = E2f(if) + w2*E2c(ij)
+      E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
+      E2f(if+1) = E2f(if+1) + w2*E2c(ij)
+      E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
+      E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
 
       ! least contribution to furthest
-      E2(level+1)%grid(ijf-1-Nf) = E2(level+1)%grid(ijf-1-Nf) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(if-1) = E2(level+1)%grid(if-1) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(ijf+2-Nf) = E2(level+1)%grid(ijf+2-Nf) + w3*E2(level)%grid(ij)
-      E2(level+1)%grid(if+2) = E2(level+1)%grid(if+2) + w3*E2(level)%grid(ij)
+      E2f(ijf-1-Nf) = E2f(ijf-1-Nf) + w3*E2c(ij)
+      E2f(if-1) = E2f(if-1) + w3*E2c(ij)
+      E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w3*E2c(ij)
+      E2f(if+2) = E2f(if+2) + w3*E2c(ij)
     enddo
 
     ! top left corner
@@ -986,48 +976,48 @@ module fd_solvers
     ijf = if+Nf*(jf-1)
 
     ! largest contribution to nearest
-    E1(level+1)%grid(ijf) = E1(level+1)%grid(ijf) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+1) = E1(level+1)%grid(ijf+1) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf) = E1(level+1)%grid(ijf+Nf) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf+1) = E1(level+1)%grid(ijf+Nf+1) + w1*E1(level)%grid(ij)
+    E1f(ijf) = E1f(ijf) + w1*E1c(ij)
+    E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
+    E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
+    E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
 
     ! lesser contribution to intermediate
-    E1(level+1)%grid(ijf-1+Nf) = E1(level+1)%grid(ijf-1+Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2*Nf-1) = E1(level+1)%grid(ijf+2*Nf-1) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf*(Nf-1)) = E1(level+1)%grid(ijf+Nf*(Nf-1)) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2*Nf) = E1(level+1)%grid(ijf+2*Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+1+Nf*(Nf-1)) = E1(level+1)%grid(ijf+1+Nf*(Nf-1)) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+1+2*Nf) = E1(level+1)%grid(ijf+1+2*Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2) = E1(level+1)%grid(ijf+2) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2+Nf) = E1(level+1)%grid(ijf+2+Nf) + w2*E1(level)%grid(ij)
+    E1f(ijf-1+Nf) = E1f(ijf-1+Nf) + w2*E1c(ij)
+    E1f(ijf+2*Nf-1) = E1f(ijf+2*Nf-1) + w2*E1c(ij)
+    E1f(ijf+Nf*(Nf-1)) = E1f(ijf+Nf*(Nf-1)) + w2*E1c(ij)
+    E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
+    E1f(ijf+1+Nf*(Nf-1)) = E1f(ijf+1+Nf*(Nf-1)) + w2*E1c(ij)
+    E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
+    E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
+    E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
 
     ! least contribution to furthest
-    E1(level+1)%grid(ijf-1+Nf*Nf) = E1(level+1)%grid(ijf-1+Nf*Nf) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf-1+3*Nf) = E1(level+1)%grid(ijf-1+3*Nf) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2+Nf*(Nf-1)) = E1(level+1)%grid(ijf+2+Nf*(Nf-1)) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2+2*Nf) = E1(level+1)%grid(ijf+2+2*Nf) + w3*E1(level)%grid(ij)
+    E1f(ijf-1+Nf*Nf) = E1f(ijf-1+Nf*Nf) + w3*E1c(ij)
+    E1f(ijf-1+3*Nf) = E1f(ijf-1+3*Nf) + w3*E1c(ij)
+    E1f(ijf+2+Nf*(Nf-1)) = E1f(ijf+2+Nf*(Nf-1)) + w3*E1c(ij)
+    E1f(ijf+2+2*Nf) = E1f(ijf+2+2*Nf) + w3*E1c(ij)
 
     ! largest contribution to nearest
-    E2(level+1)%grid(ijf) = E2(level+1)%grid(ijf) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+1) = E2(level+1)%grid(ijf+1) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf) = E2(level+1)%grid(ijf+Nf) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf+1) = E2(level+1)%grid(ijf+Nf+1) + w1*E2(level)%grid(ij)
+    E2f(ijf) = E2f(ijf) + w1*E2c(ij)
+    E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
+    E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
+    E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
 
     ! lesser contribution to intermediate
-    E2(level+1)%grid(ijf-1+Nf) = E2(level+1)%grid(ijf-1+Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2*Nf-1) = E2(level+1)%grid(ijf+2*Nf-1) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf*(Nf-1)) = E2(level+1)%grid(ijf+Nf*(Nf-1)) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2*Nf) = E2(level+1)%grid(ijf+2*Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+1+Nf*(Nf-1)) = E2(level+1)%grid(ijf+1+Nf*(Nf-1)) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+1+2*Nf) = E2(level+1)%grid(ijf+1+2*Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2) = E2(level+1)%grid(ijf+2) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2+Nf) = E2(level+1)%grid(ijf+2+Nf) + w2*E2(level)%grid(ij)
+    E2f(ijf-1+Nf) = E2f(ijf-1+Nf) + w2*E2c(ij)
+    E2f(ijf+2*Nf-1) = E2f(ijf+2*Nf-1) + w2*E2c(ij)
+    E2f(ijf+Nf*(Nf-1)) = E2f(ijf+Nf*(Nf-1)) + w2*E2c(ij)
+    E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
+    E2f(ijf+1+Nf*(Nf-1)) = E2f(ijf+1+Nf*(Nf-1)) + w2*E2c(ij)
+    E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
+    E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
+    E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
 
     ! least contribution to furthest
-    E2(level+1)%grid(ijf-1+Nf*Nf) = E2(level+1)%grid(ijf-1+Nf*Nf) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf-1+3*Nf) = E2(level+1)%grid(ijf-1+3*Nf) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2+Nf*(Nf-1)) = E2(level+1)%grid(ijf+2+Nf*(Nf-1)) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2+2*Nf) = E2(level+1)%grid(ijf+2+2*Nf) + w3*E2(level)%grid(ij)
+    E2f(ijf-1+Nf*Nf) = E2f(ijf-1+Nf*Nf) + w3*E2c(ij)
+    E2f(ijf-1+3*Nf) = E2f(ijf-1+3*Nf) + w3*E2c(ij)
+    E2f(ijf+2+Nf*(Nf-1)) = E2f(ijf+2+Nf*(Nf-1)) + w3*E2c(ij)
+    E2f(ijf+2+2*Nf) = E2f(ijf+2+2*Nf) + w3*E2c(ij)
 
 
     ! top right corner
@@ -1039,48 +1029,48 @@ module fd_solvers
     ijf = if+Nf*(jf-1)
 
     ! largest contribution to nearest
-    E1(level+1)%grid(ijf) = E1(level+1)%grid(ijf) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+1) = E1(level+1)%grid(ijf+1) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf) = E1(level+1)%grid(ijf+Nf) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf+1) = E1(level+1)%grid(ijf+Nf+1) + w1*E1(level)%grid(ij)
+    E1f(ijf) = E1f(ijf) + w1*E1c(ij)
+    E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
+    E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
+    E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
 
     ! lesser contribution to intermediate
-    E1(level+1)%grid(ijf-1) = E1(level+1)%grid(ijf-1) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf-1) = E1(level+1)%grid(ijf+Nf-1) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf*(Nf-1)) = E1(level+1)%grid(ijf+Nf*(Nf-1)) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2*Nf) = E1(level+1)%grid(ijf+2*Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+1+Nf*(Nf-1)) = E1(level+1)%grid(ijf+1+Nf*(Nf-1)) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+1+2*Nf) = E1(level+1)%grid(ijf+1+2*Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2-Nf) = E1(level+1)%grid(ijf+2-Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2) = E1(level+1)%grid(ijf+2) + w2*E1(level)%grid(ij)
+    E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
+    E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
+    E1f(ijf+Nf*(Nf-1)) = E1f(ijf+Nf*(Nf-1)) + w2*E1c(ij)
+    E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
+    E1f(ijf+1+Nf*(Nf-1)) = E1f(ijf+1+Nf*(Nf-1)) + w2*E1c(ij)
+    E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
+    E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w2*E1c(ij)
+    E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
 
     ! least contribution to furthest
-    E1(level+1)%grid(ijf-1+Nf*(Nf-1)) = E1(level+1)%grid(ijf-1+Nf*(Nf-1)) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf-1+2*Nf) = E1(level+1)%grid(ijf-1+2*Nf) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2+Nf*(Nf-2)) = E1(level+1)%grid(ijf+2+Nf*(Nf-2)) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2+Nf) = E1(level+1)%grid(ijf+2+Nf) + w3*E1(level)%grid(ij)
+    E1f(ijf-1+Nf*(Nf-1)) = E1f(ijf-1+Nf*(Nf-1)) + w3*E1c(ij)
+    E1f(ijf-1+2*Nf) = E1f(ijf-1+2*Nf) + w3*E1c(ij)
+    E1f(ijf+2+Nf*(Nf-2)) = E1f(ijf+2+Nf*(Nf-2)) + w3*E1c(ij)
+    E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w3*E1c(ij)
 
     ! largest contribution to nearest
-    E2(level+1)%grid(ijf) = E2(level+1)%grid(ijf) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+1) = E2(level+1)%grid(ijf+1) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf) = E2(level+1)%grid(ijf+Nf) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf+1) = E2(level+1)%grid(ijf+Nf+1) + w1*E2(level)%grid(ij)
+    E2f(ijf) = E2f(ijf) + w1*E2c(ij)
+    E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
+    E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
+    E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
 
     ! lesser contribution to intermediate
-    E2(level+1)%grid(ijf-1) = E2(level+1)%grid(ijf-1) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf-1) = E2(level+1)%grid(ijf+Nf-1) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf*(Nf-1)) = E2(level+1)%grid(ijf+Nf*(Nf-1)) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2*Nf) = E2(level+1)%grid(ijf+2*Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+1+Nf*(Nf-1)) = E2(level+1)%grid(ijf+1+Nf*(Nf-1)) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+1+2*Nf) = E2(level+1)%grid(ijf+1+2*Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2-Nf) = E2(level+1)%grid(ijf+2-Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2) = E2(level+1)%grid(ijf+2) + w2*E2(level)%grid(ij)
+    E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
+    E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
+    E2f(ijf+Nf*(Nf-1)) = E2f(ijf+Nf*(Nf-1)) + w2*E2c(ij)
+    E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
+    E2f(ijf+1+Nf*(Nf-1)) = E2f(ijf+1+Nf*(Nf-1)) + w2*E2c(ij)
+    E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
+    E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w2*E2c(ij)
+    E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
 
     ! least contribution to furthest
-    E2(level+1)%grid(ijf-1+Nf*(Nf-1)) = E2(level+1)%grid(ijf-1+Nf*(Nf-1)) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf-1+2*Nf) = E2(level+1)%grid(ijf-1+2*Nf) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2+Nf*(Nf-2)) = E2(level+1)%grid(ijf+2+Nf*(Nf-2)) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2+Nf) = E2(level+1)%grid(ijf+2+Nf) + w3*E2(level)%grid(ij)
+    E2f(ijf-1+Nf*(Nf-1)) = E2f(ijf-1+Nf*(Nf-1)) + w3*E2c(ij)
+    E2f(ijf-1+2*Nf) = E2f(ijf-1+2*Nf) + w3*E2c(ij)
+    E2f(ijf+2+Nf*(Nf-2)) = E2f(ijf+2+Nf*(Nf-2)) + w3*E2c(ij)
+    E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w3*E2c(ij)
 
 
     ! bottom left corner
@@ -1092,48 +1082,48 @@ module fd_solvers
     ijf = if+Nf*(jf-1)
 
     ! largest contribution to nearest
-    E1(level+1)%grid(ijf) = E1(level+1)%grid(ijf) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+1) = E1(level+1)%grid(ijf+1) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf) = E1(level+1)%grid(ijf+Nf) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf+1) = E1(level+1)%grid(ijf+Nf+1) + w1*E1(level)%grid(ij)
+    E1f(ijf) = E1f(ijf) + w1*E1c(ij)
+    E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
+    E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
+    E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
 
     ! lesser contribution to intermediate
-    E1(level+1)%grid(ijf-1+Nf) = E1(level+1)%grid(ijf-1+Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2*Nf-1) = E1(level+1)%grid(ijf+2*Nf-1) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf-Nf) = E1(level+1)%grid(ijf-Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(if) = E1(level+1)%grid(if) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+1-Nf) = E1(level+1)%grid(ijf+1-Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(if+1) = E1(level+1)%grid(if+1) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2) = E1(level+1)%grid(ijf+2) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2+Nf) = E1(level+1)%grid(ijf+2+Nf) + w2*E1(level)%grid(ij)
+    E1f(ijf-1+Nf) = E1f(ijf-1+Nf) + w2*E1c(ij)
+    E1f(ijf+2*Nf-1) = E1f(ijf+2*Nf-1) + w2*E1c(ij)
+    E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
+    E1f(if) = E1f(if) + w2*E1c(ij)
+    E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
+    E1f(if+1) = E1f(if+1) + w2*E1c(ij)
+    E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
+    E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
 
     ! least contribution to furthest
-    E1(level+1)%grid(ijf-1) = E1(level+1)%grid(ijf-1) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(if-1+Nf) = E1(level+1)%grid(if-1+Nf) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2-Nf) = E1(level+1)%grid(ijf+2-Nf) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(if+2) = E1(level+1)%grid(if+2) + w3*E1(level)%grid(ij)
+    E1f(ijf-1) = E1f(ijf-1) + w3*E1c(ij)
+    E1f(if-1+Nf) = E1f(if-1+Nf) + w3*E1c(ij)
+    E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w3*E1c(ij)
+    E1f(if+2) = E1f(if+2) + w3*E1c(ij)
 
     ! largest contribution to nearest
-    E2(level+1)%grid(ijf) = E2(level+1)%grid(ijf) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+1) = E2(level+1)%grid(ijf+1) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf) = E2(level+1)%grid(ijf+Nf) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf+1) = E2(level+1)%grid(ijf+Nf+1) + w1*E2(level)%grid(ij)
+    E2f(ijf) = E2f(ijf) + w1*E2c(ij)
+    E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
+    E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
+    E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
 
     ! lesser contribution to intermediate
-    E2(level+1)%grid(ijf-1+Nf) = E2(level+1)%grid(ijf-1+Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2*Nf-1) = E2(level+1)%grid(ijf+2*Nf-1) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf-Nf) = E2(level+1)%grid(ijf-Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(if) = E2(level+1)%grid(if) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+1-Nf) = E2(level+1)%grid(ijf+1-Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(if+1) = E2(level+1)%grid(if+1) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2) = E2(level+1)%grid(ijf+2) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2+Nf) = E2(level+1)%grid(ijf+2+Nf) + w2*E2(level)%grid(ij)
+    E2f(ijf-1+Nf) = E2f(ijf-1+Nf) + w2*E2c(ij)
+    E2f(ijf+2*Nf-1) = E2f(ijf+2*Nf-1) + w2*E2c(ij)
+    E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
+    E2f(if) = E2f(if) + w2*E2c(ij)
+    E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
+    E2f(if+1) = E2f(if+1) + w2*E2c(ij)
+    E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
+    E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
 
     ! least contribution to furthest
-    E2(level+1)%grid(ijf-1) = E2(level+1)%grid(ijf-1) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(if-1+Nf) = E2(level+1)%grid(if-1+Nf) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2-Nf) = E2(level+1)%grid(ijf+2-Nf) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(if+2) = E2(level+1)%grid(if+2) + w3*E2(level)%grid(ij)
+    E2f(ijf-1) = E2f(ijf-1) + w3*E2c(ij)
+    E2f(if-1+Nf) = E2f(if-1+Nf) + w3*E2c(ij)
+    E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w3*E2c(ij)
+    E2f(if+2) = E2f(if+2) + w3*E2c(ij)
 
 
     ! bottom right corner
@@ -1145,48 +1135,48 @@ module fd_solvers
     ijf = if+Nf*(jf-1)
 
     ! largest contribution to nearest
-    E1(level+1)%grid(ijf) = E1(level+1)%grid(ijf) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+1) = E1(level+1)%grid(ijf+1) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf) = E1(level+1)%grid(ijf+Nf) + w1*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf+1) = E1(level+1)%grid(ijf+Nf+1) + w1*E1(level)%grid(ij)
+    E1f(ijf) = E1f(ijf) + w1*E1c(ij)
+    E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
+    E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
+    E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
 
     ! lesser contribution to intermediate
-    E1(level+1)%grid(ijf-1) = E1(level+1)%grid(ijf-1) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+Nf-1) = E1(level+1)%grid(ijf+Nf-1) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf-Nf) = E1(level+1)%grid(ijf-Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(if) = E1(level+1)%grid(if) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+1-Nf) = E1(level+1)%grid(ijf+1-Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(if+1) = E1(level+1)%grid(if+1) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2-Nf) = E1(level+1)%grid(ijf+2-Nf) + w2*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2) = E1(level+1)%grid(ijf+2) + w2*E1(level)%grid(ij)
+    E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
+    E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
+    E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
+    E1f(if) = E1f(if) + w2*E1c(ij)
+    E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
+    E1f(if+1) = E1f(if+1) + w2*E1c(ij)
+    E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w2*E1c(ij)
+    E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
 
     ! least contribution to furthest
-    E1(level+1)%grid(ijf-1-Nf) = E1(level+1)%grid(ijf-1-Nf) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(if-1) = E1(level+1)%grid(if-1) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(ijf+2-2*Nf) = E1(level+1)%grid(ijf+2-2*Nf) + w3*E1(level)%grid(ij)
-    E1(level+1)%grid(if+2-Nf) = E1(level+1)%grid(if+2-Nf) + w3*E1(level)%grid(ij)
+    E1f(ijf-1-Nf) = E1f(ijf-1-Nf) + w3*E1c(ij)
+    E1f(if-1) = E1f(if-1) + w3*E1c(ij)
+    E1f(ijf+2-2*Nf) = E1f(ijf+2-2*Nf) + w3*E1c(ij)
+    E1f(if+2-Nf) = E1f(if+2-Nf) + w3*E1c(ij)
 
     ! largest contribution to nearest
-    E2(level+1)%grid(ijf) = E2(level+1)%grid(ijf) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+1) = E2(level+1)%grid(ijf+1) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf) = E2(level+1)%grid(ijf+Nf) + w1*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf+1) = E2(level+1)%grid(ijf+Nf+1) + w1*E2(level)%grid(ij)
+    E2f(ijf) = E2f(ijf) + w1*E2c(ij)
+    E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
+    E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
+    E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
 
     ! lesser contribution to intermediate
-    E2(level+1)%grid(ijf-1) = E2(level+1)%grid(ijf-1) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+Nf-1) = E2(level+1)%grid(ijf+Nf-1) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf-Nf) = E2(level+1)%grid(ijf-Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(if) = E2(level+1)%grid(if) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+1-Nf) = E2(level+1)%grid(ijf+1-Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(if+1) = E2(level+1)%grid(if+1) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2-Nf) = E2(level+1)%grid(ijf+2-Nf) + w2*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2) = E2(level+1)%grid(ijf+2) + w2*E2(level)%grid(ij)
+    E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
+    E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
+    E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
+    E2f(if) = E2f(if) + w2*E2c(ij)
+    E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
+    E2f(if+1) = E2f(if+1) + w2*E2c(ij)
+    E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w2*E2c(ij)
+    E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
 
     ! least contribution to furthest
-    E2(level+1)%grid(ijf-1-Nf) = E2(level+1)%grid(ijf-1-Nf) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(if-1) = E2(level+1)%grid(if-1) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(ijf+2-2*Nf) = E2(level+1)%grid(ijf+2-2*Nf) + w3*E2(level)%grid(ij)
-    E2(level+1)%grid(if+2-Nf) = E2(level+1)%grid(if+2-Nf) + w3*E2(level)%grid(ij)
+    E2f(ijf-1-Nf) = E2f(ijf-1-Nf) + w3*E2c(ij)
+    E2f(if-1) = E2f(if-1) + w3*E2c(ij)
+    E2f(ijf+2-2*Nf) = E2f(ijf+2-2*Nf) + w3*E2c(ij)
+    E2f(if+2-Nf) = E2f(if+2-Nf) + w3*E2c(ij)
   end subroutine prolongate
 
 
