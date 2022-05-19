@@ -206,10 +206,6 @@ module fd_solvers
 
       ! perform a single v-cycle
       call vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
-      print *, ""
-      print *, ""
-      call vcycle_flat(A, E1, E2, R1, R2, eps2, N, dx, level)
-      stop
 
       ! update with errors
       phi = phi + E1(level)%grid
@@ -455,41 +451,6 @@ module fd_solvers
   !! @param N      grid size
   !! @param dx     grid spacing
   !! @param level  grid level
-  recursive subroutine vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
-    implicit none
-    real(dp), dimension(2,2), intent(in) :: A
-    type(t_grid), dimension(:), allocatable, intent(inout) :: E1, E2, R1, R2
-    real(dp), intent(in) :: eps2, dx
-    integer, intent(in) :: N, level
-
-    print "(A, I0, A, I0)", "call vcycle level ", level, ", N = ", N
-    E1(level)%grid = 0.0_dp
-    E2(level)%grid = 0.0_dp
-
-    ! start smooth
-    call smooth(A, E1(level)%grid, E2(level)%grid, R1(level)%grid, R2(level)%grid, eps2, N, dx)
-
-    ! if the level we're at is greater than 0 then a smooth won't solve it
-    if (level > 1) then
-      ! restrict (level -> level-1)
-      call restrict(R1, R2, N, level)
-
-      ! recurse
-      call vcycle(A, E1, E2, R1, R2, eps2, N/2, dx*2.0_dp, level-1)
-
-      ! prolongate (level-1 -> level) and correct
-      call prolongate(E1, E2, N/2, level-1)
-    else
-      ! extra smooths on the 2x2 grid
-      call smooth(A, E1(level)%grid, E2(level)%grid, R1(level)%grid, R2(level)%grid, eps2, N, dx)
-      call smooth(A, E1(level)%grid, E2(level)%grid, R1(level)%grid, R2(level)%grid, eps2, N, dx)
-    endif
-
-    ! start smooth
-    call smooth(A, E1(level)%grid, E2(level)%grid, R1(level)%grid, R2(level)%grid, eps2, N, dx)
-  end subroutine vcycle
-
-  !! flat version of vcycle
   subroutine vcycle_flat(A, E1, E2, R1, R2, eps2, N, dx, level)
     implicit none
     real(dp), dimension(2,2), intent(in) :: A
@@ -505,7 +466,6 @@ module fd_solvers
 
     ! go up, smoothing and restricting
     do l=level,2,-1
-      print "(A, I0, A, I0)", "call vcycle level ", l, ", N = ", nl
       E1(l)%grid = 0.0_dp
       E2(l)%grid = 0.0_dp
 
@@ -517,7 +477,6 @@ module fd_solvers
     enddo
 
     ! smooth at level 1
-    print "(A, I0, A, I0)", "call vcycle level ", l, ", N = ", nl
     E1(l)%grid = 0.0_dp
     E2(l)%grid = 0.0_dp
     call smooth(A, E1(1)%grid, E2(1)%grid, R1(1)%grid, R2(1)%grid, eps2, nl, dxl)
@@ -526,13 +485,13 @@ module fd_solvers
     call smooth(A, E1(1)%grid, E2(1)%grid, R1(1)%grid, R2(1)%grid, eps2, nl, dxl)
 
     ! go down, smoothing and prolongating
-    do l=1,level
+    do l=1,level-1
       call prolongate(E1, E2, nl, l)
 
       nl = nl*2;
       dxl = dxl * 0.5_dp
 
-      call smooth(A, E1(l)%grid, E2(l)%grid, R1(l)%grid, R2(l)%grid, eps2, nl, dxl)
+      call smooth(A, E1(l+1)%grid, E2(l+1)%grid, R1(l+1)%grid, R2(l+1)%grid, eps2, nl, dxl)
     enddo
   end subroutine vcycle_flat
 
@@ -558,9 +517,6 @@ module fd_solvers
     real(dp), dimension(2) :: rhs
     real(dp) :: dx2_
     integer :: i, j, ij, shift
-
-    call ilog2(N, i)
-    print "(A, I0, A, I0)", "call smooth level ", i, ", N = ", N
 
     dx2_ = 1.0_dp / (dx*dx)
 
@@ -706,8 +662,6 @@ module fd_solvers
 
     integer :: i, j, ij, im, jm, ijm
 
-    print "(A, I0, A, I0)", "call restrict level ", level, ", N = ", N
-
     ! use a simple average across the grid
     do j=1,2**(level-1)
       jm = 2*j-1
@@ -749,8 +703,6 @@ module fd_solvers
     real(dp), parameter :: w1 = 0.5625_dp
     real(dp), parameter :: w2 = 0.1875_dp
     real(dp), parameter :: w3 = 0.0625_dp
-
-    print "(A, I0, A, I0)", "call prolongate level ", level, ", N = ", N
 
     Nf = 2*N
 
