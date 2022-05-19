@@ -5,7 +5,7 @@ LD=$(FC)
 
 
 # flags and libraries
-FFLAGS= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 -g#h5fc-show is equiv to nf-config --fflags/flibs to find these
+FFLAGS= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 -g -fall-intrinsics#h5fc-show is equiv to nf-config --fflags/flibs to find these
 FLIBS= -lpthread -lsz -lz -ldl -lm ./src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
 
 # executable names
@@ -91,7 +91,7 @@ $(OBJ_DIR)/logger_mod.o : $(OBJ_DIR)/face.o
 $(OBJ_DIR)/globals.o : $(OBJ_DIR)/logging.o
 $(OBJ_DIR)/solver-utils.o : $(OBJ_DIR)/globals.o
 $(OBJ_DIR)/solvers.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o $(OBJ_DIR)/fd-solvers.o
-$(OBJ_DIR)/fd-solvers.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o
+$(OBJ_DIR)/fd-solvers.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o $(OBJ_DIR)/hdf5-io.o
 $(OBJ_DIR)/logging.o : $(OBJ_DIR)/logger_mod.o
 $(OBJ_DIR)/json-parser.o $(OBJ_DIR)/hdf5-io.o $(OBJ_DIR)/setup.o $(OBJ_DIR)/solvers.o $(OBJ_DIR)/progress.o : $(OBJ_DIR)/globals.o 
 $(OBJ_DIR)/command-line.o : $(OBJ_DIR)/globals.o

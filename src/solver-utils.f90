@@ -71,7 +71,7 @@ module solver_utils
     c = a0*c+a1
 
     ! scale times
-    T = L*L/(4.0_dp*a0*a0*a0*A*M) * t
+    t = L*L/(4.0_dp*a0*a0*a0*A*M) * t
   end subroutine dimensionalise
 
 
