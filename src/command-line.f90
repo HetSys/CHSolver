@@ -5,7 +5,7 @@ module command_line
   real(dp), private :: cmd_CH_params(6)
   character(1), private :: cmd_grid_init
   integer, private :: cmd_level
-  character, allocatable, private :: cmd_fname, cmd_runname, cmd_outpath, cmd_logdir
+  character(len=:), allocatable, private :: cmd_fname, cmd_runname, cmd_outpath, cmd_logdir
   real(dp), allocatable, private :: cmd_timearray(:), cmd_space_params(:)
 
   integer, private :: cmd_stdout_val
@@ -73,7 +73,7 @@ module command_line
 
     if (present(filename) .AND. allocated(cmd_fname)) then
       filename = cmd_fname
-      call logger%debug("get_io_commands", "JSON file "// trim(filename) // "set from CLI")
+      call logger%debug("get_io_commands", "JSON file "// trim(filename) // " set from CLI")
     end if
 
     if (present(run_name) .AND. allocated(cmd_runname)) then
@@ -81,7 +81,7 @@ module command_line
       call logger%debug("get_io_commands", "Run name "// trim(run_name) // "set from CLI")
     end if
 
-    if (present(output_dir) .AND. allocated(cmd_fname)) then
+    if (present(output_dir) .AND. allocated(cmd_outpath)) then
       output_dir = cmd_outpath
       call logger%debug("get_io_commands", "Output directory "// trim(output_dir) // "set from CLI")
     end if
