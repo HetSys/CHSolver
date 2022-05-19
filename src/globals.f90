@@ -126,7 +126,7 @@ module globals
     ! Tout validation
     if (present(Tout)) then
       if (.not. allocated(Tout)) then
-        call logger%error("validate_params", "Output Timesteps not specified")
+        call logger%error("validate_params", "Output times not specified")
         errors = .TRUE.
       else if (any(Tout .LT. 0)) then
         call logger%error("validate_params", "Cannot output at negative timesteps")
