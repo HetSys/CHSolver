@@ -40,7 +40,7 @@ module globals
 
     real(dp), parameter :: REAL_TOL = 1e-10_DP
 
-    character(*), parameter :: ACCEPTED_INITS = "r"
+    character(*), parameter :: ACCEPTED_INITS = "rcbs"
 
 
     errors = .FALSE.

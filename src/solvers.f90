@@ -21,7 +21,7 @@ module solvers
     implicit none
     integer, intent(out) :: error
     real(dp), intent(in) :: CH_params(6)
-    real(dp), pointer, contiguous, intent(inout) :: c0(:,:)
+    real(dp), dimension(:,:), allocatable, intent(inout) :: c0
     real(dp), allocatable, intent(inout) :: Tout(:)
     integer, intent(in) :: code
 

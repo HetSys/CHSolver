@@ -18,7 +18,7 @@ module setup
     integer, intent(in) :: n
     real(dp), intent(in), dimension(6) :: CH_params
     character, intent(in) :: init
-    real(dp), pointer, contiguous, intent(out) :: c(:,:)
+    real(dp), dimension(:,:), allocatable, intent(out) :: c
 
     integer :: i, j, grid
     real(dp) :: t
