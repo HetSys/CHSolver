@@ -9,7 +9,89 @@ contains
   subroutine setup()
     logger%disable_all_logging = .TRUE.
 
+    call unittest_alloc_is_val(6)
+
   end subroutine
+
+  !===================================================================================!
+  ! IO PARAM TESTS                                                                    !
+  ! Test key/val pairs modify the returned output params as expected                  !
+  !===================================================================================!
+
+
+  @test
+  subroutine test_cmd_json_fname()
+    character(120) :: default_fname, name_buf, new_fname
+    logical :: ch_fnd
+
+
+    new_fname = "new.json"
+
+    default_fname = "default.json"
+    name_buf = default_fname
+
+    call get_io_commands(filename=name_buf, all_params_fnd=ch_fnd)
+
+    ! Name should be unchanged as json filename key not passed
+    @assertEqual(default_fname, name_buf)
+
+    call parse_keyval_arg("j", new_fname, .TRUE.)
+
+    call get_io_commands(filename=name_buf, all_params_fnd=ch_fnd)
+
+    @assertEqual(new_fname, name_buf)
+
+  end subroutine
+
+
+  @test
+  subroutine test_cmd_json_runname()
+    character(120) :: default_name, name_buf, new_name
+    logical :: ch_fnd
+
+
+    new_name = "new"
+
+    default_name = "default"
+    name_buf = default_name
+
+    call get_io_commands(run_name=name_buf, all_params_fnd=ch_fnd)
+
+    ! Name should be unchanged as json filename key not passed
+    @assertEqual(default_name, name_buf)
+
+    call parse_keyval_arg("r", new_name, .TRUE.)
+
+    call get_io_commands(run_name=name_buf, all_params_fnd=ch_fnd)
+
+    @assertEqual(new_name, name_buf)
+
+  end subroutine
+
+  @test
+  subroutine test_cmd_outdir()
+    character(120) :: default_name, name_buf, new_name
+    logical :: ch_fnd
+
+
+    new_name = "new"
+
+    default_name = "default"
+    name_buf = default_name
+
+    call get_io_commands(output_dir=name_buf, all_params_fnd=ch_fnd)
+
+    ! Name should be unchanged as json filename key not passed
+    @assertEqual(default_name, name_buf)
+
+    call parse_keyval_arg("o", new_name, .TRUE.)
+
+    call get_io_commands(output_dir=name_buf, all_params_fnd=ch_fnd)
+
+    @assertEqual(new_name, name_buf)
+
+  end subroutine
+
 
 
   !===================================================================================!

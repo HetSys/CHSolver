@@ -404,4 +404,15 @@ module command_line
 
     read(str_val, *) int_val
   end function
+
+
+
+  subroutine unittest_alloc_is_val(size)
+    integer, intent(in) :: size
+
+    if (allocated(is_val)) deallocate(is_val)
+
+    allocate(is_val(size))
+  end subroutine
+
 end module command_line
