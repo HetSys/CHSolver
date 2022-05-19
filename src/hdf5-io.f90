@@ -55,7 +55,7 @@ module hdf5_io
     c_dims = int(2**grid_params(2), hsize_t)
     dt_dims = 1
 
-    call execute_command_line("rm -r "//trim(foldername), wait=.true.)
+    call execute_command_line("rm "//trim(foldername)//"/*.chkpnt "//trim(foldername)//"/metadata.dat", wait=.true.)
     call execute_command_line("mkdir "//trim(foldername), wait=.true.)
 
     open(newunit=iu, file=trim(foldername)//metadata_fname, status="new")
