@@ -56,7 +56,7 @@ module hdf5_io
     dt_dims = 1
 
     call execute_command_line("rm "//trim(foldername)//"/*.chkpnt "//trim(foldername)//"/metadata.dat", wait=.true.)
-    call execute_command_line("mkdir "//trim(foldername), wait=.true.)
+    call execute_command_line("mkdir -p "//trim(foldername), wait=.true.)
 
     open(newunit=iu, file=trim(foldername)//metadata_fname, status="new")
 
