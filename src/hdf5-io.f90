@@ -60,7 +60,7 @@ module hdf5_io
 
     open(newunit=iu, file=trim(foldername)//metadata_fname, status="new")
 
-    write(iu, "('chkpnts',1X,I5)") 0
+    !write(iu, "('chkpnts',1X,I5)") 0
     write(iu, "('grid_params',1X,I5,1X,I5)") grid_params(1), grid_params(2)
     write(iu, "('system_params',1X,F15.5,1X,F15.5,1X,F15.5)") sys_params(1), sys_params(2), sys_params(3)
     write(iu, "('system_params',1X,F15.5,1X,F15.5,1X,F15.5)") sys_params(4), sys_params(5), sys_params(6)
@@ -112,7 +112,7 @@ module hdf5_io
 
     open(newunit=iu, file=trim(folder)//metadata_fname, status="old")
     
-    do i = 1, cur_chkpnt + 4
+    do i = 1, cur_chkpnt + 3
       read(iu, *)
     end do
 
@@ -179,8 +179,8 @@ module hdf5_io
     open(newunit=iu2, file=trim(folder)//metadata2_fname, status="new")
 
 
-    read(iu, *)
-    write(iu2, "('chkpnts',1X,I5)") cur_chkpnt
+    !read(iu, *)
+    !write(iu2, "('chkpnts',1X,I5)") cur_chkpnt
 
     do i =1, 3
       read(iu, "(A)") buffer
@@ -330,14 +330,14 @@ module hdf5_io
     open(newunit=iu2, file=trim(chkpnt_folder)//metadata2_fname, status="new")
 
 
-    read(iu, *)
-    write(iu2, "('chkpnts',1X,I5)") n_chkpnt
+    !read(iu, *)
+    !write(iu2, "('chkpnts',1X,I5)") n_chkpnt
 
     write(iu2, "('grid_params',1X,I5,1X,I5)") grid_rank, grid_len
     write(iu2, "('system_params',1X,F15.5,1X,F15.5,1X,F15.5)") sys_params(1), sys_params(2), sys_params(3)
     write(iu2, "('system_params',1X,F15.5,1X,F15.5,1X,F15.5)") sys_params(4), sys_params(5), sys_params(6)
 
-    do i =1, 4
+    do i =1, 3
       read(iu, *)
     end do
 
