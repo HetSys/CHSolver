@@ -3,7 +3,7 @@ include $(PFUNIT_DIR)/include/PFUNIT.mk
 FC= gfortran # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
 LD=$(FC)
 
-FFLAGS= -Wall -Wextra -Wconversion-extra -std=f2008
+FFLAGS= -Wall -Wextra -Wconversion-extra -std=f2008 -Wno-maybe-uninitialized
 
 FFLAGS += -I/usr/include/hdf5/serial -I../../src/submodules/bin/jsonfortran-gnu-8.2.5/lib
 
