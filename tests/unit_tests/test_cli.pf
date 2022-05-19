@@ -14,8 +14,94 @@ contains
   end subroutine
 
   !===================================================================================!
+  ! INPUT PARAM TESTS                                                                 !
+  ! Test key/val pairs modify the returned input params as expected                   !
+  !===================================================================================!
+
+  @test
+  subroutine test_cmd_init()
+  character(1) :: default_init, new_init
+  character(:), allocatable :: init_buf
+
+
+    new_init = "c"
+
+    default_init = "r"
+    init_buf = default_init
+
+    call get_input_commands(init=init_buf)
+
+    ! Name should be unchanged as json filename key not passed
+    @assertEqual(default_init, init_buf)
+
+    call parse_keyval_arg("i", new_init, .TRUE.)
+
+    call get_input_commands(init=init_buf)
+
+    @assertEqual(new_init, init_buf)
+
+  end subroutine
+
+
+  @test
+  subroutine test_cmd_level()
+    integer :: default_level, level_buf, new_level
+
+
+    new_level = 7
+
+    default_level = 2
+    level_buf = default_level
+
+    call get_input_commands(level=level_buf)
+
+    ! Name should be unchanged as json filename key not passed
+    @assertEqual(default_level, level_buf)
+
+    call parse_keyval_arg("L", trim(to_string(new_level)), .TRUE.)
+
+    call get_input_commands(level=level_buf)
+
+    @assertEqual(new_level, level_buf)
+
+  end subroutine
+
+  @test
+  subroutine test_cmd_CH_params()
+    real(dp), dimension(6) :: default_CH, CH_buf, new_CH
+    integer :: idx
+
+    character(1), dimension(6), parameter :: keys = (/"l", "a", "m", "k", "0", "1"/)
+
+
+    default_CH = 0.0_dp
+
+    new_CH = (/1.0_dp, 2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp, 6.0_dp/)
+
+    CH_buf = default_CH
+
+    do idx=1,6
+
+      call get_input_commands(CH_buf)
+
+      ! Name should be unchanged as json filename key not passed
+      @assertEqual(default_CH(idx), CH_buf(idx))
+
+      call parse_keyval_arg(keys(idx), trim(to_string(new_CH(idx))), .TRUE.)
+
+      call get_input_commands(CH_buf)
+
+      @assertEqual(new_CH(idx), CH_buf(idx))
+
+    end do
+
+  end subroutine
+
+
+
+  !===================================================================================!
   ! IO PARAM TESTS                                                                    !
-  ! Test key/val pairs modify the returned output params as expected                  !
+  ! Test key/val pairs modify the returned IO params as expected                      !
   !===================================================================================!
 
 
