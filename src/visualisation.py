@@ -71,7 +71,8 @@ def plot_conc_evol(animation_fps = 10 , ti = 0, tf = t_array[-1]):
       im.append(plt.text(grid_res/2,grid_res*1.06 , s = ("t = " + str(f"{t_array[k]:.3f}")), weight = "bold", fontsize = 12, ha = 'center'))
       ims.append(im)
   fig.colorbar(shw)
-  fig.add_axes(xticks=None,yticks=None)
+  ax.set_axis_off()
+  fig.add_axes(ax)
   final_an = anim.ArtistAnimation(fig, ims, interval = 5, repeat = True)
   final_an.save('Conc_Evolution.mp4', fps = animation_fps)
   return None
