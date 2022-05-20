@@ -44,7 +44,7 @@ def plot_conc_evol(data_obj:Data_class, animation_fps = 10 , ti = 0, tf=-1):
       im = []
       ax.set_xticks([])
       ax.set_yticks([])
-      shw = ax.imshow(c[k,:,:])
+      shw = ax.imshow(c[k,:,:], interpolation="bicubic")
       im.append(shw)
       im.append(plt.title('Concentration Evolution', weight = "bold", fontsize = 14))
       im.append(plt.text(0.5, -0.05 , s = ("t = " + str(f"{t_array[k]:.3f}")), weight = "bold", fontsize = 12, ha = 'center', transform=ax.transAxes))
