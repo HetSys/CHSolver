@@ -11,7 +11,7 @@ Opening file docstring contains LATEX parsing - \f$\beta\f$
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import numpy as np
-from dataclass import Data_class
+from .dataclass import Data_class
 
 def find_nearest_t_index(t_array:np.array, t):
     '''! Produces an animation for the evolution of species concentration, outputted as an mp4 to the main directory.

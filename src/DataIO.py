@@ -10,38 +10,43 @@ class Json_handler():
 
     '''
     _instance = None  # Start with no instances of this class
-    _input_fname = "input-data.json"  # fname of JSON file
 
     def __new__(cls):
         if (cls._instance is None):
             # Instance does not exist already, create one
             cls._instance = super().__new__(cls)
-            cls._instance._load_data()
         return cls._instance
 
-    def _load_data(self) -> None:
+    def _load_data(self, fname="input-data.json") -> None:
         '''!
-        Loads data from self._input_fname JSON file
+        Loads data from JSON file given by fname
+        Will not save old files before opening a new one
         '''
+
         self.cwd = os.getcwd()
-        # Recursive search to find file
-        self.filepath = glob.glob((self.cwd + os.sep + "**" + os.sep +
-                                   self._input_fname), recursive=True)[0]
+        self.filepath = self.cwd + os.sep + fname
         self._data = json.loads(open(self.filepath).read())
 
     def save_data(self) -> None:
         '''!
         Save local run data back to json file
         '''
-        with open(self.filepath, 'w') as f:
-            json.dump(self._data, f)
+        try:
+            with open(self.filepath, 'w') as f:
+                json.dump(self._data, f)
+        except FileNotFoundError:
+            raise FileNotFoundError("JSON file has not yet been opened")
 
     @property
     def run_names(self) -> list:
         '''!
         Get names of all available runs
         '''
-        return list(self._data.keys())
+        try:
+            keys = list(self._data.keys())
+        except AttributeError:
+            raise FileNotFoundError("JSON file has not yet been opened")
+        return keys
 
     def get_rundata(self, run_name: str) -> dict:
         '''!
@@ -56,6 +61,8 @@ class Json_handler():
             print("Currently recognised runs:")
             print(self.get_run_names())
             raise  # Raise the caught KeyError again
+        except AttributeError:
+            raise FileNotFoundError("JSON file has not yet been opened")
 
     def set_rundata(self, run_name: str, rundata: dict):
         '''!

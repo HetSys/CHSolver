@@ -1,4 +1,4 @@
-from DataIO import Json_handler, _read_hdf5_files, _read_metadata
+from .DataIO import Json_handler, _read_hdf5_files, _read_metadata
 import os
 
 
@@ -6,7 +6,7 @@ class Data_class():
     '''!
     Class to hold data for file I/O, binding to F90 solvers, and visualisation
     '''
-    #_jh = Json_handler()
+    _jh = Json_handler()
 
     def __init__(self):
         '''!
@@ -14,7 +14,14 @@ class Data_class():
 
         '''
 
-        #self.input_data = self._jh.get_rundata("default")
+    def open_jsonfile(self, fname):
+        '''!
+        Call the json handler to open a file given by fname
+        '''
+        self._jh._load_data(fname)
+    
+    def get_runnames(self):
+        return self._jh.run_names
 
     def get_rundata(self, run_name: str) -> None:
         '''!
@@ -46,13 +53,16 @@ class Data_class():
         self.input_data["grid_init"] = self.grid_init
 
         self._jh.set_rundata(run_name, self.input_data)
+    
+    def save_jsonfile(self):
+        self._jh.save_data()
 
     def read_outputs(self, outdir):
         '''!
         Reads output metadata and checkpoint files from outdir
         '''
 
-        grid_params, sys_params, checkpoint_times = _read_metadata(outdir + os.sep + "metadata.dat")
+        grid_params, sys_params, checkpoint_times = _read_metadata(os.get_cwd() + os.sep + outdir + os.sep + "metadata.dat")
         
         self.grid_dimensionality = grid_params[0]
         self.grid_level = grid_params[1]
