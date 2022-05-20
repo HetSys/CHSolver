@@ -1,12 +1,15 @@
+!> @brief Parser for input JSON formatted files
+!! @details Methods to search a target JSON file for the required input parameters
+!! @author Tom Rocke
+
 module JSON_Parser
-  !> Parses JSON file for given run name
-  !! Returns the params needed for grid generation, and solving
 
   use globals
   use json_module
 
   implicit none
 
+  !> @brief interface for retrieving parameterss from the JSON file
   interface json_retrieve
     module procedure json_retrieve_real
     module procedure json_retrieve_char
@@ -15,11 +18,12 @@ module JSON_Parser
   end interface json_retrieve
   contains
 
-  !> @brief Reads JSON file, and searches for given params
+  !> @brief Reads JSON file, and searches for required input parameters
   !! @param[in]  run_name  String key for input values
   !! @param[in]  CH_params [L, A, M, K, p0, p1]
   !! @param[in]  grid_init Grid initialisation type character
   !! @param[in]  grid_level Controls size of grid
+  !! @param[in]  Tout Output timestep array
   subroutine read_json(fname, run_name, CH_params, grid_init, grid_level, Tout)
     character(*), intent(in) :: fname, run_name
     real(kind=dp), intent(out) :: CH_params(6)
@@ -52,7 +56,11 @@ module JSON_Parser
       stop
     end if
   end subroutine
+
+
   !> @brief Opens JSON file
+  !! @param[inout] json json-fortran type(json_file) object to handle the interface
+  !! @param[in] fname Filename of the JSON file to be opened
   subroutine open_json(json, fname)
     type(json_file), intent(inout) :: json
     character(*), intent(in) :: fname
@@ -75,8 +83,15 @@ module JSON_Parser
     call logger%debug("open_json", j_string)
   end subroutine
 
-
-  !> @brief Grab required params from the JSON file opened by json_handler
+  !> @brief Grab required input parameters from the JSON file open in the json object
+  !! @param[inout] json json-fortran interface to the JSON file
+  !! @param[in] run_name Name of the run to search for.
+  !! @param[out] CH_params Will be populated by the CH parameters (L, A, M, K, p0, p1) 
+  !! found in the JSON file
+  !! @param[out] grid_init Will be populated with the initialisation character found in the JSON file
+  !! @param[out] grid_level Will be populated with the grid level found in the JSON file
+  !! @param[out] Tout Will be populated with the time array found in the JSON file
+  !! @param[out] error Flag for whether errors occurred (parameters missing, etc)
   subroutine get_json_params(json, run_name, CH_params, grid_init, grid_level, Tout, error)
     type(json_file), intent(inout) :: json
     character(*), intent(in) :: run_name
@@ -221,7 +236,13 @@ module JSON_Parser
     CH_params(6) = p1
   end subroutine
 
-  !> @brief String formatter for JSON paths
+  !> @brief String formatter for JSON paths.
+  !! @details Converts nested keys run_name and key_name into a 
+  !! JSON searchable path from the root of the JSON data structure
+  !! @param[in] run_name outermost key in search path
+  !! @param[in] key_name nested key to be searched
+  !! @result path Path from the JSON root to the value requested by the 
+  !! run_name and key_name
   function json_get_path(run_name, key_name) result(path)
     character(*), intent(in) :: run_name, key_name
     character(128) :: path
@@ -230,6 +251,15 @@ module JSON_Parser
     call logger%debug("json_get_path", "Searching path "//trim(path))
   end function
 
+
+  !> @brief Function to grab a value given by the path from run_name and key_name
+  !! @details Searchs the path root -> run_name -> key_name in the JSON data structure held
+  !! in the json object. Overwrites val and sets found to true if found.
+  !! @param[inout] json JSON data structure object
+  !! @param[in] run_name Outermost key in search path
+  !! @param[in] key_name Nested key to be searched
+  !! @param[out] val value found along path
+  !! @result found flag for whether a value was found
   function json_retrieve_real(json, run_name, key_name, val) result(found)
     type(json_file), intent(inout) :: json
     character(*), intent(in) :: run_name, key_name
@@ -243,6 +273,14 @@ module JSON_Parser
     call json%get(trim(path), val, found)
   end function
 
+  !> @brief Function to grab a value given by the path from run_name and key_name
+  !! @details Searchs the path root -> run_name -> key_name in the JSON data structure held
+  !! in the json object. Overwrites val and sets found to true if found.
+  !! @param[inout] json JSON data structure object
+  !! @param[in] run_name Outermost key in search path
+  !! @param[in] key_name Nested key to be searched
+  !! @param[out] val value found along path
+  !! @result found flag for whether a value was found
   function json_retrieve_char(json, run_name, key_name, val) result(found)
     type(json_file), intent(inout) :: json
     character(*), intent(in) :: run_name, key_name
@@ -256,6 +294,14 @@ module JSON_Parser
     call json%get(trim(path), val, found)
   end function
 
+  !> @brief Function to grab a value given by the path from run_name and key_name
+  !! @details Searchs the path root -> run_name -> key_name in the JSON data structure held
+  !! in the json object. Overwrites val and sets found to true if found.
+  !! @param[inout] json JSON data structure object
+  !! @param[in] run_name Outermost key in search path
+  !! @param[in] key_name Nested key to be searched
+  !! @param[out] val value found along path
+  !! @result found flag for whether a value was found
   function json_retrieve_int(json, run_name, key_name, val) result(found)
     type(json_file), intent(inout) :: json
     character(*), intent(in) :: run_name, key_name
@@ -269,7 +315,14 @@ module JSON_Parser
     call json%get(trim(path), val, found)
   end function
 
-
+  !> @brief Function to grab a value given by the path from run_name and key_name
+  !! @details Searchs the path root -> run_name -> key_name in the JSON data structure held
+  !! in the json object. Overwrites val and sets found to true if found.
+  !! @param[inout] json JSON data structure object
+  !! @param[in] run_name Outermost key in search path
+  !! @param[in] key_name Nested key to be searched
+  !! @param[out] val value found along path
+  !! @result found flag for whether a value was found
   function json_retrieve_realarr(json, run_name, key_name, val) result(found)
     type(json_file), intent(inout) :: json
     character(*), intent(in) :: run_name, key_name

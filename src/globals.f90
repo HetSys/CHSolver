@@ -1,20 +1,34 @@
+!> @brief Globally accessible methods and variables
+!! @details Includes methods for string conversion, logging setup, 
+!! parameter validation, and random seeding setup
+!! @author Tom Rocke 
+
 module globals
   use iso_fortran_env
-  use logging, only: logger, debug, trivia, info, &
-                      warning, error, fatal
+  use logging, only: logger, log_debug => debug, log_trivia => trivia, log_info => info, &
+                     log_warning => warning, log_error => error, log_fatal => fatal
 
   implicit none
-  ! Kind/precision of reals to use
+  !> @var integer dp 
+  !! Kind/precision of reals to use
   integer, parameter :: dp = real64
 
   ! Logging defaults
 
-  integer, parameter :: stderr_threshold = error
+  !> @var integer stderr_threshold
+  !! Default threshold for logging to stderr
+  integer, parameter :: stderr_threshold = log_error
 
-  integer, parameter :: stdout_threshold = info
+  !> @var integer stdout_threshold
+  !! Default threshold for logging to stdout
+  integer, parameter :: stdout_threshold = log_info
 
-  integer, parameter :: logfile_threshold = trivia ! set to debug for more info in the logfile
+  !> @var integer logfile_threshold
+  !! Default threshold for logging to logfile
+  integer, parameter :: logfile_threshold = log_trivia ! set to debug for more info in the logfile
 
+
+  !> @brief Interface for converting various types into string representations
   interface to_string
     module procedure real_to_string
     module procedure int_to_string
@@ -25,11 +39,13 @@ module globals
   contains
 
   !> @brief Validation of program inputs
+  !! @details Performs a series of validation tests (eg non-negative tests)
+  !! to ensure that the input parameters are viable
   !! @param[in]  CH_params [L, A, M, K, p0, p1]
   !! @param[in]  grid_init Grid initialisation type character
   !! @param[in]  grid_level Controls size of grid
-  !! @param[out] errors Returns true if error has been detected
-  !! @todo grid_level validation
+  !! @param[in]  Tout Output timesteps
+  !! @param[out] errors Returns true if any errors have been detected
   subroutine validate_params(CH_params, grid_init, grid_level, Tout, errors)
     real(kind=dp), intent(in) :: CH_params(6)
     character(*), intent(in) :: grid_init
@@ -139,7 +155,9 @@ module globals
   end subroutine
 
 
-
+  !> @brief Converter from reals to strings
+  !! @param[in] val Real number to be converted
+  !! @result str string representation of val
   function real_to_string(val) result(str)
     real(dp), intent(in) :: val
     character(128):: str
@@ -148,6 +166,9 @@ module globals
 
   end function real_to_string
 
+  !> @brief Converter from integers to strings
+  !! @param[in] val Integer number to be converted
+  !! @result str string representation of val
   function int_to_string(val) result(str)
     integer, intent(in) :: val
     character(128) :: str
@@ -156,6 +177,9 @@ module globals
 
   end function int_to_string
 
+  !> @brief Converter from an array of reals to a string
+  !! @param[in] val Real array to be converted
+  !! @result str string representation of val
   function realarr_to_string(val) result(str)
     real(dp), dimension(:), intent(in) :: val
     character(2048) :: str
