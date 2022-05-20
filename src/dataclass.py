@@ -1,4 +1,4 @@
-from json_handler import Json_handler
+from DataIO import Json_handler
 
 
 class Data_class():
