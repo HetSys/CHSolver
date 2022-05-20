@@ -60,3 +60,6 @@ tests/unit_tests/*.inc
 
 # Other
 **/.DS_Store
+*.png
+*.mp4
+*.gif

@@ -8,69 +8,113 @@ Opening file docstring contains LATEX parsing - \f$\beta\f$
 #     random docs
 #     \f$\alpha\f$
 
-import h5py
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
-import glob
-import os
 import numpy as np
-Nchkpnts = len(os.listdir('out/')) -1
-grid_res = h5py.File('out/1.chkpnt', 'r')['c'][...].shape[0]
+from .dataclass import Data_class
 
-c = np.zeros((Nchkpnts,grid_res,grid_res))
-c_prev = np.zeros((Nchkpnts,grid_res,grid_res))
-dt = np.zeros((Nchkpnts))
-for i in range(1,Nchkpnts):
-    data = h5py.File('out/'+str(i)+'.chkpnt', 'r')
-    test= data['c'][...]
-    c[i,:,:] = test
-    dt[:] = data['dt'][...]
+def find_nearest_t_index(t_array:np.array, t):
+    '''! Produces an animation for the evolution of species concentration, outputted as an mp4 to the main directory.
+    @param animation_fps Number of frames per second for the animation
+    '''
+    t_array = np.asarray(t_array)
+    index = (np.abs(t_array - t)).argmin()
+    return index 
 
-ims =[]
-fig, ax = plt.subplots()
+def plot_conc_evol(data_obj:Data_class, animation_fps = 10 , ti = 0, tf=-1):
+  '''! Produces an animation for the evolution of species concentration, outputted as an mp4 to the main directory.
+  @param animation_fps Number of frames per second for the animation
+  @param ti Time to intialise the visualiation (will use time closest to that specified)
+  @param tf Time to finish the visualiation (will use time closest to that specified)
+  '''
 
-for k in range(0, len(c)):
-    im = []
-    shw = ax.imshow(c[k,:,:])
-    im.append(shw)
-    im.append(plt.text((len(c[0,:,:])-1)/2,-3*len(c[0,:,:])/15 , s = ("T = " + str(k+1)), ha = "center", weight = "bold"))
-    ims.append(im)
-fig.colorbar(shw)
+  t_array = data_obj.T
+  grid_res = 2 ** data_obj.grid_level
+  c = data_obj.C
 
-final_an = anim.ArtistAnimation(fig, ims, interval = 50, repeat = True)
-plt.gca().set_aspect('equal', adjustable='box')
+  if tf==-1:
+    tf = t_array[-1]
 
-plt.axis('off')
-plt.show()
+  ti_index = find_nearest_t_index(t_array, ti)
+  tf_index = find_nearest_t_index(t_array, tf)
+  ims = []
+  fig, ax = plt.subplots()
+  #plt.axis("off")
+  for k in range(ti_index, tf_index+1):
+      im = []
+      ax.set_xticks([])
+      ax.set_yticks([])
+      shw = ax.imshow(c[k,:,:], interpolation="bicubic")
+      im.append(shw)
+      im.append(plt.title('Concentration Evolution', weight = "bold", fontsize = 14))
+      im.append(plt.text(0.5, -0.05 , s = ("t = " + str(f"{t_array[k]:.3f}")), weight = "bold", fontsize = 12, ha = 'center', transform=ax.transAxes))
+      ims.append(im)
+  fig.colorbar(shw)
+  ax.set_axis_off()
+  fig.add_axes(ax)
+  final_an = anim.ArtistAnimation(fig, ims, interval = 5, repeat = True, blit=False)
+  final_an.save('Conc_Evolution.gif', writer = anim.PillowWriter(fps = animation_fps))
+
+def plot_free_energy(data_obj:Data_class, ti=0, tf=-1):
+  '''! Produces a plot of Free energy versus time, outputted as a png to the main directory.
+  @param ti Time to intialise the visualiation (will use time closest to that specified)
+  @param tf Time to finish the visualiation (will use time closest to that specified)
+  '''
+  t_array = data_obj.T
+  grid_res = 2 ** data_obj.grid_level
+  c = data_obj.C
+
+  L = data_obj.L
+  A = data_obj.A
+  M = data_obj.M
+  K = data_obj.K
+  p0 = data_obj.p0
+  p1 = data_obj.p1
+
+  num_checkpoints = t_array.shape[0]
+
+  
+  if tf==-1:
+    tf = t_array[-1]
+
+  ti_index = find_nearest_t_index(t_array, ti)
+  tf_index = find_nearest_t_index(t_array, tf)
+  f_c = np.zeros_like(c) #Bulk free energy density 
+  for t in range(num_checkpoints):
+    for i in range(grid_res):
+      for j in range(grid_res):
+          f_c[t,i,j] = A*((c[t,i,j]-p0)**2)*(c[t,i,j]-p1)**2 
+
+  F = np.zeros((num_checkpoints)) #Free energy functional
+  ## Setting up an alternate c array to account for PBCs
+  c_halo = np.zeros((num_checkpoints, grid_res+2, grid_res+2))
+  print(c_halo.shape)
+  c_halo[:, 1:-1, 1:-1] = c
+  print(c_halo.shape)
+  c_halo[:,0,:] = c_halo[:,-2,:]
+  print(c_halo.shape)
+  c_halo[:,-1,:] = c_halo[:,1,:]
+  print(c_halo.shape)
+  c_halo[:,:,0] = c_halo[:,:,-2]
+  print(c_halo.shape)
+  c_halo[:,:,-1] = c_halo[:,:,1]
+  print(c_halo.shape)
+  for t in range(num_checkpoints):
+    grad_c_x = np.gradient(c_halo[t,:,:], axis=0)[1:-1,1:-1]
+    grad_c_y = np.gradient(c_halo[t,:,:], axis=1)[1:-1,1:-1]
+    grad_c_sqd = (grad_c_x ** 2 + grad_c_y ** 2)
+    for i in range(grid_res):
+      for j in range(grid_res):
+        F[t] += f_c[t,i,j] + 0.5*K*grad_c_sqd[i,j]## dV = 1? so no term in here
+  F = F/(grid_res**2) ## Divided by total volume, since each dV is 1, just equal to number of cells
+
+  plt.plot(t_array[ti_index:tf_index+1],F[ti_index:tf_index+1])
+  plt.title('Free Energy Functional', weight = "bold")
+  plt.ylabel('Energy', weight = "bold")
+  plt.xlabel('Time', weight = "bold")
+  plt.savefig('Free_Energy.png')
 
 
-
-# # f_c = np.zeros((grid_size,grid_size,len(t))) #Bulk free energy density 
-# # a = [2,6,9]#polynomial coefficients
-# # for t in range(len(time)):
-# #   for i in range(grid_size):
-# #     for j in range(grid_size):
-# #       f_c(i,j,t) = 0
-# #       for n in range(len(a)):
-# #         f_c(i,j,t) += a[n]*c[i,j,t]**(n-1)
-
-# # F = np.zeros((len(t))) #Free energy functional
-
-
-# # for t in range(len(time)):
-# #   for i in range(grid_size):
-# #     for j in range(grid_size):
-# #       F(t) += f_c(i,j,t) + 0.5*K*np.linalg.norm(np.gradient(c(i,j,t)))*dA 
-
-
-
-# # # plt.text(count/2-0.5, -(count/15+count/25), s = dat.initial, ha = "center")
-# # # plt.text(count/2-0.5, -(count/15+2*count/25), s = "N = " + str(dat.n) + ", T = " + str(dat.t) + ", J = " + str(dat.j) + ", B = " + str(dat.b), ha = "center")
-# # # plt.text(count/2-0.5, -(count/15+3*count/25), s = "Compiled from: " + dat.file, ha = "center")
-# # # plt.title(dat.title, weight = "bold")
-# # # plt.xlabel("Time (" + mag.tunits +")")
-# # # plt.ylabel("Magnetisation (" + mag.eunits +")")
-# # # plt.title("Average spin versus time", weight = "bold")
-# # grid_size = 3
-
-
+#plot_conc_evol(animation_fps = 10, ti = 0, tf = 27)
+#plt.clf() ## Clear previous figure
+#plot_free_energy(ti = 0, tf = 24)
