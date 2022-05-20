@@ -28,7 +28,7 @@ module multigrid
     allocate(mg(0:level))
 
     do i=0,level
-      allocate(mg(i)%grid((2**i),(2**i)))
+      allocate(mg(i)%grid(0:(1+2**i),0:(1+2**i)))
     enddo
   end subroutine multigrid_alloc
 
@@ -118,15 +118,15 @@ module fd_solvers
     24 format(A, F7.3) ! output message
 
     ! allocate storage
-    allocate(phi(N,N))
-    allocate(psi(N,N))
-    allocate(g(N,N))
-    allocate(b(N,N))
-    allocate(phi_prev(N,N))
-    allocate(g_prev(N,N))
-    allocate(work(N,N))
-    allocate(c(N, N))
-    allocate(c_prev(N, N))
+    allocate(phi(0:N+1,0:N+1))
+    allocate(psi(0:N+1,0:N+1))
+    allocate(g(0:N+1,0:N+1))
+    allocate(b(0:N+1,0:N+1))
+    allocate(phi_prev(0:N+1,0:N+1))
+    allocate(g_prev(0:N+1,0:N+1))
+    allocate(work(0:N+1,0:N+1))
+    allocate(c(N,N))
+    allocate(c_prev(N,N))
 
     ! allocate multigrid storage
     call multigrid_alloc(E1, level)
@@ -152,8 +152,8 @@ module fd_solvers
       call logger%info("solver_ufds2t2", msg)
       dt_out = dt
       t_out = t
-      c = phi
-      c_prev = phi_prev
+      c = phi(1:N,1:N)
+      c_prev = phi_prev(1:N,1:N)
       call dimensionalise(CH_params, c, t_out)
       call dimensionalise(CH_params, c_prev, dt_out)
 
@@ -216,8 +216,8 @@ module fd_solvers
 
       dt_out = dt
       t_out = t
-      c = phi
-      c_prev = phi_prev
+      c = phi(1:N,1:N)
+      c_prev = phi_prev(1:N,1:N)
       call dimensionalise(CH_params, c, t_out)
       call dimensionalise(CH_params, c_prev, dt_out)
 
@@ -299,8 +299,8 @@ module fd_solvers
         call logger%info("solver_ufds2t2", msg)
         dt_out = dt
         t_out = t
-        c = phi
-        c_prev = phi_prev
+        c = phi(1:N,1:N)
+        c_prev = phi_prev(1:N,1:N)
         call dimensionalise(CH_params, c, t_out)
         call dimensionalise(CH_params, c_prev, dt_out)
   
@@ -353,10 +353,10 @@ module fd_solvers
   !! @param n   grid size
   subroutine laplacian(x, y, dx, n)
     implicit none
-    real(dp), dimension(:,:), allocatable, intent(in) :: x
-    real(dp), dimension(:,:), allocatable, intent(inout) :: y
-    real(dp), intent(in) :: dx
     integer, intent(in) :: n
+    real(dp), dimension(0:n+1,0:n+1), intent(in) :: x
+    real(dp), dimension(0:n+1,0:n+1), intent(inout) :: y
+    real(dp), intent(in) :: dx
     integer :: i, j
     real(dp) :: dx2_ ! interim constants
 
@@ -399,11 +399,11 @@ module fd_solvers
   !! @param work allocated work vector (same size as g)
   subroutine compute_g(g, phi, dx, n, work)
     implicit none
-    real(dp), dimension(:,:), allocatable, intent(in) :: phi
-    real(dp), dimension(:,:), allocatable, intent(inout) :: work
-    real(dp), dimension(:,:), allocatable, intent(inout) :: g
-    real(dp), intent(in) :: dx
     integer, intent(in) :: n
+    real(dp), dimension(0:n+1,0:n+1), intent(in) :: phi
+    real(dp), dimension(0:n+1,0:n+1), intent(inout) :: work
+    real(dp), dimension(0:n+1,0:n+1), intent(inout) :: g
+    real(dp), intent(in) :: dx
 
     work = phi * (phi*phi - (1+tau))
 
@@ -479,10 +479,10 @@ module fd_solvers
   !! @param dx     grid spacing
   subroutine smooth(A, E1, E2, R1, R2, eps2, N, dx)
     implicit none
+    integer, intent(in) :: n
     real(dp), dimension(2,2), intent(in) :: A
-    real(dp), dimension(:,:), allocatable, intent(inout) :: E1, E2, R1, R2
+    real(dp), dimension(0:n+1,0:n+1), intent(inout) :: E1, E2, R1, R2
     real(dp), intent(in) :: eps2, dx
-    integer, intent(in) :: N
 
     real(dp), dimension(2) :: rhs
     real(dp) :: dx2_
@@ -610,8 +610,9 @@ module fd_solvers
   !! @param N      grid size
   subroutine restrict(R1f, R2f, R1c, R2c, N)
     implicit none
-    real(dp), dimension(:,:), allocatable, intent(inout) :: R1f, R2f, R1c, R2c
-    integer, intent(in) :: N
+    integer, intent(in) :: n
+    real(dp), dimension(0:n+1,0:n+1), intent(inout) :: R1f, R2f
+    real(dp), dimension(0:n/2+1,0:n/2+1), intent(inout) :: R1c, R2c
 
     integer :: i, j, im, jm, nc
     nc = n/2
@@ -637,8 +638,9 @@ module fd_solvers
   !! @param N      grid size
   subroutine prolongate(E1f, E2f, E1c, E2c, N)
     implicit none
-    real(dp), dimension(:,:), allocatable, intent(inout) :: E1f, E2f, E1c, E2c
-    integer, intent(in) :: N
+    integer, intent(in) :: n
+    real(dp), dimension(0:n+1,0:n+1), intent(inout) :: E1c, E2c
+    real(dp), dimension(0:2*n+1,0:2*n+1), intent(inout) :: E1f, E2f
 
     integer :: Nf
     integer :: i, j, if, jf
