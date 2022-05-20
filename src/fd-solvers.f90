@@ -9,7 +9,7 @@ module multigrid
   !! This is just a wrapper around an array of reals. An array of these forms a
   !! multigrid
   type :: t_grid
-    real(dp), dimension(:), allocatable :: grid
+    real(dp), dimension(:,:), allocatable :: grid
   end type
 
   contains
@@ -21,14 +21,14 @@ module multigrid
   !! @param level[in]  maximum level
   subroutine multigrid_alloc(mg, level)
     implicit none
-    type(t_grid), dimension(:), allocatable, intent(inout) :: mg(:)
+    type(t_grid), dimension(:), allocatable, intent(inout) :: mg
     integer, intent(in) :: level
     integer :: i
 
     allocate(mg(0:level))
 
     do i=0,level
-      allocate(mg(i)%grid(2**(2*i)))
+      allocate(mg(i)%grid((2**i),(2**i)))
     enddo
   end subroutine multigrid_alloc
 
@@ -39,7 +39,7 @@ module multigrid
   !! @param level[in]  maximum level
   subroutine multigrid_dealloc(mg, level)
     implicit none
-    type(t_grid), dimension(:), allocatable, intent(inout) :: mg(:)
+    type(t_grid), dimension(:), allocatable, intent(inout) :: mg
     integer, intent(in) :: level
     integer :: i
 
@@ -97,7 +97,7 @@ module fd_solvers
     character(len=48) :: msg ! logging message
 
     ! grid storage
-    real(dp), dimension(:), allocatable :: phi, psi, g, b, phi_prev, g_prev, work
+    real(dp), dimension(:,:), allocatable :: phi, psi, g, b, phi_prev, g_prev, work
     real(dp), dimension(:,:), allocatable :: c, c_prev
     type(t_grid), dimension(:), allocatable :: E1, E2, R1, R2
 
@@ -118,13 +118,13 @@ module fd_solvers
     24 format(A, F7.3) ! output message
 
     ! allocate storage
-    allocate(phi(N*N))
-    allocate(psi(N*N))
-    allocate(g(N*N))
-    allocate(b(N*N))
-    allocate(phi_prev(N*N))
-    allocate(g_prev(N*N))
-    allocate(work(N*N))
+    allocate(phi(N,N))
+    allocate(psi(N,N))
+    allocate(g(N,N))
+    allocate(b(N,N))
+    allocate(phi_prev(N,N))
+    allocate(g_prev(N,N))
+    allocate(work(N,N))
     allocate(c(N, N))
     allocate(c_prev(N, N))
 
@@ -137,7 +137,7 @@ module fd_solvers
     ! initial condition
     do j=1,N
       do i=1,N
-        phi(i+n*(j-1)) = c0(i,j)
+        phi(i,j) = c0(i,j)
       enddo
     enddo
 
@@ -152,12 +152,8 @@ module fd_solvers
       call logger%info("solver_ufds2t2", msg)
       dt_out = dt
       t_out = t
-      do j=1,n
-        do i=1,n
-          c(j,i) = phi(i+n*(j-1))
-          c_prev(j,i) = phi_prev(i+n*(j-1))
-        enddo
-      enddo
+      c = phi
+      c_prev = phi_prev
       call dimensionalise(CH_params, c, t_out)
       call dimensionalise(CH_params, c_prev, dt_out)
 
@@ -220,12 +216,8 @@ module fd_solvers
 
       dt_out = dt
       t_out = t
-      do j=1,n
-        do i=1,n
-          c(j,i) = phi(i+n*(j-1))
-          c_prev(j,i) = phi_prev(i+n*(j-1))
-        enddo
-      enddo
+      c = phi
+      c_prev = phi_prev
       call dimensionalise(CH_params, c, t_out)
       call dimensionalise(CH_params, c_prev, dt_out)
 
@@ -307,12 +299,8 @@ module fd_solvers
         call logger%info("solver_ufds2t2", msg)
         dt_out = dt
         t_out = t
-        do j=1,n
-          do i=1,n
-            c(j,i) = phi(i+n*(j-1))
-            c_prev(j,i) = phi_prev(i+n*(j-1))
-          enddo
-        enddo
+        c = phi
+        c_prev = phi_prev
         call dimensionalise(CH_params, c, t_out)
         call dimensionalise(CH_params, c_prev, dt_out)
   
@@ -365,11 +353,11 @@ module fd_solvers
   !! @param n   grid size
   subroutine laplacian(x, y, dx, n)
     implicit none
-    real(dp), dimension(:), allocatable, intent(in) :: x
-    real(dp), dimension(:), allocatable, intent(inout) :: y
+    real(dp), dimension(:,:), allocatable, intent(in) :: x
+    real(dp), dimension(:,:), allocatable, intent(inout) :: y
     real(dp), intent(in) :: dx
     integer, intent(in) :: n
-    integer :: i, j, ij
+    integer :: i, j
     real(dp) :: dx2_ ! interim constants
 
     dx2_ = 1.0_dp / (dx*dx)
@@ -377,41 +365,27 @@ module fd_solvers
     ! interior
     do j=2,n-1
       do i=2,n-1
-        ij = i+n*(j-1)
-        y(ij) = dx2_*(x(ij+1) + x(ij-1) + x(ij+n) + x(ij-n) - 4*x(ij))
+        y(i,j) = dx2_*(x(i+1,j) + x(i-1,j) + x(i,j+1) + x(i,j-1) - 4*x(i,j))
       enddo
     enddo
 
     ! left/right
     do j=2,n-1
-      ij = 1+n*(j-1)
-      y(ij) = dx2_*(x(ij+1) + x(ij+n-1) + x(ij+n) + x(ij-n) - 4*x(ij))
-
-      ij = n+n*(j-1)
-      y(ij) = dx2_*(x(ij-n+1) + x(ij-1) + x(ij+n) + x(ij-n) - 4*x(ij))
+      y(1,j) = dx2_*(x(2,j) + x(n,j) + x(1,j+1) + x(1,j-1) - 4*x(1,j))
+      y(n,j) = dx2_*(x(1,j) + x(n-1,j) + x(n,j+1) + x(n,j-1) - 4*x(n,j))
     enddo
 
     ! top/bottom
     do i=2,n-1
-      ij = i+n*(1-1)
-      y(ij) = dx2_*(x(ij+1) + x(ij-1) + x(ij+n) + x(ij+n*(n-1)) - 4*x(ij))
-
-      ij = i+n*(n-1)
-      y(ij) = dx2_*(x(ij+1) + x(ij-1) + x(ij-n*(n-1)) + x(ij-n) - 4*x(ij))
+      y(i,1) = dx2_*(x(i+1,1) + x(i-1,1) + x(i,2) + x(i,1) - 4*x(i,1))
+      y(i,n) = dx2_*(x(i+1,n) + x(i-1,n) + x(i,1) + x(i,n-1) - 4*x(i,n))
     enddo
 
     ! corners
-    ij = 1+n*(1-1)
-    y(ij) = dx2_*(x(ij+1) + x(ij+n-1) + x(ij+n) + x(ij+n*(n-1)) - 4*x(ij))
-
-    ij = 1+n*(n-1)
-    y(ij) = dx2_*(x(ij+1) + x(ij+n-1) + x(ij-n*(n-1)) + x(ij-n) - 4*x(ij))
-
-    ij = n+n*(1-1)
-    y(ij) = dx2_*(x(ij-n+1) + x(ij-1) + x(ij+n) + x(ij+n*(n-1)) - 4*x(ij))
-
-    ij = n+n*(n-1)
-    y(ij) = dx2_*(x(ij-n+1) + x(ij-1) + x(ij-n*(n-1)) + x(ij-n) - 4*x(ij))
+    y(1,1) = dx2_*(x(2,1) + x(n,1) + x(1,2) + x(1,n) - 4*x(1,1))
+    y(n,1) = dx2_*(x(1,1) + x(n-1,1) + x(n,2) + x(n,n) - 4*x(n,1))
+    y(1,n) = dx2_*(x(2,n) + x(n,n) + x(1,1) + x(1,n-1) - 4*x(1,n))
+    y(n,n) = dx2_*(x(1,n) + x(n-1,n) + x(n,1) + x(n,n-1) - 4*x(n,n))
   end subroutine laplacian
 
 
@@ -425,16 +399,13 @@ module fd_solvers
   !! @param work allocated work vector (same size as g)
   subroutine compute_g(g, phi, dx, n, work)
     implicit none
-    real(dp), dimension(:), allocatable, intent(in) :: phi
-    real(dp), dimension(:), allocatable, intent(inout) :: work
-    real(dp), dimension(:), allocatable, intent(inout) :: g
+    real(dp), dimension(:,:), allocatable, intent(in) :: phi
+    real(dp), dimension(:,:), allocatable, intent(inout) :: work
+    real(dp), dimension(:,:), allocatable, intent(inout) :: g
     real(dp), intent(in) :: dx
     integer, intent(in) :: n
-    integer :: i
 
-    do i=1,n*n
-      work(i) = phi(i) * (phi(i)*phi(i) - (1+tau))
-    enddo
+    work = phi * (phi*phi - (1+tau))
 
     call laplacian(work, g, dx, n)
   end subroutine compute_g
@@ -509,13 +480,13 @@ module fd_solvers
   subroutine smooth(A, E1, E2, R1, R2, eps2, N, dx)
     implicit none
     real(dp), dimension(2,2), intent(in) :: A
-    real(dp), dimension(:), allocatable, intent(inout) :: E1, E2, R1, R2
+    real(dp), dimension(:,:), allocatable, intent(inout) :: E1, E2, R1, R2
     real(dp), intent(in) :: eps2, dx
     integer, intent(in) :: N
 
     real(dp), dimension(2) :: rhs
     real(dp) :: dx2_
-    integer :: i, j, ij, shift
+    integer :: i, j, shift
 
     dx2_ = 1.0_dp / (dx*dx)
 
@@ -526,61 +497,53 @@ module fd_solvers
     do j=2,n-1
       shift = mod(j,2)
       do i=2+shift,n-1+shift,2
-        ij = i+n*(j-1)
-
         ! compute RHS
-        rhs(1) = R1(ij) + dx2_ * (E2(ij+1) + E2(ij-1) + E2(ij+n) + E2(ij-n))
-        rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij+1) + E1(ij-1) + E1(ij+n) + E1(ij-n))
+        rhs(1) = R1(i,j) + dx2_ * (E2(i+1,j) + E2(i-1,j) + E2(i,j+1) + E2(i,j-1))
+        rhs(2) = R2(i,j) - eps2*dx2_ * (E1(i+1,j) + E1(i-1,j) + E1(i,j+1) + E1(i,j-1))
 
         ! solve for new errors
-        E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-        E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+        E1(i,j) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+        E2(i,j) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
       enddo
     enddo
 
     ! left/right
     do j=2,n-1,2
-      ij = 1+n*j
-      rhs(1) = R1(ij) + dx2_ * (E2(ij+1) + E2(ij+n-1) + E2(ij+n) + E2(ij-n))
-      rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij+1) + E1(ij+n-1) + E1(ij+n) + E1(ij-n))
-      E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+      rhs(1) = R1(1,j+1) + dx2_ * (E2(2,j+1) + E2(n,j+1) + E2(1,j+2) + E2(1,j))
+      rhs(2) = R2(1,j+1) - eps2*dx2_ * (E1(2,j+1) + E1(n,j+1) + E1(1,j+2) + E1(1,j))
+      E1(1,j+1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(1,j+1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
-      ij = n+n*(j-1)
-      rhs(1) = R1(ij) + dx2_ * (E2(ij-n+1) + E2(ij-1) + E2(ij+n) + E2(ij-n))
-      rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij-n+1) + E1(ij-1) + E1(ij+n) + E1(ij-n))
-      E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+      rhs(1) = R1(n,j) + dx2_ * (E2(1,j) + E2(n-1,j) + E2(n,j+1) + E2(n,j-1))
+      rhs(2) = R2(n,j) - eps2*dx2_ * (E1(1,j) + E1(n-1,j) + E1(n,j+1) + E1(n,j-1))
+      E1(n,j) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(n,j) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
     enddo
 
     ! top/bottom
     do i=2,n-1,2
-      ij = i+1+n*(1-1)
-      rhs(1) = R1(ij) + dx2_ * (E2(ij+1) + E2(ij-1) + E2(ij+n) + E2(ij+n*(n-1)))
-      rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij+1) + E1(ij-1) + E1(ij+n) + E1(ij+n*(n-1)))
-      E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+      rhs(1) = R1(i+1,1) + dx2_ * (E2(i+2,1) + E2(i,1) + E2(i+1,2) + E2(i+1,n))
+      rhs(2) = R2(i+1,1) - eps2*dx2_ * (E1(i+2,1) + E1(i,1) + E1(i+1,2) + E1(i+1,n))
+      E1(i+1,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(i+1,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
-      ij = i+n*(n-1)
-      rhs(1) = R1(ij) + dx2_ * (E2(ij+1) + E2(ij-1) + E2(ij-n*(n-1)) + E2(ij-n))
-      rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij+1) + E1(ij-1) + E1(ij-n*(n-1)) + E1(ij-n))
-      E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+      rhs(1) = R1(i,n) + dx2_ * (E2(i+1,n) + E2(i-1,n) + E2(i,1) + E2(i,n-1))
+      rhs(2) = R2(i,n) - eps2*dx2_ * (E1(i+1,n) + E1(i-1,n) + E1(i,1) + E1(i,n-1))
+      E1(i,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(i,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
     enddo
 
     ! upper left corner
-    ij = 1+n*(1-1)
-    rhs(1) = R1(ij) + dx2_ * (E2(ij+1) + E2(ij+n-1) + E2(ij+n) + E2(ij+n*(n-1)))
-    rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij+1) + E1(ij+n-1) + E1(ij+n) + E1(ij+n*(n-1)))
-    E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-    E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    rhs(1) = R1(1,1) + dx2_ * (E2(2,1) + E2(n,1) + E2(1,2) + E2(1,n))
+    rhs(2) = R2(1,1) - eps2*dx2_ * (E1(2,1) + E1(n,1) + E1(1,2) + E1(1,n))
+    E1(1,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    E2(1,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
     ! lower right corner
-    ij = n+n*(n-1)
-    rhs(1) = R1(ij) + dx2_ * (E2(ij-n+1) + E2(ij-1) + E2(ij-n*(n-1)) + E2(ij-n))
-    rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij-n+1) + E1(ij-1) + E1(ij-n*(n-1)) + E1(ij-n))
-    E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-    E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    rhs(1) = R1(n,n) + dx2_ * (E2(1,n) + E2(n-1,n) + E2(n,1) + E2(n,n-1))
+    rhs(2) = R2(n,n) - eps2*dx2_ * (E1(1,n) + E1(n-1,n) + E1(n,1) + E1(n,n-1))
+    E1(n,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    E2(n,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
 
     ! ================== !
@@ -590,61 +553,53 @@ module fd_solvers
     do j=2,n-1
       shift = mod(j-1,2)
       do i=2+shift,n-1+shift,2
-        ij = i+n*(j-1)
-
         ! compute RHS
-        rhs(1) = R1(ij) + dx2_ * (E2(ij+1) + E2(ij-1) + E2(ij+n) + E2(ij-n))
-        rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij+1) + E1(ij-1) + E1(ij+n) + E1(ij-n))
+        rhs(1) = R1(i,j) + dx2_ * (E2(i+1,j) + E2(i-1,j) + E2(i,j+1) + E2(i,j-1))
+        rhs(2) = R2(i,j) - eps2*dx2_ * (E1(i+1,j) + E1(i-1,j) + E1(i,j+1) + E1(i,j-1))
 
         ! solve for new errors
-        E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-        E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+        E1(i,j) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+        E2(i,j) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
       enddo
     enddo
 
     ! left/right
     do j=2,n-1,2
-      ij = 1+n*(j-1)
-      rhs(1) = R1(ij) + dx2_ * (E2(ij+1) + E2(ij+n-1) + E2(ij+n) + E2(ij-n))
-      rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij+1) + E1(ij+n-1) + E1(ij+n) + E1(ij-n))
-      E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+      rhs(1) = R1(1,j) + dx2_ * (E2(2,j) + E2(n,j) + E2(1,j+1) + E2(1,j-1))
+      rhs(2) = R2(1,j) - eps2*dx2_ * (E1(2,j) + E1(n,j) + E1(1,j+1) + E1(1,j-1))
+      E1(1,j) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(1,j) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
-      ij = n+n*j
-      rhs(1) = R1(ij) + dx2_ * (E2(ij-n+1) + E2(ij-1) + E2(ij+n) + E2(ij-n))
-      rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij-n+1) + E1(ij-1) + E1(ij+n) + E1(ij-n))
-      E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+      rhs(1) = R1(n,j+1) + dx2_ * (E2(1,j+1) + E2(n-1,j+1) + E2(n,j+2) + E2(n,j))
+      rhs(2) = R2(n,j+1) - eps2*dx2_ * (E1(1,j+1) + E1(n-1,j+1) + E1(n,j+2) + E1(n,j))
+      E1(n,j+1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(n,j+1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
     enddo
 
     ! top/bottom
     do i=2,n-1,2
-      ij = i+n*(1-1)
-      rhs(1) = R1(ij) + dx2_ * (E2(ij+1) + E2(ij-1) + E2(ij+n) + E2(ij+n*(n-1)))
-      rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij+1) + E1(ij-1) + E1(ij+n) + E1(ij+n*(n-1)))
-      E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+      rhs(1) = R1(i,1) + dx2_ * (E2(i+1,1) + E2(i-1,1) + E2(i,2) + E2(i,n))
+      rhs(2) = R2(i,1) - eps2*dx2_ * (E1(i+1,1) + E1(i-1,1) + E1(i,2) + E1(i,n))
+      E1(i,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(i,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
-      ij = i+1+n*(n-1)
-      rhs(1) = R1(ij) + dx2_ * (E2(ij+1) + E2(ij-1) + E2(ij-n*(n-1)) + E2(ij-n))
-      rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij+1) + E1(ij-1) + E1(ij-n*(n-1)) + E1(ij-n))
-      E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+      rhs(1) = R1(i+1,n) + dx2_ * (E2(i+2,n) + E2(i,n) + E2(i+1,1) + E2(i+1,n-1))
+      rhs(2) = R2(i+1,n) - eps2*dx2_ * (E1(i+2,n) + E1(i,n) + E1(i+1,1) + E1(i+1,n-1))
+      E1(i+1,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(i+1,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
     enddo
 
     ! upper right
-    ij = 1+n*(n-1)
-    rhs(1) = R1(ij) + dx2_ * (E2(ij+1) + E2(ij+n-1) + E2(ij-n*(n-1)) + E2(ij-n))
-    rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij+1) + E1(ij+n-1) + E1(ij-n*(n-1)) + E1(ij-n))
-    E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-    E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    rhs(1) = R1(1,n) + dx2_ * (E2(2,n) + E2(n,n) + E2(1,1) + E2(1,n-1))
+    rhs(2) = R2(1,n) - eps2*dx2_ * (E1(2,n) + E1(n,n) + E1(1,1) + E1(1,n-1))
+    E1(1,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    E2(1,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
     ! lower left
-    ij = n+n*(1-1)
-    rhs(1) = R1(ij) + dx2_ * (E2(ij-n+1) + E2(ij-1) + E2(ij+n) + E2(ij+n*(n-1)))
-    rhs(2) = R2(ij) - eps2*dx2_ * (E1(ij-n+1) + E1(ij-1) + E1(ij+n) + E1(ij+n*(n-1)))
-    E1(ij) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-    E2(ij) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    rhs(1) = R1(n,1) + dx2_ * (E2(1,1) + E2(n-1,1) + E2(n,2) + E2(n,n))
+    rhs(2) = R2(n,1) - eps2*dx2_ * (E1(1,1) + E1(n-1,1) + E1(n,2) + E1(n,n))
+    E1(n,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    E2(n,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
   end subroutine smooth
 
 
@@ -655,10 +610,10 @@ module fd_solvers
   !! @param N      grid size
   subroutine restrict(R1f, R2f, R1c, R2c, N)
     implicit none
-    real(dp), dimension(:), allocatable, intent(inout) :: R1f, R2f, R1c, R2c
+    real(dp), dimension(:,:), allocatable, intent(inout) :: R1f, R2f, R1c, R2c
     integer, intent(in) :: N
 
-    integer :: i, j, ij, im, jm, ijm, nc
+    integer :: i, j, im, jm, nc
     nc = n/2
 
     ! use a simple average across the grid
@@ -667,12 +622,9 @@ module fd_solvers
       do i=1,nc
         im = 2*i-1
 
-        ij = i+nc*(j-1)
-        ijm = im+n*(jm-1)
-
         ! fine -> coarse
-        R1c(ij) = 0.25_dp*(  R1f(ijm) + R1f(ijm+1) + R1f(ijm+N) + R1f(ijm+N+1) )
-        R2c(ij) = 0.25_dp*(  R2f(ijm) + R2f(ijm+1) + R2f(ijm+N) + R2f(ijm+N+1) )
+        R1c(i,j) = 0.25_dp*(R1f(im,jm) + R1f(im+1,jm) + R1f(im,jm+1) + R1f(im+1,jm+1))
+        R2c(i,j) = 0.25_dp*(R2f(im,jm) + R2f(im+1,jm) + R2f(im,jm+1) + R2f(im+1,jm+1))
       enddo
     enddo
   end subroutine restrict
@@ -685,11 +637,11 @@ module fd_solvers
   !! @param N      grid size
   subroutine prolongate(E1f, E2f, E1c, E2c, N)
     implicit none
-    real(dp), dimension(:), allocatable, intent(inout) :: E1f, E2f, E1c, E2c
+    real(dp), dimension(:,:), allocatable, intent(inout) :: E1f, E2f, E1c, E2c
     integer, intent(in) :: N
 
     integer :: Nf
-    integer :: i, j, ij, if, jf, ijf
+    integer :: i, j, if, jf
     real(dp), parameter :: w1 = 0.5625_dp
     real(dp), parameter :: w2 = 0.1875_dp
     real(dp), parameter :: w3 = 0.0625_dp
@@ -702,480 +654,429 @@ module fd_solvers
       do i=2,N-1
         if = 2*i-1
 
-        ij = i+N*(j-1)
-        ijf = if+Nf*(jf-1)
-
         ! largest contribution to nearest
-        E1f(ijf) = E1f(ijf) + w1*E1c(ij)
-        E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
-        E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
-        E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
+        E1f(if,jf) = E1f(if,jf) + w1*E1c(i,j)
+        E1f(if+1,jf) = E1f(if+1,jf) + w1*E1c(i,j)
+        E1f(if,jf+1) = E1f(if,jf+1) + w1*E1c(i,j)
+        E1f(if+1,jf+1) = E1f(if+1,jf+1) + w1*E1c(i,j)
 
         ! lesser contribution to intermediate
-        E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
-        E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
-        E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
-        E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
-        E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
-        E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
-        E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
-        E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
+        E1f(if-1,jf) = E1f(if-1,jf) + w2*E1c(i,j)
+        E1f(if-1,jf+1) = E1f(if-1,jf+1) + w2*E1c(i,j)
+        E1f(if,jf-1) = E1f(if,jf-1) + w2*E1c(i,j)
+        E1f(if,jf+2) = E1f(if,jf+2) + w2*E1c(i,j)
+        E1f(if+1,jf-1) = E1f(if+1,jf-1) + w2*E1c(i,j)
+        E1f(if+1,jf+2) = E1f(if+1,jf+2) + w2*E1c(i,j)
+        E1f(if+2,jf) = E1f(if+2,jf) + w2*E1c(i,j)
+        E1f(if+2,jf+1) = E1f(if+2,jf+1) + w2*E1c(i,j)
 
         ! least contribution to furthest
-        E1f(ijf-1-Nf) = E1f(ijf-1-Nf) + w3*E1c(ij)
-        E1f(ijf-1+2*Nf) = E1f(ijf-1+2*Nf) + w3*E1c(ij)
-        E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w3*E1c(ij)
-        E1f(ijf+2+2*Nf) = E1f(ijf+2+2*Nf) + w3*E1c(ij)
+        E1f(if-1,jf-1) = E1f(if-1,jf-1) + w3*E1c(i,j)
+        E1f(if-1,jf+2) = E1f(if-1,jf+2) + w3*E1c(i,j)
+        E1f(if+2,jf-1) = E1f(if+2,jf-1) + w3*E1c(i,j)
+        E1f(if+2,jf+2) = E1f(if+2,jf+2) + w3*E1c(i,j)
 
         ! largest contribution to nearest
-        E2f(ijf) = E2f(ijf) + w1*E2c(ij)
-        E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
-        E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
-        E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
+        E2f(if,jf) = E2f(if,jf) + w1*E2c(i,j)
+        E2f(if+1,jf) = E2f(if+1,jf) + w1*E2c(i,j)
+        E2f(if,jf+1) = E2f(if,jf+1) + w1*E2c(i,j)
+        E2f(if+1,jf+1) = E2f(if+1,jf+1) + w1*E2c(i,j)
 
         ! lesser contribution to intermediate
-        E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
-        E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
-        E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
-        E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
-        E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
-        E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
-        E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
-        E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
+        E2f(if-1,jf) = E2f(if-1,jf) + w2*E2c(i,j)
+        E2f(if-1,jf+1) = E2f(if-1,jf+1) + w2*E2c(i,j)
+        E2f(if,jf-1) = E2f(if,jf-1) + w2*E2c(i,j)
+        E2f(if,jf+2) = E2f(if,jf+2) + w2*E2c(i,j)
+        E2f(if+1,jf-1) = E2f(if+1,jf-1) + w2*E2c(i,j)
+        E2f(if+1,jf+2) = E2f(if+1,jf+2) + w2*E2c(i,j)
+        E2f(if+2,jf) = E2f(if+2,jf) + w2*E2c(i,j)
+        E2f(if+2,jf+1) = E2f(if+2,jf+1) + w2*E2c(i,j)
 
         ! least contribution to furthest
-        E2f(ijf-1-Nf) = E2f(ijf-1-Nf) + w3*E2c(ij)
-        E2f(ijf-1+2*Nf) = E2f(ijf-1+2*Nf) + w3*E2c(ij)
-        E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w3*E2c(ij)
-        E2f(ijf+2+2*Nf) = E2f(ijf+2+2*Nf) + w3*E2c(ij)
+        E2f(if-1,jf-1) = E2f(if-1,jf-1) + w3*E2c(i,j)
+        E2f(if-1,jf+2) = E2f(if-1,jf+2) + w3*E2c(i,j)
+        E2f(if+2,jf-1) = E2f(if+2,jf-1) + w3*E2c(i,j)
+        E2f(if+2,jf+2) = E2f(if+2,jf+2) + w3*E2c(i,j)
       enddo
     enddo
 
     ! left edge
-    i = 1
-    if = 2*i-1
     do j=2,N-1
       jf = 2*j-1
 
-      ij = i+N*(j-1)
-      ijf = if+Nf*(jf-1)
-
       ! largest contribution to nearest
-      E1f(ijf) = E1f(ijf) + w1*E1c(ij)
-      E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
-      E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
-      E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
+      E1f(1,jf) = E1f(1,jf) + w1*E1c(1,j)
+      E1f(2,jf) = E1f(2,jf) + w1*E1c(1,j)
+      E1f(1,jf+1) = E1f(1,jf+1) + w1*E1c(1,j)
+      E1f(2,jf+1) = E1f(2,jf+1) + w1*E1c(1,j)
 
       ! lesser contribution to intermediate
-      E1f(ijf-1+Nf) = E1f(ijf-1+Nf) + w2*E1c(ij)
-      E1f(ijf+2*Nf-1) = E1f(ijf+2*Nf-1) + w2*E1c(ij)
-      E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
-      E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
-      E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
-      E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
-      E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
-      E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
+      E1f(Nf,jf) = E1f(Nf,jf) + w2*E1c(1,j)
+      E1f(Nf,jf+1) = E1f(Nf,jf+1) + w2*E1c(1,j)
+      E1f(1,jf-1) = E1f(1,jf-1) + w2*E1c(1,j)
+      E1f(1,jf+2) = E1f(1,jf+2) + w2*E1c(1,j)
+      E1f(2,jf-1) = E1f(2,jf-1) + w2*E1c(1,j)
+      E1f(2,jf+2) = E1f(2,jf+2) + w2*E1c(1,j)
+      E1f(3,jf) = E1f(3,jf) + w2*E1c(1,j)
+      E1f(3,jf+1) = E1f(3,jf+1) + w2*E1c(1,j)
 
       ! least contribution to furthest
-      E1f(ijf-1) = E1f(ijf-1) + w3*E1c(ij)
-      E1f(ijf-1+3*Nf) = E1f(ijf-1+3*Nf) + w3*E1c(ij)
-      E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w3*E1c(ij)
-      E1f(ijf+2+2*Nf) = E1f(ijf+2+2*Nf) + w3*E1c(ij)
+      E1f(Nf,jf-1) = E1f(Nf,jf-1) + w3*E1c(1,j)
+      E1f(Nf,jf+2) = E1f(Nf,jf+2) + w3*E1c(1,j)
+      E1f(3,jf-1) = E1f(3,jf-1) + w3*E1c(1,j)
+      E1f(3,jf+2) = E1f(3,jf+2) + w3*E1c(1,j)
 
       ! largest contribution to nearest
-      E2f(ijf) = E2f(ijf) + w1*E2c(ij)
-      E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
-      E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
-      E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
+      E2f(1,jf) = E2f(1,jf) + w1*E2c(1,j)
+      E2f(2,jf) = E2f(2,jf) + w1*E2c(1,j)
+      E2f(1,jf+1) = E2f(1,jf+1) + w1*E2c(1,j)
+      E2f(2,jf+1) = E2f(2,jf+1) + w1*E2c(1,j)
 
       ! lesser contribution to intermediate
-      E2f(ijf-1+Nf) = E2f(ijf-1+Nf) + w2*E2c(ij)
-      E2f(ijf+2*Nf-1) = E2f(ijf+2*Nf-1) + w2*E2c(ij)
-      E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
-      E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
-      E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
-      E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
-      E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
-      E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
+      E2f(Nf,jf) = E2f(Nf,jf) + w2*E2c(1,j)
+      E2f(Nf,jf+1) = E2f(Nf,jf+1) + w2*E2c(1,j)
+      E2f(1,jf-1) = E2f(1,jf-1) + w2*E2c(1,j)
+      E2f(1,jf+2) = E2f(1,jf+2) + w2*E2c(1,j)
+      E2f(2,jf-1) = E2f(2,jf-1) + w2*E2c(1,j)
+      E2f(2,jf+2) = E2f(2,jf+2) + w2*E2c(1,j)
+      E2f(3,jf) = E2f(3,jf) + w2*E2c(1,j)
+      E2f(3,jf+1) = E2f(3,jf+1) + w2*E2c(1,j)
 
       ! least contribution to furthest
-      E2f(ijf-1) = E2f(ijf-1) + w3*E2c(ij)
-      E2f(ijf-1+3*Nf) = E2f(ijf-1+3*Nf) + w3*E2c(ij)
-      E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w3*E2c(ij)
-      E2f(ijf+2+2*Nf) = E2f(ijf+2+2*Nf) + w3*E2c(ij)
+      E2f(Nf,jf-1) = E2f(Nf,jf-1) + w3*E2c(1,j)
+      E2f(Nf,jf+2) = E2f(Nf,jf+2) + w3*E2c(1,j)
+      E2f(3,jf-1) = E2f(3,jf-1) + w3*E2c(1,j)
+      E2f(3,jf+2) = E2f(3,jf+2) + w3*E2c(1,j)
     enddo
 
     ! right edge
-    i = N
-    if = 2*i-1
     do j=2,N-1
       jf = 2*j-1
 
-      ij = i+N*(j-1)
-      ijf = if+Nf*(jf-1)
-
       ! largest contribution to nearest
-      E1f(ijf) = E1f(ijf) + w1*E1c(ij)
-      E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
-      E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
-      E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
+      E1f(Nf-1,jf) = E1f(Nf-1,jf) + w1*E1c(N,j)
+      E1f(Nf,jf) = E1f(Nf,jf) + w1*E1c(N,j)
+      E1f(Nf-1,jf+1) = E1f(Nf-1,jf+1) + w1*E1c(N,j)
+      E1f(Nf,jf+1) = E1f(Nf,jf+1) + w1*E1c(N,j)
 
       ! lesser contribution to intermediate
-      E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
-      E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
-      E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
-      E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
-      E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
-      E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
-      E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w2*E1c(ij)
-      E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
+      E1f(Nf-2,jf) = E1f(Nf-2,jf) + w2*E1c(N,j)
+      E1f(Nf-2,jf+1) = E1f(Nf-2,jf+1) + w2*E1c(N,j)
+      E1f(Nf-1,jf-1) = E1f(Nf-1,jf-1) + w2*E1c(N,j)
+      E1f(Nf-1,jf+2) = E1f(Nf-1,jf+2) + w2*E1c(N,j)
+      E1f(Nf,jf-1) = E1f(Nf,jf-1) + w2*E1c(N,j)
+      E1f(Nf,jf+2) = E1f(Nf,jf+2) + w2*E1c(N,j)
+      E1f(1,jf) = E1f(1,jf) + w2*E1c(N,j)
+      E1f(1,jf+1) = E1f(1,jf+1) + w2*E1c(N,j)
 
       ! least contribution to furthest
-      E1f(ijf-1-Nf) = E1f(ijf-1-Nf) + w3*E1c(ij)
-      E1f(ijf-1+2*Nf) = E1f(ijf-1+2*Nf) + w3*E1c(ij)
-      E1f(ijf+2-2*Nf) = E1f(ijf+2-2*Nf) + w3*E1c(ij)
-      E1f(ijf+2*Nf) = E1f(ijf+2+Nf) + w3*E1c(ij)
+      E1f(Nf-2,jf-1) = E1f(Nf-2,jf-1) + w3*E1c(N,j)
+      E1f(Nf-2,jf+2) = E1f(Nf-2,jf+2) + w3*E1c(N,j)
+      E1f(1,jf-1) = E1f(1,jf-1) + w3*E1c(N,j)
+      E1f(1,jf+2) = E1f(1,jf+2) + w3*E1c(N,j)
 
       ! largest contribution to nearest
-      E2f(ijf) = E2f(ijf) + w1*E2c(ij)
-      E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
-      E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
-      E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
+      E2f(Nf-1,jf) = E2f(Nf-1,jf) + w1*E2c(N,j)
+      E2f(Nf,jf) = E2f(Nf,jf) + w1*E2c(N,j)
+      E2f(Nf-1,jf+1) = E2f(Nf-1,jf+1) + w1*E2c(N,j)
+      E2f(Nf,jf+1) = E2f(Nf,jf+1) + w1*E2c(N,j)
 
       ! lesser contribution to intermediate
-      E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
-      E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
-      E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
-      E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
-      E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
-      E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
-      E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w2*E2c(ij)
-      E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
+      E2f(Nf-2,jf) = E2f(Nf-2,jf) + w2*E2c(N,j)
+      E2f(Nf-2,jf+1) = E2f(Nf-2,jf+1) + w2*E2c(N,j)
+      E2f(Nf-1,jf-1) = E2f(Nf-1,jf-1) + w2*E2c(N,j)
+      E2f(Nf-1,jf+2) = E2f(Nf-1,jf+2) + w2*E2c(N,j)
+      E2f(Nf,jf-1) = E2f(Nf,jf-1) + w2*E2c(N,j)
+      E2f(Nf,jf+2) = E2f(Nf,jf+2) + w2*E2c(N,j)
+      E2f(1,jf) = E2f(1,jf) + w2*E2c(N,j)
+      E2f(1,jf+1) = E2f(1,jf+1) + w2*E2c(N,j)
 
       ! least contribution to furthest
-      E2f(ijf-1-Nf) = E2f(ijf-1-Nf) + w3*E2c(ij)
-      E2f(ijf-1+2*Nf) = E2f(ijf-1+2*Nf) + w3*E2c(ij)
-      E2f(ijf+2-2*Nf) = E2f(ijf+2-2*Nf) + w3*E2c(ij)
-      E2f(ijf+2*Nf) = E2f(ijf+2+Nf) + w3*E2c(ij)
+      E2f(Nf-2,jf-1) = E2f(Nf-2,jf-1) + w3*E2c(N,j)
+      E2f(Nf-2,jf+2) = E2f(Nf-2,jf+2) + w3*E2c(N,j)
+      E2f(1,jf-1) = E2f(1,jf-1) + w3*E2c(N,j)
+      E2f(1,jf+2) = E2f(1,jf+2) + w3*E2c(N,j)
     enddo
 
     ! top edge
-    j = 1
-    jf = 2*j-1
     do i=2,N-1
       if = 2*i-1
 
-      ij = i+N*(j-1)
-      ijf = if+Nf*(jf-1)
-
       ! largest contribution to nearest
-      E1f(ijf) = E1f(ijf) + w1*E1c(ij)
-      E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
-      E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
-      E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
+      E1f(if,1) = E1f(if,1) + w1*E1c(i,1)
+      E1f(if+1,1) = E1f(if+1,1) + w1*E1c(i,1)
+      E1f(if,2) = E1f(if,2) + w1*E1c(i,1)
+      E1f(if+1,2) = E1f(if+1,2) + w1*E1c(i,1)
 
       ! lesser contribution to intermediate
-      E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
-      E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
-      E1f(ijf+Nf*(Nf-1)) = E1f(ijf+Nf*(Nf-1)) + w2*E1c(ij)
-      E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
-      E1f(ijf+1+Nf*(Nf-1)) = E1f(ijf+1+Nf*(Nf-1)) + w2*E1c(ij)
-      E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
-      E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
-      E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
+      E1f(if-1,1) = E1f(if-1,1) + w2*E1c(i,1)
+      E1f(if-1,2) = E1f(if-1,2) + w2*E1c(i,1)
+      E1f(if,Nf) = E1f(if,Nf) + w2*E1c(i,1)
+      E1f(if,3) = E1f(if,3) + w2*E1c(i,1)
+      E1f(if+1,Nf) = E1f(if+1,Nf) + w2*E1c(i,1)
+      E1f(if+1,3) = E1f(if+1,3) + w2*E1c(i,1)
+      E1f(if+2,1) = E1f(if+2,1) + w2*E1c(i,1)
+      E1f(if+2,2) = E1f(if+2,2) + w2*E1c(i,1)
 
       ! least contribution to furthest
-      E1f(ijf-1+Nf*(Nf-1)) = E1f(ijf-1+Nf*(Nf-1)) + w3*E1c(ij)
-      E1f(ijf-1+2*Nf) = E1f(ijf-1+2*Nf) + w3*E1c(ij)
-      E1f(ijf+2+Nf*(Nf-1)) = E1f(ijf+2+Nf*(Nf-1)) + w3*E1c(ij)
-      E1f(ijf+2+2*Nf) = E1f(ijf+2+2*Nf) + w3*E1c(ij)
+      E1f(if-1,Nf) = E1f(if-1,Nf) + w3*E1c(i,1)
+      E1f(if-1,3) = E1f(if-1,3) + w3*E1c(i,1)
+      E1f(if+2,Nf) = E1f(if+2,Nf) + w3*E1c(i,1)
+      E1f(if+2,3) = E1f(if+2,3) + w3*E1c(i,1)
 
       ! largest contribution to nearest
-      E2f(ijf) = E2f(ijf) + w1*E2c(ij)
-      E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
-      E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
-      E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
+      E2f(if,1) = E2f(if,1) + w1*E2c(i,1)
+      E2f(if+1,1) = E2f(if+1,1) + w1*E2c(i,1)
+      E2f(if,2) = E2f(if,2) + w1*E2c(i,1)
+      E2f(if+1,2) = E2f(if+1,2) + w1*E2c(i,1)
 
       ! lesser contribution to intermediate
-      E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
-      E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
-      E2f(ijf+Nf*(Nf-1)) = E2f(ijf+Nf*(Nf-1)) + w2*E2c(ij)
-      E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
-      E2f(ijf+1+Nf*(Nf-1)) = E2f(ijf+1+Nf*(Nf-1)) + w2*E2c(ij)
-      E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
-      E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
-      E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
+      E2f(if-1,1) = E2f(if-1,1) + w2*E2c(i,1)
+      E2f(if-1,2) = E2f(if-1,2) + w2*E2c(i,1)
+      E2f(if,Nf) = E2f(if,Nf) + w2*E2c(i,1)
+      E2f(if,3) = E2f(if,3) + w2*E2c(i,1)
+      E2f(if+1,Nf) = E2f(if+1,Nf) + w2*E2c(i,1)
+      E2f(if+1,3) = E2f(if+1,3) + w2*E2c(i,1)
+      E2f(if+2,1) = E2f(if+2,1) + w2*E2c(i,1)
+      E2f(if+2,2) = E2f(if+2,2) + w2*E2c(i,1)
 
       ! least contribution to furthest
-      E2f(ijf-1+Nf*(Nf-1)) = E2f(ijf-1+Nf*(Nf-1)) + w3*E2c(ij)
-      E2f(ijf-1+2*Nf) = E2f(ijf-1+2*Nf) + w3*E2c(ij)
-      E2f(ijf+2+Nf*(Nf-1)) = E2f(ijf+2+Nf*(Nf-1)) + w3*E2c(ij)
-      E2f(ijf+2+2*Nf) = E2f(ijf+2+2*Nf) + w3*E2c(ij)
+      E2f(if-1,Nf) = E2f(if-1,Nf) + w3*E2c(i,1)
+      E2f(if-1,3) = E2f(if-1,3) + w3*E2c(i,1)
+      E2f(if+2,Nf) = E2f(if+2,Nf) + w3*E2c(i,1)
+      E2f(if+2,3) = E2f(if+2,3) + w3*E2c(i,1)
     enddo
 
     ! bottom edge
-    j = N
-    jf = 2*j-1
     do i=2,N-1
       if = 2*i-1
 
-      ij = i+N*(j-1)
-      ijf = if+Nf*(jf-1)
-
       ! largest contribution to nearest
-      E1f(ijf) = E1f(ijf) + w1*E1c(ij)
-      E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
-      E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
-      E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
+      E1f(if,Nf-1) = E1f(if,Nf-1) + w1*E1c(i,N)
+      E1f(if+1,Nf-1) = E1f(if+1,Nf-1) + w1*E1c(i,N)
+      E1f(if,Nf) = E1f(if,Nf) + w1*E1c(i,N)
+      E1f(if+1,Nf) = E1f(if+1,Nf) + w1*E1c(i,N)
 
       ! lesser contribution to intermediate
-      E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
-      E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
-      E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
-      E1f(if) = E1f(if) + w2*E1c(ij)
-      E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
-      E1f(if+1) = E1f(if+1) + w2*E1c(ij)
-      E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
-      E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
+      E1f(if-1,Nf-1) = E1f(if-1,Nf-1) + w2*E1c(i,N)
+      E1f(if-1,Nf) = E1f(if-1,Nf) + w2*E1c(i,N)
+      E1f(if,Nf-2) = E1f(if,Nf-2) + w2*E1c(i,N)
+      E1f(if,1) = E1f(if,1) + w2*E1c(i,N)
+      E1f(if+1,Nf-2) = E1f(if+1,Nf-2) + w2*E1c(i,N)
+      E1f(if+1,1) = E1f(if+1,1) + w2*E1c(i,N)
+      E1f(if+2,Nf-1) = E1f(if+2,Nf-1) + w2*E1c(i,N)
+      E1f(if+2,Nf) = E1f(if+2,Nf) + w2*E1c(i,N)
 
       ! least contribution to furthest
-      E1f(ijf-1-Nf) = E1f(ijf-1-Nf) + w3*E1c(ij)
-      E1f(if-1) = E1f(if-1) + w3*E1c(ij)
-      E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w3*E1c(ij)
-      E1f(if+2) = E1f(if+2) + w3*E1c(ij)
+      E1f(if-1,Nf-2) = E1f(if-1,Nf-2) + w3*E1c(i,N)
+      E1f(if-1,1) = E1f(if-1,1) + w3*E1c(i,N)
+      E1f(if+2,Nf-2) = E1f(if+2,Nf-2) + w3*E1c(i,N)
+      E1f(if+2,1) = E1f(if+2,1) + w3*E1c(i,N)
 
       ! largest contribution to nearest
-      E2f(ijf) = E2f(ijf) + w1*E2c(ij)
-      E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
-      E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
-      E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
+      E2f(if,Nf-1) = E2f(if,Nf-1) + w1*E2c(i,N)
+      E2f(if+1,Nf-1) = E2f(if+1,Nf-1) + w1*E2c(i,N)
+      E2f(if,Nf) = E2f(if,Nf) + w1*E2c(i,N)
+      E2f(if+1,Nf) = E2f(if+1,Nf) + w1*E2c(i,N)
 
       ! lesser contribution to intermediate
-      E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
-      E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
-      E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
-      E2f(if) = E2f(if) + w2*E2c(ij)
-      E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
-      E2f(if+1) = E2f(if+1) + w2*E2c(ij)
-      E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
-      E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
+      E2f(if-1,Nf-1) = E2f(if-1,Nf-1) + w2*E2c(i,N)
+      E2f(if-1,Nf) = E2f(if-1,Nf) + w2*E2c(i,N)
+      E2f(if,Nf-2) = E2f(if,Nf-2) + w2*E2c(i,N)
+      E2f(if,1) = E2f(if,1) + w2*E2c(i,N)
+      E2f(if+1,Nf-2) = E2f(if+1,Nf-2) + w2*E2c(i,N)
+      E2f(if+1,1) = E2f(if+1,1) + w2*E2c(i,N)
+      E2f(if+2,Nf-1) = E2f(if+2,Nf-1) + w2*E2c(i,N)
+      E2f(if+2,Nf) = E2f(if+2,Nf) + w2*E2c(i,N)
 
       ! least contribution to furthest
-      E2f(ijf-1-Nf) = E2f(ijf-1-Nf) + w3*E2c(ij)
-      E2f(if-1) = E2f(if-1) + w3*E2c(ij)
-      E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w3*E2c(ij)
-      E2f(if+2) = E2f(if+2) + w3*E2c(ij)
+      E2f(if-1,Nf-2) = E2f(if-1,Nf-2) + w3*E2c(i,N)
+      E2f(if-1,1) = E2f(if-1,1) + w3*E2c(i,N)
+      E2f(if+2,Nf-2) = E2f(if+2,Nf-2) + w3*E2c(i,N)
+      E2f(if+2,1) = E2f(if+2,1) + w3*E2c(i,N)
     enddo
 
     ! top left corner
-    j = 1
-    i = 1
-    jf = 2*j-1
-    if = 2*i-1
-    ij = i+N*(j-1)
-    ijf = if+Nf*(jf-1)
-
     ! largest contribution to nearest
-    E1f(ijf) = E1f(ijf) + w1*E1c(ij)
-    E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
-    E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
-    E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
+    E1f(1,1) = E1f(1,1) + w1*E1c(1,1)
+    E1f(2,1) = E1f(2,1) + w1*E1c(1,1)
+    E1f(1,2) = E1f(1,2) + w1*E1c(1,1)
+    E1f(2,2) = E1f(2,2) + w1*E1c(1,1)
 
     ! lesser contribution to intermediate
-    E1f(ijf-1+Nf) = E1f(ijf-1+Nf) + w2*E1c(ij)
-    E1f(ijf+2*Nf-1) = E1f(ijf+2*Nf-1) + w2*E1c(ij)
-    E1f(ijf+Nf*(Nf-1)) = E1f(ijf+Nf*(Nf-1)) + w2*E1c(ij)
-    E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
-    E1f(ijf+1+Nf*(Nf-1)) = E1f(ijf+1+Nf*(Nf-1)) + w2*E1c(ij)
-    E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
-    E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
-    E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
+    E1f(Nf,1) = E1f(Nf,1) + w2*E1c(1,1)
+    E1f(Nf,2) = E1f(Nf,2) + w2*E1c(1,1)
+    E1f(1,Nf) = E1f(1,Nf) + w2*E1c(1,1)
+    E1f(1,3) = E1f(1,3) + w2*E1c(1,1)
+    E1f(2,Nf) = E1f(2,Nf) + w2*E1c(1,1)
+    E1f(2,3) = E1f(2,3) + w2*E1c(1,1)
+    E1f(3,1) = E1f(3,1) + w2*E1c(1,1)
+    E1f(3,2) = E1f(3,2) + w2*E1c(1,1)
 
     ! least contribution to furthest
-    E1f(ijf-1+Nf*Nf) = E1f(ijf-1+Nf*Nf) + w3*E1c(ij)
-    E1f(ijf-1+3*Nf) = E1f(ijf-1+3*Nf) + w3*E1c(ij)
-    E1f(ijf+2+Nf*(Nf-1)) = E1f(ijf+2+Nf*(Nf-1)) + w3*E1c(ij)
-    E1f(ijf+2+2*Nf) = E1f(ijf+2+2*Nf) + w3*E1c(ij)
+    E1f(Nf,Nf) = E1f(Nf,Nf) + w3*E1c(1,1)
+    E1f(Nf,3) = E1f(Nf,3) + w3*E1c(1,1)
+    E1f(3,Nf) = E1f(3,Nf) + w3*E1c(1,1)
+    E1f(3,3) = E1f(3,3) + w3*E1c(1,1)
 
     ! largest contribution to nearest
-    E2f(ijf) = E2f(ijf) + w1*E2c(ij)
-    E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
-    E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
-    E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
+    E2f(1,1) = E2f(1,1) + w1*E2c(1,1)
+    E2f(2,1) = E2f(2,1) + w1*E2c(1,1)
+    E2f(1,2) = E2f(1,2) + w1*E2c(1,1)
+    E2f(2,2) = E2f(2,2) + w1*E2c(1,1)
 
     ! lesser contribution to intermediate
-    E2f(ijf-1+Nf) = E2f(ijf-1+Nf) + w2*E2c(ij)
-    E2f(ijf+2*Nf-1) = E2f(ijf+2*Nf-1) + w2*E2c(ij)
-    E2f(ijf+Nf*(Nf-1)) = E2f(ijf+Nf*(Nf-1)) + w2*E2c(ij)
-    E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
-    E2f(ijf+1+Nf*(Nf-1)) = E2f(ijf+1+Nf*(Nf-1)) + w2*E2c(ij)
-    E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
-    E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
-    E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
+    E2f(Nf,1) = E2f(Nf,1) + w2*E2c(1,1)
+    E2f(Nf,2) = E2f(Nf,2) + w2*E2c(1,1)
+    E2f(1,Nf) = E2f(1,Nf) + w2*E2c(1,1)
+    E2f(1,3) = E2f(1,3) + w2*E2c(1,1)
+    E2f(2,Nf) = E2f(2,Nf) + w2*E2c(1,1)
+    E2f(2,3) = E2f(2,3) + w2*E2c(1,1)
+    E2f(3,1) = E2f(3,1) + w2*E2c(1,1)
+    E2f(3,2) = E2f(3,2) + w2*E2c(1,1)
 
     ! least contribution to furthest
-    E2f(ijf-1+Nf*Nf) = E2f(ijf-1+Nf*Nf) + w3*E2c(ij)
-    E2f(ijf-1+3*Nf) = E2f(ijf-1+3*Nf) + w3*E2c(ij)
-    E2f(ijf+2+Nf*(Nf-1)) = E2f(ijf+2+Nf*(Nf-1)) + w3*E2c(ij)
-    E2f(ijf+2+2*Nf) = E2f(ijf+2+2*Nf) + w3*E2c(ij)
+    E2f(Nf,Nf) = E2f(Nf,Nf) + w3*E2c(1,1)
+    E2f(Nf,3) = E2f(Nf,3) + w3*E2c(1,1)
+    E2f(3,Nf) = E2f(3,Nf) + w3*E2c(1,1)
+    E2f(3,3) = E2f(3,3) + w3*E2c(1,1)
 
 
     ! top right corner
-    j = 1
-    i = N
-    jf = 2*j-1
-    if = 2*i-1
-    ij = i+N*(j-1)
-    ijf = if+Nf*(jf-1)
-
     ! largest contribution to nearest
-    E1f(ijf) = E1f(ijf) + w1*E1c(ij)
-    E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
-    E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
-    E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
+    E1f(Nf-1,1) = E1f(Nf-1,1) + w1*E1c(N,1)
+    E1f(Nf,1) = E1f(Nf,1) + w1*E1c(N,1)
+    E1f(Nf-1,2) = E1f(Nf-1,2) + w1*E1c(N,1)
+    E1f(Nf,2) = E1f(Nf,2) + w1*E1c(N,1)
 
     ! lesser contribution to intermediate
-    E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
-    E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
-    E1f(ijf+Nf*(Nf-1)) = E1f(ijf+Nf*(Nf-1)) + w2*E1c(ij)
-    E1f(ijf+2*Nf) = E1f(ijf+2*Nf) + w2*E1c(ij)
-    E1f(ijf+1+Nf*(Nf-1)) = E1f(ijf+1+Nf*(Nf-1)) + w2*E1c(ij)
-    E1f(ijf+1+2*Nf) = E1f(ijf+1+2*Nf) + w2*E1c(ij)
-    E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w2*E1c(ij)
-    E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
+    E1f(Nf-2,1) = E1f(Nf-2,1) + w2*E1c(N,1)
+    E1f(Nf-2,2) = E1f(Nf-2,2) + w2*E1c(N,1)
+    E1f(Nf-1,Nf) = E1f(Nf-1,Nf) + w2*E1c(N,1)
+    E1f(Nf-1,3) = E1f(Nf-1,3) + w2*E1c(N,1)
+    E1f(Nf,Nf) = E1f(Nf,Nf) + w2*E1c(N,1)
+    E1f(Nf,3) = E1f(Nf,3) + w2*E1c(N,1)
+    E1f(1,1) = E1f(1,1) + w2*E1c(N,1)
+    E1f(1,2) = E1f(1,2) + w2*E1c(N,1)
 
     ! least contribution to furthest
-    E1f(ijf-1+Nf*(Nf-1)) = E1f(ijf-1+Nf*(Nf-1)) + w3*E1c(ij)
-    E1f(ijf-1+2*Nf) = E1f(ijf-1+2*Nf) + w3*E1c(ij)
-    E1f(ijf+2+Nf*(Nf-2)) = E1f(ijf+2+Nf*(Nf-2)) + w3*E1c(ij)
-    E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w3*E1c(ij)
+    E1f(Nf-2,Nf) = E1f(Nf-2,Nf) + w3*E1c(N,1)
+    E1f(Nf-2,3) = E1f(Nf-2,3) + w3*E1c(N,1)
+    E1f(1,Nf) = E1f(1,Nf) + w3*E1c(N,1)
+    E1f(1,3) = E1f(1,3) + w3*E1c(N,1)
 
     ! largest contribution to nearest
-    E2f(ijf) = E2f(ijf) + w1*E2c(ij)
-    E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
-    E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
-    E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
+    E2f(Nf-1,1) = E2f(Nf-1,1) + w1*E2c(N,1)
+    E2f(Nf,1) = E2f(Nf,1) + w1*E2c(N,1)
+    E2f(Nf-1,2) = E2f(Nf-1,2) + w1*E2c(N,1)
+    E2f(Nf,2) = E2f(Nf,2) + w1*E2c(N,1)
 
     ! lesser contribution to intermediate
-    E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
-    E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
-    E2f(ijf+Nf*(Nf-1)) = E2f(ijf+Nf*(Nf-1)) + w2*E2c(ij)
-    E2f(ijf+2*Nf) = E2f(ijf+2*Nf) + w2*E2c(ij)
-    E2f(ijf+1+Nf*(Nf-1)) = E2f(ijf+1+Nf*(Nf-1)) + w2*E2c(ij)
-    E2f(ijf+1+2*Nf) = E2f(ijf+1+2*Nf) + w2*E2c(ij)
-    E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w2*E2c(ij)
-    E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
+    E2f(Nf-2,1) = E2f(Nf-2,1) + w2*E2c(N,1)
+    E2f(Nf-2,2) = E2f(Nf-2,2) + w2*E2c(N,1)
+    E2f(Nf-1,Nf) = E2f(Nf-1,Nf) + w2*E2c(N,1)
+    E2f(Nf-1,3) = E2f(Nf-1,3) + w2*E2c(N,1)
+    E2f(Nf,Nf) = E2f(Nf,Nf) + w2*E2c(N,1)
+    E2f(Nf,3) = E2f(Nf,3) + w2*E2c(N,1)
+    E2f(1,1) = E2f(1,1) + w2*E2c(N,1)
+    E2f(1,2) = E2f(1,2) + w2*E2c(N,1)
 
     ! least contribution to furthest
-    E2f(ijf-1+Nf*(Nf-1)) = E2f(ijf-1+Nf*(Nf-1)) + w3*E2c(ij)
-    E2f(ijf-1+2*Nf) = E2f(ijf-1+2*Nf) + w3*E2c(ij)
-    E2f(ijf+2+Nf*(Nf-2)) = E2f(ijf+2+Nf*(Nf-2)) + w3*E2c(ij)
-    E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w3*E2c(ij)
+    E2f(Nf-2,Nf) = E2f(Nf-2,Nf) + w3*E2c(N,1)
+    E2f(Nf-2,3) = E2f(Nf-2,3) + w3*E2c(N,1)
+    E2f(1,Nf) = E2f(1,Nf) + w3*E2c(N,1)
+    E2f(1,3) = E2f(1,3) + w3*E2c(N,1)
 
 
     ! bottom left corner
-    j = N
-    i = 1
-    jf = 2*j-1
-    if = 2*i-1
-    ij = i+N*(j-1)
-    ijf = if+Nf*(jf-1)
-
     ! largest contribution to nearest
-    E1f(ijf) = E1f(ijf) + w1*E1c(ij)
-    E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
-    E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
-    E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
+    E1f(1,Nf-1) = E1f(1,Nf-1) + w1*E1c(1,N)
+    E1f(2,Nf-1) = E1f(2,Nf-1) + w1*E1c(1,N)
+    E1f(1,Nf) = E1f(1,Nf) + w1*E1c(1,N)
+    E1f(2,Nf) = E1f(2,Nf) + w1*E1c(1,N)
 
     ! lesser contribution to intermediate
-    E1f(ijf-1+Nf) = E1f(ijf-1+Nf) + w2*E1c(ij)
-    E1f(ijf+2*Nf-1) = E1f(ijf+2*Nf-1) + w2*E1c(ij)
-    E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
-    E1f(if) = E1f(if) + w2*E1c(ij)
-    E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
-    E1f(if+1) = E1f(if+1) + w2*E1c(ij)
-    E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
-    E1f(ijf+2+Nf) = E1f(ijf+2+Nf) + w2*E1c(ij)
+    E1f(Nf,Nf-1) = E1f(Nf,Nf-1) + w2*E1c(1,N)
+    E1f(Nf,Nf) = E1f(Nf,Nf) + w2*E1c(1,N)
+    E1f(1,Nf-2) = E1f(1,Nf-2) + w2*E1c(1,N)
+    E1f(1,1) = E1f(1,1) + w2*E1c(1,N)
+    E1f(2,Nf-2) = E1f(2,Nf-2) + w2*E1c(1,N)
+    E1f(2,1) = E1f(2,1) + w2*E1c(1,N)
+    E1f(3,Nf-1) = E1f(3,Nf-1) + w2*E1c(1,N)
+    E1f(3,Nf) = E1f(3,Nf) + w2*E1c(1,N)
 
     ! least contribution to furthest
-    E1f(ijf-1) = E1f(ijf-1) + w3*E1c(ij)
-    E1f(if-1+Nf) = E1f(if-1+Nf) + w3*E1c(ij)
-    E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w3*E1c(ij)
-    E1f(if+2) = E1f(if+2) + w3*E1c(ij)
+    E1f(Nf,Nf-2) = E1f(Nf,Nf-2) + w3*E1c(1,N)
+    E1f(Nf,1) = E1f(Nf,1) + w3*E1c(1,N)
+    E1f(3,Nf-2) = E1f(3,Nf-2) + w3*E1c(1,N)
+    E1f(3,1) = E1f(3,1) + w3*E1c(1,N)
 
     ! largest contribution to nearest
-    E2f(ijf) = E2f(ijf) + w1*E2c(ij)
-    E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
-    E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
-    E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
+    E2f(1,Nf-1) = E2f(1,Nf-1) + w1*E2c(1,N)
+    E2f(2,Nf-1) = E2f(2,Nf-1) + w1*E2c(1,N)
+    E2f(1,Nf) = E2f(1,Nf) + w1*E2c(1,N)
+    E2f(2,Nf) = E2f(2,Nf) + w1*E2c(1,N)
 
     ! lesser contribution to intermediate
-    E2f(ijf-1+Nf) = E2f(ijf-1+Nf) + w2*E2c(ij)
-    E2f(ijf+2*Nf-1) = E2f(ijf+2*Nf-1) + w2*E2c(ij)
-    E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
-    E2f(if) = E2f(if) + w2*E2c(ij)
-    E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
-    E2f(if+1) = E2f(if+1) + w2*E2c(ij)
-    E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
-    E2f(ijf+2+Nf) = E2f(ijf+2+Nf) + w2*E2c(ij)
+    E2f(Nf,Nf-1) = E2f(Nf,Nf-1) + w2*E2c(1,N)
+    E2f(Nf,Nf) = E2f(Nf,Nf) + w2*E2c(1,N)
+    E2f(1,Nf-2) = E2f(1,Nf-2) + w2*E2c(1,N)
+    E2f(1,1) = E2f(1,1) + w2*E2c(1,N)
+    E2f(2,Nf-2) = E2f(2,Nf-2) + w2*E2c(1,N)
+    E2f(2,1) = E2f(2,1) + w2*E2c(1,N)
+    E2f(3,Nf-1) = E2f(3,Nf-1) + w2*E2c(1,N)
+    E2f(3,Nf) = E2f(3,Nf) + w2*E2c(1,N)
 
     ! least contribution to furthest
-    E2f(ijf-1) = E2f(ijf-1) + w3*E2c(ij)
-    E2f(if-1+Nf) = E2f(if-1+Nf) + w3*E2c(ij)
-    E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w3*E2c(ij)
-    E2f(if+2) = E2f(if+2) + w3*E2c(ij)
+    E2f(Nf,Nf-2) = E2f(Nf,Nf-2) + w3*E2c(1,N)
+    E2f(Nf,1) = E2f(Nf,1) + w3*E2c(1,N)
+    E2f(3,Nf-2) = E2f(3,Nf-2) + w3*E2c(1,N)
+    E2f(3,1) = E2f(3,1) + w3*E2c(1,N)
 
 
     ! bottom right corner
-    j = N
-    i = N
-    jf = 2*j-1
-    if = 2*i-1
-    ij = i+N*(j-1)
-    ijf = if+Nf*(jf-1)
-
     ! largest contribution to nearest
-    E1f(ijf) = E1f(ijf) + w1*E1c(ij)
-    E1f(ijf+1) = E1f(ijf+1) + w1*E1c(ij)
-    E1f(ijf+Nf) = E1f(ijf+Nf) + w1*E1c(ij)
-    E1f(ijf+Nf+1) = E1f(ijf+Nf+1) + w1*E1c(ij)
+    E1f(Nf-1,Nf-1) = E1f(Nf-1,Nf-1) + w1*E1c(N,N)
+    E1f(Nf,Nf-1) = E1f(Nf,Nf-1) + w1*E1c(N,N)
+    E1f(Nf-1,Nf) = E1f(Nf-1,Nf) + w1*E1c(N,N)
+    E1f(Nf,Nf) = E1f(Nf,Nf) + w1*E1c(N,N)
 
     ! lesser contribution to intermediate
-    E1f(ijf-1) = E1f(ijf-1) + w2*E1c(ij)
-    E1f(ijf+Nf-1) = E1f(ijf+Nf-1) + w2*E1c(ij)
-    E1f(ijf-Nf) = E1f(ijf-Nf) + w2*E1c(ij)
-    E1f(if) = E1f(if) + w2*E1c(ij)
-    E1f(ijf+1-Nf) = E1f(ijf+1-Nf) + w2*E1c(ij)
-    E1f(if+1) = E1f(if+1) + w2*E1c(ij)
-    E1f(ijf+2-Nf) = E1f(ijf+2-Nf) + w2*E1c(ij)
-    E1f(ijf+2) = E1f(ijf+2) + w2*E1c(ij)
+    E1f(Nf-2,Nf-1) = E1f(Nf-2,Nf-1) + w2*E1c(N,N)
+    E1f(Nf-2,Nf) = E1f(Nf-2,Nf) + w2*E1c(N,N)
+    E1f(Nf-1,Nf-2) = E1f(Nf-1,Nf-2) + w2*E1c(N,N)
+    E1f(Nf-1,1) = E1f(Nf-1,1) + w2*E1c(N,N)
+    E1f(Nf,Nf-2) = E1f(Nf,Nf-2) + w2*E1c(N,N)
+    E1f(Nf,1) = E1f(Nf,1) + w2*E1c(N,N)
+    E1f(1,Nf-1) = E1f(1,Nf-1) + w2*E1c(N,N)
+    E1f(1,Nf) = E1f(1,Nf) + w2*E1c(N,N)
 
     ! least contribution to furthest
-    E1f(ijf-1-Nf) = E1f(ijf-1-Nf) + w3*E1c(ij)
-    E1f(if-1) = E1f(if-1) + w3*E1c(ij)
-    E1f(ijf+2-2*Nf) = E1f(ijf+2-2*Nf) + w3*E1c(ij)
-    E1f(if+2-Nf) = E1f(if+2-Nf) + w3*E1c(ij)
+    E1f(Nf-2,Nf-2) = E1f(Nf-2,Nf-2) + w3*E1c(N,N)
+    E1f(Nf-2,1) = E1f(Nf-2,1) + w3*E1c(N,N)
+    E1f(1,Nf-2) = E1f(1,Nf-2) + w3*E1c(N,N)
+    E1f(1,1) = E1f(1,1) + w3*E1c(N,N)
 
     ! largest contribution to nearest
-    E2f(ijf) = E2f(ijf) + w1*E2c(ij)
-    E2f(ijf+1) = E2f(ijf+1) + w1*E2c(ij)
-    E2f(ijf+Nf) = E2f(ijf+Nf) + w1*E2c(ij)
-    E2f(ijf+Nf+1) = E2f(ijf+Nf+1) + w1*E2c(ij)
+    E2f(Nf-1,Nf-1) = E2f(Nf-1,Nf-1) + w1*E2c(N,N)
+    E2f(Nf,Nf-1) = E2f(Nf,Nf-1) + w1*E2c(N,N)
+    E2f(Nf-1,Nf) = E2f(Nf-1,Nf) + w1*E2c(N,N)
+    E2f(Nf,Nf) = E2f(Nf,Nf) + w1*E2c(N,N)
 
     ! lesser contribution to intermediate
-    E2f(ijf-1) = E2f(ijf-1) + w2*E2c(ij)
-    E2f(ijf+Nf-1) = E2f(ijf+Nf-1) + w2*E2c(ij)
-    E2f(ijf-Nf) = E2f(ijf-Nf) + w2*E2c(ij)
-    E2f(if) = E2f(if) + w2*E2c(ij)
-    E2f(ijf+1-Nf) = E2f(ijf+1-Nf) + w2*E2c(ij)
-    E2f(if+1) = E2f(if+1) + w2*E2c(ij)
-    E2f(ijf+2-Nf) = E2f(ijf+2-Nf) + w2*E2c(ij)
-    E2f(ijf+2) = E2f(ijf+2) + w2*E2c(ij)
+    E2f(Nf-2,Nf-1) = E2f(Nf-2,Nf-1) + w2*E2c(N,N)
+    E2f(Nf-2,Nf) = E2f(Nf-2,Nf) + w2*E2c(N,N)
+    E2f(Nf-1,Nf-2) = E2f(Nf-1,Nf-2) + w2*E2c(N,N)
+    E2f(Nf-1,1) = E2f(Nf-1,1) + w2*E2c(N,N)
+    E2f(Nf,Nf-2) = E2f(Nf,Nf-2) + w2*E2c(N,N)
+    E2f(Nf,1) = E2f(Nf,1) + w2*E2c(N,N)
+    E2f(1,Nf-1) = E2f(1,Nf-1) + w2*E2c(N,N)
+    E2f(1,Nf) = E2f(1,Nf) + w2*E2c(N,N)
 
     ! least contribution to furthest
-    E2f(ijf-1-Nf) = E2f(ijf-1-Nf) + w3*E2c(ij)
-    E2f(if-1) = E2f(if-1) + w3*E2c(ij)
-    E2f(ijf+2-2*Nf) = E2f(ijf+2-2*Nf) + w3*E2c(ij)
-    E2f(if+2-Nf) = E2f(if+2-Nf) + w3*E2c(ij)
+    E2f(Nf-2,Nf-2) = E2f(Nf-2,Nf-2) + w3*E2c(N,N)
+    E2f(Nf-2,1) = E2f(Nf-2,1) + w3*E2c(N,N)
+    E2f(1,Nf-2) = E2f(1,Nf-2) + w3*E2c(N,N)
+    E2f(1,1) = E2f(1,1) + w3*E2c(N,N)
   end subroutine prolongate
 end module fd_solvers
