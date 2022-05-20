@@ -74,7 +74,7 @@ def plot_conc_evol(animation_fps = 10 , ti = 0, tf = t_array[-1]):
   ax.set_axis_off()
   fig.add_axes(ax)
   final_an = anim.ArtistAnimation(fig, ims, interval = 5, repeat = True)
-  final_an.save('Conc_Evolution.mp4', fps = animation_fps)
+  final_an.save('Conc_Evolution.gif', writer = anim.PillowWriter(fps = animation_fps))
   return None
 
 def plot_free_energy(ti = 0, tf = t_array[-1]):
