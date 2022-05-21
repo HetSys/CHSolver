@@ -30,6 +30,13 @@ module hdf5_io
   integer(hid_t) :: dt_dspace_id ! dataspace identifier for 3/4D
   integer(hsize_t), allocatable, dimension(:) :: dt_dims
 
+
+  !> @brief Called from within solvers to output c, c_prev and dt to a HDF5 checkpoint file.
+  !! @param[in]  c Concentration at current timestep.
+  !! @param[in]  c_prev Concentration at previous timestep.
+  !! @param[in]  dt Difference in time between the current and previous timesteps.
+  !! @param[in]  t The time at the current step.
+  !! @param[out]  error error code
   interface write_to_traj
     module procedure write_to_traj_2D
     module procedure write_to_traj_3D
@@ -37,9 +44,12 @@ module hdf5_io
 
   contains
 
-  !This function should create a folder to store the trajectory 
-  !In the folder, a metadata file should be created
-  !Alongside this, hdf5 variables should be allocated to fit grid lengths/ranks
+
+  !> @brief Should create a folder to store the trajectory and in the folder, a metadata file should be created. Also, hdf5 variables should be allocated to fit grid lengths/ranks.
+  !! @param[in]  foldername Folder name to store the checkpoint files and metadata.
+  !! @param[in]  grid_params (1) Number of dimensions, (2) 2 raised to the power of this number will give the grid resolution.
+  !! @param[in]  sys_params Parameters used by the solver, to be placed in metadata.
+  !! @param[out]  error error code
   subroutine output_init(foldername, grid_params, sys_params, error)
     character(*), intent(in) :: foldername
     integer, intent(in), dimension(2) :: grid_params
@@ -72,6 +82,8 @@ module hdf5_io
     call h5open_f(error)
 
   end subroutine
+  
+
 
   subroutine write_to_traj_2D(c, c_prev, time, dt, error)
     real(dp), intent(in), dimension(:, :) :: c, c_prev
@@ -164,7 +176,9 @@ module hdf5_io
     close(iu)
 
   end subroutine
-
+  
+  !> @brief Closes interfaces.
+  !! @param[out]  error error code
   subroutine output_final(error)
     integer, intent(out) :: error
 
@@ -198,7 +212,11 @@ module hdf5_io
 
   end subroutine
 
-
+  !> @brief Reads in a HDF5 checkpoint file, used in restarting
+  !! @param[in]  c Concentration at current timestep.
+  !! @param[in]  c_prev Concentration at previous timestep.
+  !! @param[in]  dt Difference in time between the current and previous timesteps.
+  !! @param[out]  error error code
   subroutine read_hdf5_chkpnt(c, c_prev, dt, err)
     real(dp), dimension(:, :), intent(inout), allocatable :: c, c_prev
     real(dp), intent(out) :: dt
@@ -224,6 +242,14 @@ module hdf5_io
     call h5dclose_f(dt_dset_id,err)
 
   end subroutine 
+
+  !> @brief Initialises a restart from a specified checkpoint.
+  !! @param[in]  chkpnt_folder 
+  !! @param[out]  sys_params Parameters used by the solver, to be placed in metadata.
+  !! @param[out]  current_time
+  !! @param[out]  error error code
+  !! @param[in]  n_chkpnt 
+  !! @param[in]  start_before_time 
 
   subroutine chkpnt_init(chkpnt_folder, sys_params, current_time, error, n_chkpnt, start_before_time)
     character(*), intent(in) :: chkpnt_folder
