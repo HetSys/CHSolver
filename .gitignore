@@ -64,3 +64,6 @@ tests/unit_tests/*.inc
 
 # Other
 **/.DS_Store
+
+# Python Enviroment
+chenv
