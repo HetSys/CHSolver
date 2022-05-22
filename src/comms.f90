@@ -131,8 +131,6 @@ module comms
     integer(kind=mpi_address_kind) :: extent
     integer, dimension(nproc) :: displs, counts
 
-    integer :: i, j
-
     mpi_res = int(grid_res/nproc_row)
 
     call mpi_type_create_subarray(2, [grid_res, grid_res], [mpi_res, mpi_res], [0, 0],&
