@@ -33,8 +33,7 @@ module comms
     call mpi_cart_shift(cart_comm, 1, 1, neigh(1), neigh(2), mpi_err)
     call mpi_cart_shift(cart_comm, 0, 1, neigh(4), neigh(3), mpi_err)
 
-
-  end subroutine 
+  end subroutine comms_init
 
 
   ! Send Initial Parameters Everywhere
@@ -46,7 +45,7 @@ module comms
     call mpi_bcast(grid_res, 1, mpi_integer, 0, mpi_comm_world, mpi_err)
 
 
-  end subroutine 
+  end subroutine broadcast_setup
 
   subroutine grid_scatter(grid, grid_res, mpi_grid)
     integer, intent(in) :: grid_res
@@ -94,7 +93,7 @@ module comms
 
     call MPI_Type_free(subgrid,mpi_err)
 
-  end subroutine
+  end subroutine grid_scatter
 
   subroutine grid_gather(grid, grid_res, mpi_grid)
     integer, intent(in) :: grid_res
@@ -133,7 +132,7 @@ module comms
      0, mpi_comm_world, mpi_err)
 
 
-  end subroutine
+  end subroutine grid_gather
 
 
   subroutine send_edge(n, sent, recv, direction)
@@ -168,14 +167,14 @@ module comms
     mpi_double_precision, neigh(dir_int2), 1003, cart_comm, mpi_status_ignore, mpi_err)
 
 
-  end subroutine 
+  end subroutine send_edge
 
 
   subroutine comms_final()
     call mpi_finalize(mpi_err)
-  end subroutine 
+  end subroutine comms_final
 
 
 
 
-end module 
+end module comms

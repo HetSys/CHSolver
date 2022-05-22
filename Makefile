@@ -22,9 +22,11 @@ LOG_DIR=./logs
 FACEPATH = $(SRC_DIR)/submodules/FACE/src/lib/face.F90
 FLOGPATH = $(SRC_DIR)/submodules/flogging/src/logging.f90
 
-SRC= $(wildcard $(SRC_DIR)/*.f90)
+SRC=$(filter-out $(SRC_DIR)/test.f90, $(wildcard $(SRC_DIR)/*.f90))
+SRC_TEST=$(filter-out $(SRC_DIR)/main.f90, $(wildcard $(SRC_DIR)/*.f90))
 
 OBJ= $(OBJ_DIR)/face.o $(OBJ_DIR)/logger_mod.o  $(addprefix $(OBJ_DIR)/, $(notdir $(SRC:.f90=.o)))
+OBJ_TEST=$(OBJ_DIR)/face.o $(OBJ_DIR)/logger_mod.o  $(addprefix $(OBJ_DIR)/, $(notdir $(SRC_TEST:.f90=.o)))
 
 chsolver: directories $(OBJ)
 	@printf "`tput bold``tput setaf 2`Linking`tput sgr0`\n"
@@ -53,6 +55,12 @@ $(OBJ_DIR)/logger_mod.o: $(FLOGPATH)
 $(SRC_DIR)/libchsolver.a : $(wildcard $(OBJ_DIR)/*.o)
 	ar -r $@ $?
 
+
+.PHONY: test
+test: directories $(OBJ_TEST)
+	@printf "`tput bold``tput setaf 2`Linking`tput sgr0`\n"
+	@echo $(OBJ_TEST)
+	$(LD) $(FFLAGS) -o test $(OBJ_TEST) $(FLIBS)
 
 # pFUnit
 # .PHONY: tests
@@ -88,6 +96,7 @@ docs:
 
 # dependencies
 $(OBJ_DIR)/logger_mod.o : $(OBJ_DIR)/face.o
+$(OBJ_DIR)/comms.o : $(OBJ_DIR)/solver-utils.o
 $(OBJ_DIR)/globals.o : $(OBJ_DIR)/logging.o
 $(OBJ_DIR)/solver-utils.o : $(OBJ_DIR)/globals.o
 $(OBJ_DIR)/solvers.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o $(OBJ_DIR)/fd-solvers.o

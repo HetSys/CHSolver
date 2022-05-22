@@ -53,6 +53,9 @@ src/submodules/bin/*
 chsolver
 test_all
 CH-docs.pdf
+*.png
+*.gif
+*.mp4
 
 # Unit tests additional
 tests/unit_tests/*.F90

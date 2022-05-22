@@ -32,7 +32,7 @@ program main
   
   do i = 1,4
     do j = 1,4
-      write(*, "(F5.2, X)", advance="no") grid(i, j)
+      write(*, "(F5.2, 1X)", advance="no") grid(i, j)
     end do
     write(*,*)
   end do
@@ -40,7 +40,7 @@ program main
   write(*, *) myrank
   do i = 0,3
     do j = 0,3
-      write(*, "(F5.2, X)", advance="no") mpi_grid(i, j)
+      write(*, "(F5.2, 1X)", advance="no") mpi_grid(i, j)
     end do
     write(*,*)
   end do
@@ -54,7 +54,7 @@ program main
   write(*, *) myrank
   do i = 0,3
     do j = 0,3
-      write(*, "(F5.2, X)", advance="no") mpi_grid(i, j)
+      write(*, "(F5.2, 1X)", advance="no") mpi_grid(i, j)
     end do
     write(*,*)
   end do
@@ -69,7 +69,7 @@ program main
   write(*, *) myrank
   do i = 0,3
     do j = 0,3
-      write(*, "(F5.2, X)", advance="no") mpi_grid(i, j)
+      write(*, "(F5.2, 1X)", advance="no") mpi_grid(i, j)
     end do
     write(*,*)
   end do
@@ -83,7 +83,7 @@ program main
   write(*, *) myrank
   do i = 0,3
     do j = 0,3
-      write(*, "(F5.2, X)", advance="no") mpi_grid(i, j)
+      write(*, "(F5.2, 1X)", advance="no") mpi_grid(i, j)
     end do
     write(*,*)
   end do
@@ -98,7 +98,7 @@ program main
   
   do i = 1,4
     do j = 1,4
-      write(*, "(F5.2, X)", advance="no") grid(i, j)
+      write(*, "(F5.2, 1X)", advance="no") grid(i, j)
     end do
     write(*,*)
   end do
