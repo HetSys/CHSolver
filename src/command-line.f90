@@ -1,3 +1,8 @@
+
+!> @brief Command Line Interface for the CH Solver.
+!! @details Parses for getopt style args to adjust input parameters, logging verbosity,
+!! and other features.
+!! @author Tom Rocke
 module command_line
   use globals
   implicit none
@@ -16,13 +21,29 @@ module command_line
 
   integer, private :: current_arg
 
-  integer, parameter :: LINSPACE_SELECTED = 10, LOGSPACE_SELECTED=20, NONE_SELECTED = 0
+  !> @var integer linspace_selected 
+  !! Integer marker to flag that the start, stop and nsteps
+  !! returned by get_lin_log_args should be passed to the lin_tspace procedure in setup.f90
+  !! @var integer logspace_selected 
+  !! Integer marker to flag that the start, stop and nsteps
+  !! returned by get_lin_log_args should be passed to the log_tspace procedure in setup.f90
+  !! @var integer none_selected
+  !! Integer marker to flag that the time array should not be modified 
+  integer, parameter :: LINSPACE_SELECTED = 10, LOGSPACE_SELECTED = 20, NONE_SELECTED = 0
 
   contains
 
-  !> @Brief Parse command line args, Initialise logging
-  !! Wrapper for the flogging logger_init() subroutine
+  !> @brief Parse command line args, initialise logging.
+  !! @details Wrapper for the flogging logger_init() subroutine
   !! Automatically handles logfile creation and naming
+  !! @param[in] err_threshold Optional integer threshold for logging to stderr
+  !! defaulting to error
+  !! @param[in] out_threshold Optional integer threshold for logging to stdout
+  !! defaulting to info
+  !! @param[in] file_threshold Optional integer threshold for logging to logfile
+  !! defaulting to trivia
+  !! @param[in] ranseed Optional seed to use for random number generation. If not
+  !! present, randomness will not be seeded
   subroutine initialise(err_threshold, out_threshold, file_threshold, ranseed)
     integer, intent(in), optional :: err_threshold, out_threshold, file_threshold, ranseed
 
@@ -62,9 +83,18 @@ module command_line
 
 
 
-  !! Grab JSON filename, run name, and directory to store outputs from parsed command line args
-  !> Will only modify filename, run_name, and output_dir if
-  !> relevant command line overrides were found
+  !> @brief Grab JSON filename, run name, and directory to store outputs from parsed command line args
+  !! @details Will only modify filename, run_name, and output_dir if
+  !! relevant command line overrides were found.
+  !! @param[inout] filename JSON filename. If a new filename is found in the command line,
+  !! filename will be changed to this new value, else it will be unchanged.
+  !! @param[inout] filename JSON "run name" key to search for parameters. If a new run name is found in the command line,
+  !! run_name will be changed to this new value, else it will be unchanged.
+  !! @param[inout] output_dir Directory for all HDF5 file output. If a new dir is found in the command line,
+  !! output_dir will be changed to this new value, else it will be unchanged.
+  !! @param[out] all_params_fnd Flag for whether all input data params (L, A, M, K, 
+  !! p0, p1, and the output time array T) were defined from the command line.
+  !! Used in main.f90 to skip reading the JSON file if all params already defined.
   subroutine get_io_commands(filename, run_name, output_dir, all_params_fnd)
     character(120), optional, intent(inout) :: filename, run_name, output_dir
     logical, intent(out) :: all_params_fnd
@@ -95,9 +125,17 @@ module command_line
   end subroutine
 
 
-  !! Grab CH Params, grid level, grid init, and output times from parsed command line args
-  !> Will only modify parts of CH_params, or level, init, time_arr
-  !> if relevant overrides were found
+  !> @brief Grab CH Params, grid level, grid init, and output times from parsed command line args
+  !! @details Will only modify parts of CH_params, or level, init, time_arr
+  !! if relevant overrides were found.
+  !! @param[inout] CH_params Elements of CH_params will be overwritten if the corresponding
+  !! input parameter (L, A, M, K, p0, p0) was defined in the command line
+  !! @param[inout] level Level will be overwritten if a new grid level is defined 
+  !! via the command line -L or --level flags
+  !! @param[inout] init Init will be overwritten if a new grid initialisation is defined 
+  !! via the command line -i or --init flags
+  !! @param[inout] time_arr time_arr will be reallocated and populated if a time array was explicitly
+  !! defined via the -t or --time_array flags
   subroutine get_input_commands(CH_params, level, init, time_arr)
     real(dp), intent(inout), optional :: CH_params(6)
     integer, intent(inout), optional :: level
@@ -138,6 +176,12 @@ module command_line
     
   end subroutine
 
+  !> @brief Get the start, stop, and num_steps to define a linspace or logspace time array
+  !! @param[out] selected Integer marker for what time array was defined. Will be equal to either
+  !! LINSPACE_SELECTED, LOGSPACE_SELECTED, or NONE_SELECTED
+  !! @param[out] start_val Time to start writing output files
+  !! @param[out] stop_val Time to finish output and solving
+  !! @param[out] num_outputs Number of output files to write
   subroutine get_lin_log_args(selected, start_val, stop_val, num_outputs)
     integer, intent(out) :: selected, num_outputs
     real(dp), intent(out) :: start_val, stop_val
@@ -153,11 +197,12 @@ module command_line
     if (selected /= NONE_SELECTED) then
       start_val = cmd_space_params(1)
       stop_val = cmd_space_params(2)
-      num_outputs = int(cmd_space_params(3))
+      num_outputs = int(cmd_space_params(3)) - 1 ! Lin / Logspace uses steps not total num
     end if
   end subroutine
 
-  !! Parse command line args, modifying private variables when overriding values found from the command line
+  !> @brief Parse command line args
+  !! @details Modifies private variables when overriding values found from the command line
   subroutine parse_args()
     integer :: num_args
     character(:), allocatable :: key_arg, val_arg
@@ -214,9 +259,13 @@ module command_line
 
 
 
-  !! Parses given key arg and val arg
-  !> Specified either by -{key} {val} or by 
-  !> --{key}={val}
+  !> @brief Parses given key arg and val arg
+  !! @param[in] key_arg Command line key, given by -{key} or --{key}
+  !! @param[in] val_arg Command line value,given by -{key} {val}
+  !! or --{key}={val}
+  !! @param[in] is_short_arg Logical flag for whether the key was declared by -{key}
+  !! or by --{key}. Required so that the CLI parser knows if the next arg will be a new
+  !! key (-{key} {val} notation means the CLI should ignore the val when parsing for keys)
   subroutine parse_keyval_arg(key_arg, val_arg, is_short_arg)
     character(*), intent(in) :: key_arg
     character(*), intent(in), optional :: val_arg
@@ -315,7 +364,7 @@ module command_line
   end subroutine parse_keyval_arg
 
 
-
+  !> @brief Print CLI help text to stdout
   subroutine print_help_text()
     character(1), parameter :: newline = NEW_LINE('a')
     print *, "CHSolver Command Line Options", newline
@@ -364,10 +413,13 @@ module command_line
     print *, "                                      {<start_time>:<stop_time>:<number_of_output_timesteps>}", newline
   end subroutine
 
-
+  !> @brief Set arr based on the string representation in str_array
+  !! @param[in] str_array String representation of a colon separated 
+  !! real array, EG: {0.0:0.1:0.2}
+  !! @param[inout] arr Array to be allocated and populated based on str_array 
   subroutine allocate_array(str_array, arr)
     character(*), intent(in) :: str_array
-    real(dp), allocatable :: arr(:)
+    real(dp), allocatable, intent(inout) :: arr(:)
     integer :: n_elements, idx, last_idx, t_idx
 
     character(1), parameter :: separator = ":"
@@ -392,12 +444,18 @@ module command_line
     arr(t_idx) = str_to_real(str_array(last_idx : idx - 1))
   end subroutine
 
+  !> @brief Function to convert strings to reals inline
+  !! @param[in] str_val String representation of real number
+  !! @result real_val Real conversion of the string representation
   function str_to_real(str_val) result(real_val)
     character(*), intent(in) :: str_val
     real(dp) :: real_val
     read(str_val, *) real_val
   end function
 
+  !> @brief Function to convert strings to integers inline
+  !! @param[in] str_val String representation of integer number
+  !! @result real_val Integer conversion of the string representation
   function str_to_int(str_val) result(int_val)
     character(*), intent(in) :: str_val
     integer :: int_val
