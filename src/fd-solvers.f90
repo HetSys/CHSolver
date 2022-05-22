@@ -70,52 +70,93 @@ module fd_solvers
 
   contains
 
+  subroutine chkpnt_here(N, t, dt, c, c_prev, CH_params, errors)
+    integer, intent(in) :: N
+    real(dp), intent(in) :: t, dt
+    real(dp), intent(in), dimension(:) :: c, c_prev
+    real(dp), intent(in), dimension(6) :: CH_params
+    integer, intent(inout) :: errors
+
+    real(dp) :: t_copy, dt_copy
+    real(dp), allocatable, dimension(:, :) :: c_copy, c_prev_copy
+    character(len=48) :: msg ! logging message
+    integer :: i, j
+
+    24 format(A, F7.3) ! output message
+
+    write(msg, 24) "Output at t=", t
+    call logger%info("solver_ufds2t2", msg)
+
+
+    allocate(c_copy(N, N), c_prev_copy(N,N))
+
+    do j=1,N
+      do i=1,N
+        c_copy(i, j) = c(i+n*(j-1))
+        c_prev_copy = c_prev(i+n*(j-1)) 
+      enddo
+    enddo
+
+    dt_copy = dt
+    t_copy = t
+
+    call dimensionalise(CH_params, c_copy, t_copy)
+    call dimensionalise(CH_params, c_prev_copy, dt_copy)
+
+    call write_to_traj(c_copy, c_prev_copy, t_copy, dt_copy, errors)
+
+  end subroutine 
 
   !> @brief solves the dimensionless CH equation
   !!
   !! @param[in] Tout  output times
   !! @param[in] c0    initial concentration
+  !! @param[in] c1    concentration after dt_in
+  !! @param[in] dt_in
   !! @param[in] eps2  dimensionless number
-  subroutine solver_ufds2t2(Tout, CH_params, c0, eps2, errors)
+  subroutine solver_ufds2t2(t0, Tout, CH_params, c0, eps2, errors, c1, dt_in)
     implicit none
+    real(dp), intent(in) :: t0
     real(dp), intent(in) :: Tout(:)
     real(dp), intent(in) :: eps2
     real(dp), intent(in), dimension(6) :: CH_params
     real(dp), dimension(:,:), allocatable, intent(in) :: c0
+    real(dp), dimension(:,:), allocatable, intent(in), optional :: c1
+    real(dp), intent(in), optional :: dt_in
     integer :: errors
 
     integer :: N ! grid size
     integer :: level ! grid level
     real(dp) :: dx ! grid spacing
-    real(dp) :: dt, dt0, dt1, dt_out ! timesteps
+    real(dp) :: dt, dt0, dt1! timesteps
     real(dp) :: a0, a1, a2, b0, b1 ! time constants
-    real(dp) :: t, t_out,  tmax
+    real(dp) :: t,  tmax
     real(dp), dimension(2,2) :: A ! smoothing matrix
     real(dp) :: eps
     integer :: it, i, j ! iterators
     logical :: outflag
-    character(len=48) :: msg ! logging message
 
     ! grid storage
     real(dp), dimension(:), allocatable :: phi, psi, g, b, phi_prev, g_prev, work
-    real(dp), dimension(:,:), allocatable :: c, c_prev
     type(t_grid), dimension(:), allocatable :: E1, E2, R1, R2
+
+    character(1), parameter :: newline = NEW_LINE('a')
+
 
 
     ! ======================================================================== !
     !   SETUP                                                                  !
     ! ======================================================================== !
+
     ! set variables
     N = size(c0,1)
     call ilog2(N,level)
     dx = 1.0_dp/(real(N,dp))
     dt = 2.5_dp * eps2
     tmax = maxval(tout)
-    t = 0.0_dp
+    t = t0
     it = 1
     eps = sqrt(eps2)
-
-    24 format(A, F7.3) ! output message
 
     ! allocate storage
     allocate(phi(N*N))
@@ -125,43 +166,62 @@ module fd_solvers
     allocate(phi_prev(N*N))
     allocate(g_prev(N*N))
     allocate(work(N*N))
-    allocate(c(N, N))
-    allocate(c_prev(N, N))
 
     ! allocate multigrid storage
     call multigrid_alloc(E1, level)
     call multigrid_alloc(E2, level)
     call multigrid_alloc(R1, level)
-    call multigrid_alloc(R2, level)
+    call multigrid_alloc(R2, level)    
+
+
+ !Check if optionals are present
+    if(present(c1)) then
+      
+      if(.not. present(dt_in)) then
+        call logger%warning("solver_ufds2t2", "c0 was provided while dt isnt specified"// & 
+          newline//"defaulting to first order solver for initial")
+          goto 100
+      end if
+
+      do j=1,N
+        do i=1,N
+          phi_prev(i+n*(j-1)) = c0(i,j)
+          phi(i+n*(j-1)) = c1(i,j)
+        enddo
+      enddo
+
+      dt = dt_in
+    ! output if required
+      if ( abs(t0  -tout(it)) .lt. epsilon(tout(it))) then
+        call chkpnt_here(N, t, dt, phi, phi_prev, CH_params, errors)
+        it = it + 1
+      endif
+
+      goto 101 
+
+    end if
+
+    if (present(dt_in)) then
+      call logger%warning("solver_ufds2t2", "dt was specified when c0 was not provided"// & 
+          newline//"defaulting to first order solver for initial")
+          goto 100
+    end if
+
 
     ! initial condition
-    do j=1,N
+    100 do j=1,N
       do i=1,N
         phi(i+n*(j-1)) = c0(i,j)
       enddo
     enddo
 
-    ! set coupled variable
+        ! set coupled variable
     call laplacian(phi, psi, dx, N)
     psi = tau*phi - eps2*psi
 
-    !! TO OUT 
     ! output if required
-    if (tout(it) < epsilon(tout(it))) then
-      write(msg, 24) "Initial condition output at t=  0.000"
-      call logger%info("solver_ufds2t2", msg)
-      dt_out = dt
-      t_out = t
-      do j=1,n
-        do i=1,n
-          c(j,i) = phi(i+n*(j-1))
-          c_prev(j,i) = phi_prev(i+n*(j-1))
-        enddo
-      enddo
-      call dimensionalise(CH_params, c, t_out)
-      call dimensionalise(CH_params, c_prev, dt_out)
-
-      call write_to_traj(c, c_prev, t_out, dt_out, errors)
+    if ( abs(t0  -tout(it)) .lt. epsilon(tout(it))) then
+      call chkpnt_here(N, t, dt, phi, phi_prev, CH_params, errors)
       it = it + 1
     endif
 
@@ -187,15 +247,16 @@ module fd_solvers
     phi_prev = phi
     g_prev = g
 
+
     ! set first order smoothing matrix
     A(1,1) = 1.0_dp/dt
     A(1,2) = 4.0_dp/(dx*dx)
     A(2,1) = -(tau+4.0_dp*eps2/(dx*dx))
     A(2,2) = 1.0_dp
     call invert(A)
-
     ! solve system with repeated v-cycles
     do i=1,niter
+
       ! compute residuals
       call laplacian(psi, R1(level)%grid, dx, n)
       R1(level)%grid = R1(level)%grid - phi/dt + b
@@ -212,25 +273,9 @@ module fd_solvers
       psi = psi + E2(level)%grid
     enddo
 
-    !! TO OUT 
     ! conditionally output
     if (outflag) then
-      write(msg, 24) "Output at t=", t
-      call logger%info("solver_ufds2t2", msg)
-
-      dt_out = dt
-      t_out = t
-      do j=1,n
-        do i=1,n
-          c(j,i) = phi(i+n*(j-1))
-          c_prev(j,i) = phi_prev(i+n*(j-1))
-        enddo
-      enddo
-      call dimensionalise(CH_params, c, t_out)
-      call dimensionalise(CH_params, c_prev, dt_out)
-
-      call write_to_traj(c, c_prev, t_out, dt_out, errors)
-
+      call chkpnt_here(N, t, dt, phi, phi_prev, CH_params, errors)
       it = it + 1
     endif
 
@@ -238,7 +283,7 @@ module fd_solvers
     ! ========================================================================== !
     !   REMAINING TIMESTEPS (second order)                                       !
     ! ========================================================================== !
-    do while (t < tmax)
+    101 do while (t < tmax)
       ! set current timestep TODO: condition on curvature rather than time
       if (t < 100.0_dp * eps) then
         dt = 2.5_dp * eps2
@@ -254,6 +299,7 @@ module fd_solvers
         outflag = .false.
       endif
       t = t + dt
+
 
       ! timestep variables
       dt1 = dt+dt0
@@ -296,30 +342,15 @@ module fd_solvers
         phi = phi + E1(level)%grid
         psi = psi + E2(level)%grid
 
-        ! print size of residual
-        ! print *, i, "r1 max = ", maxval(abs(R1(level)%grid))
       enddo
 
-      !! TO OUT 
       ! conditionally output
       if (outflag) then
-        write(msg, 24) "Output at t=", t
-        call logger%info("solver_ufds2t2", msg)
-        dt_out = dt
-        t_out = t
-        do j=1,n
-          do i=1,n
-            c(j,i) = phi(i+n*(j-1))
-            c_prev(j,i) = phi_prev(i+n*(j-1))
-          enddo
-        enddo
-        call dimensionalise(CH_params, c, t_out)
-        call dimensionalise(CH_params, c_prev, dt_out)
-  
-        call write_to_traj(c, c_prev, t_out, dt_out, errors)
-        
+        call chkpnt_here(N, t, dt, phi, phi_prev, CH_params, errors)
         it = it + 1
       endif
+
+  
     enddo
 
     ! ========================================================================== !

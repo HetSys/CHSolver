@@ -11,10 +11,12 @@ program main
   character(120) :: fname, run_name, outdir
   character(:), allocatable :: init
   integer :: grid_res ! grid level
-  real(dp), allocatable :: Tout(:) ! output times
-  real(dp), dimension(:,:), allocatable :: c0 ! initial concentration
+  real(dp) :: t0, dt
+  real(dp), allocatable :: Tout(:), updated_Tout(:) ! output times
+  real(dp), dimension(:,:), allocatable :: c0, c1! initial concentration
   logical :: errors, all_params_fnd
   integer :: ierr
+  integer :: st_Tout
 
   ! Lin/Logspace params
   integer :: space_selected, num_outputs
@@ -58,19 +60,39 @@ program main
 
   !!! START GRID AND HDF5 SETUP 
   ! initial concentration
-  call setup_grid(c0, grid_res, ch_params, init)
 
-  call output_init(outdir, [2, grid_res], CH_params, ierr)
-
-  !!! END GRID AND HDF5 SETUP 
+  ! !!! END GRID AND HDF5 SETUP 
 
 
- 
+  
   ! call solver
-  call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
 
+  ! call setup_grid(c0, grid_res, ch_params, init)
+  ! call output_init(outdir, [2, grid_res], CH_params, ierr)
 
+  ! call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
+
+  call chkpnt_init(outdir, ch_params, t0, ierr)
+  allocate(c0(c_dims(1), c_dims(2)), c1(c_dims(1), c_dims(2)))
+  call read_hdf5_chkpnt(c0, c1, dt, ierr)
+
+  do st_Tout = 1, size(Tout)
+    if (Tout(st_Tout) > t0) then
+      exit
+    end if 
+  end do
+
+  allocate(updated_Tout(size(Tout) - st_Tout))
+
+  updated_Tout = Tout(st_Tout:)
+
+  call solver_2(t0, updated_Tout, c0, c1, dt, CH_params, SOLVER_FD2, ierr)
+
+  
+  
   call output_final(ierr)
+
+
 
   ! clean up
   deallocate(c0)
