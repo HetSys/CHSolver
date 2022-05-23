@@ -19,14 +19,14 @@ program main
 
   call grid_scatter(grid, 4, mpi_grid)
 
-  do i = 1, 2
-    do j = 1, 2
+  ! do i = 1, 2
+  !   do j = 1, 2
 
-      mpi_grid(i, j) = mpi_grid(i-1,j) + mpi_grid(i+1,j) + mpi_grid(i,j-1) + mpi_grid(i,j+1)
-      mpi_grid(i,j) = mpi_grid(i,j)/4
+  !     mpi_grid(i, j) = mpi_grid(i-1,j) + mpi_grid(i+1,j) + mpi_grid(i,j-1) + mpi_grid(i,j+1)
+  !     mpi_grid(i,j) = mpi_grid(i,j)/4
 
-    end do
-  end do
+  !   end do
+  ! end do
 
   if (myrank .ne. 0) goto 30
   
