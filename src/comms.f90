@@ -88,8 +88,8 @@ module comms
     call send_edge(mpi_res+2, mpi_grid(mpi_res, :), mpi_grid(0, :), "d")
     call send_edge(mpi_res+2, mpi_grid(1, :), mpi_grid(mpi_res+1, :), "u")
 
-    call send_edge(mpi_res+2, mpi_grid(:, mpi_res), mpi_grid(:, 0), "r")
-    call send_edge(mpi_res+2, mpi_grid(:, 1), mpi_grid(:, mpi_res+1), "l")
+    ! call send_edge(mpi_res+2, mpi_grid(:, mpi_res), mpi_grid(:, 0), "r")
+    ! call send_edge(mpi_res+2, mpi_grid(:, 1), mpi_grid(:, mpi_res+1), "l")
 
     call MPI_Type_free(subgrid,mpi_err)
 
