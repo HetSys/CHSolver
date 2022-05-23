@@ -21,6 +21,11 @@ module command_line
 
   integer, private :: current_arg
 
+  integer, private :: restart_cmd_num
+
+  real(dp), private :: restart_cmd_time
+
+  logical, private :: restart_fnd, chkpnt_fnd
   !> @var integer linspace_selected 
   !! Integer marker to flag that the start, stop and nsteps
   !! returned by get_lin_log_args should be passed to the lin_tspace procedure in setup.f90
@@ -60,6 +65,9 @@ module command_line
 
     linspace_fnd = .FALSE.
     logspace_fnd = .FALSE.
+
+    restart_fnd = .FALSE.
+    chkpnt_fnd = .FALSE.
 
     call parse_args()
 
@@ -174,6 +182,25 @@ module command_line
       call logger%trivia("get_input_commands", "Setting output timesteps to " // trim(to_string(time_arr)))
     end if
     
+  end subroutine
+
+  subroutine get_checkpoint_commands(checkpoint_number, restart_time, do_restart)
+    integer, optional, intent(inout) :: checkpoint_number
+    real(dp), optional, intent(inout) :: restart_time
+    logical, intent(out) :: do_restart
+
+    do_restart = .FALSE.
+
+    if (chkpnt_fnd .AND. present(checkpoint_number)) then
+      checkpoint_number = restart_cmd_num
+      do_restart = .TRUE.
+    end if
+
+    if (restart_fnd .AND. present(restart_time)) then
+      restart_time = restart_cmd_time
+      do_restart = .TRUE.
+    end if
+
   end subroutine
 
   !> @brief Get the start, stop, and num_steps to define a linspace or logspace time array
@@ -365,6 +392,18 @@ module command_line
         if (present(val_arg)) then
           cmd_outpath = val_arg
           is_val(current_arg+1) = is_short_arg
+        end if
+
+      ! RESTARTING FROM CHECKPOINTS
+      case ("restart_time")
+        if (present(val_arg)) then
+          restart_cmd_time = str_to_real(val_arg)
+          restart_fnd = .TRUE.
+        end if
+      case ("restart_num")
+        if (present(val_arg)) then
+          restart_cmd_num = str_to_int(val_arg)
+          chkpnt_fnd = .TRUE.
         end if
       case ("p")
       end select
