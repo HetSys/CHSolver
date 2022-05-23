@@ -57,6 +57,7 @@ module fd_solvers
   use multigrid
   use solver_utils
   use hdf5_io
+  use comms
 
   implicit none
   save
@@ -95,25 +96,37 @@ module fd_solvers
     integer :: it, i, j ! iterators
     logical :: outflag
     character(len=48) :: msg ! logging message
+    integer :: req1, req2, req3, req4, req5, req6, req7, req8
 
-    ! grid storage
+    ! grid storage (local)
     real(dp), dimension(:,:), allocatable :: phi, psi, g, b, phi_prev, g_prev, work
-    real(dp), dimension(:,:), allocatable :: c, c_prev
     type(t_grid), dimension(:), allocatable :: E1, E2, R1, R2
+    real(dp), dimension(:,:), allocatable :: c
+
+    ! grid storage (global - rank 0 only)
+    real(dp), dimension(:,:), allocatable :: phi_global, psi_global
+    type(t_grid), dimension(:), allocatable :: E1_global, E2_global, R1_global, R2_global
+    real(dp), dimension(:,:), allocatable :: c_global, c_prev_global
+    integer :: N_global ! grid size
+    integer :: level_global ! grid level
 
 
     ! ======================================================================== !
     !   SETUP                                                                  !
     ! ======================================================================== !
     ! set variables
-    N = size(c0,1)
+    N = size(c0,1) / 2 ! TODO: this only works with 4 procs!!!
     call ilog2(N,level)
-    dx = 1.0_dp/(real(N,dp))
+    dx = 1.0_dp/(real(N,dp)) * 0.5_dp
     dt = 2.5_dp * eps2
     tmax = maxval(tout)
     t = 0.0_dp
     it = 1
     eps = sqrt(eps2)
+
+    ! set global variables
+    level_global = level + 1
+    N_global = N * 2
 
     24 format(A, F7.3) ! output message
 
@@ -122,11 +135,10 @@ module fd_solvers
     allocate(psi(0:N+1,0:N+1))
     allocate(g(0:N+1,0:N+1))
     allocate(b(0:N+1,0:N+1))
+    allocate(c(0:N+1,0:N+1))
     allocate(phi_prev(0:N+1,0:N+1))
     allocate(g_prev(0:N+1,0:N+1))
     allocate(work(0:N+1,0:N+1))
-    allocate(c(N,N))
-    allocate(c_prev(N,N))
 
     ! allocate multigrid storage
     call multigrid_alloc(E1, level)
@@ -134,48 +146,77 @@ module fd_solvers
     call multigrid_alloc(R1, level)
     call multigrid_alloc(R2, level)
 
-    ! initial condition
-    do j=1,N
-      do i=1,N
-        phi(i,j) = c0(i,j)
-      enddo
-    enddo
+    ! allocate global storage
+    if (myrank == 0) then
+      allocate(phi_global(N_global,N_global))
+      allocate(psi_global(N_global,N_global))
+      allocate(c_global(N_global,N_global))
+      allocate(c_prev_global(N_global,N_global))
+      call multigrid_alloc(E1_global, 2)
+      call multigrid_alloc(E2_global, 2)
+      call multigrid_alloc(R1_global, 2)
+      call multigrid_alloc(R2_global, 2)
+    endif
+
+    ! send c0 (global) to phi (local) TODO: check with Ziad
+    call grid_scatter(c0, N_global, phi, N)
 
     ! set coupled variable
     call laplacian(phi, psi, dx, N)
     psi = tau*phi - eps2*psi
 
-    !! TO OUT 
+    ! swap all four edges
+    call send_edge(n, psi(1,1:N), "u", req1)
+    call send_edge(n, psi(N,1:N), "d", req2)
+    call send_edge(n, psi(1:N,1), "l", req3)
+    call send_edge(n, psi(1:N,N), "r", req4)
+
+    call mpi_wait(req1, mpi_status_ignore, mpi_err)
+    call mpi_wait(req2, mpi_status_ignore, mpi_err)
+    call mpi_wait(req3, mpi_status_ignore, mpi_err)
+    call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+    call recv_edge(n, psi(N+1,1:N), "u")
+    call recv_edge(n, psi(0,1:N), "d")
+    call recv_edge(n, psi(1:N,N+1), "l")
+    call recv_edge(n, psi(1:N,0), "r")
+
     ! output if required
     if (tout(it) < epsilon(tout(it))) then
-      write(msg, 24) "Initial condition output at t=  0.000"
-      call logger%info("solver_ufds2t2", msg)
-      dt_out = dt
-      t_out = t
-      c = phi(1:N,1:N)
-      c_prev = phi_prev(1:N,1:N)
-      call dimensionalise(CH_params, c, t_out)
-      call dimensionalise(CH_params, c_prev, dt_out)
+      ! gather grid to rank 0
+      call grid_gather(c_global, N_global, phi)
+      call grid_gather(c_prev_global, N_global, phi_prev)
 
-      call write_to_traj(c, c_prev, t_out, dt_out, errors)
+      if (myrank == 0) then
+        write(msg, 24) "Initial condition output at t=  0.000"
+        call logger%info("solver_ufds2t2", msg)
+        dt_out = dt
+        t_out = t
+        ! c = phi(1:N,1:N)
+        ! c_prev = phi_prev(1:N,1:N)
+        call dimensionalise(CH_params, c_global, t_out)
+        call dimensionalise(CH_params, c_prev_global, dt_out)
+
+        call write_to_traj(c_global, c_prev_global, t_out, dt_out, errors)
+      endif
+
       it = it + 1
     endif
 
-
-    ! ========================================================================== !
-    !   FIRST TIMESTEP (first order)                                             !
-    ! ========================================================================== !
+    ! ======================================================================== !
+    !   FIRST TIMESTEP (first order)                                           !
+    ! ======================================================================== !
     ! restrict timestep if we would otherwise exceed an output time
     if (t + dt + epsilon(t) > Tout(it)) then
       dt = tout(it) - t
       outflag = .true.
     else
-      outflag = .false.
+      outflag = .true.
     endif
     t = t + dt
     dt0 = dt ! store current timestep
 
-    ! compute RHS
+    ! compute RHS TODO: maybe use MPI
     call compute_g(g, phi, dx, N, work)
     b = phi/dt + g
 
@@ -192,7 +233,7 @@ module fd_solvers
 
     ! solve system with repeated v-cycles
     do i=1,niter
-      ! compute residuals
+      ! compute residuals TODO: maybe use MPI
       call laplacian(psi, R1(level)%grid, dx, n)
       R1(level)%grid = R1(level)%grid - phi/dt + b
       call laplacian(phi, R2(level)%grid, dx, n)
@@ -200,32 +241,73 @@ module fd_solvers
 
       ! TODO: finish iteration conditional on the size of the residual
 
+      ! MPI TEST WITH SMOOTH
+      do j=1,1
+        ! swap all four edges
+        call send_edge(n, E1(level)%grid(1,1:N), "u", req1)
+        call send_edge(n, E1(level)%grid(N,1:N), "d", req2)
+        call send_edge(n, E1(level)%grid(1:N,1), "l", req3)
+        call send_edge(n, E1(level)%grid(1:N,N), "r", req4)
+
+        call mpi_wait(req1, mpi_status_ignore, mpi_err)
+        call mpi_wait(req2, mpi_status_ignore, mpi_err)
+        call mpi_wait(req3, mpi_status_ignore, mpi_err)
+        call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+        call recv_edge(n, E1(level)%grid(N+1,1:N), "u")
+        call recv_edge(n, E1(level)%grid(0,1:N), "d")
+        call recv_edge(n, E1(level)%grid(1:N,N+1), "l")
+        call recv_edge(n, E1(level)%grid(1:N,0), "r")
+
+        call send_edge(n, E2(level)%grid(1,1:N), "u", req1)
+        call send_edge(n, E2(level)%grid(N,1:N), "d", req2)
+        call send_edge(n, E2(level)%grid(1:N,1), "l", req3)
+        call send_edge(n, E2(level)%grid(1:N,N), "r", req4)
+
+        call mpi_wait(req1, mpi_status_ignore, mpi_err)
+        call mpi_wait(req2, mpi_status_ignore, mpi_err)
+        call mpi_wait(req3, mpi_status_ignore, mpi_err)
+        call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+        call recv_edge(n, E2(level)%grid(N+1,1:N), "u")
+        call recv_edge(n, E2(level)%grid(0,1:N), "d")
+        call recv_edge(n, E2(level)%grid(1:N,N+1), "l")
+        call recv_edge(n, E2(level)%grid(1:N,0), "r")
+
+        call smooth(A, E1(level)%grid, E2(level)%grid, R1(level)%grid, R2(level)%grid, eps2, N, dx)
+      enddo
+
       ! perform a single v-cycle
-      call vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
+      ! call vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
 
       ! update with errors
       phi = phi + E1(level)%grid
       psi = psi + E2(level)%grid
     enddo
 
-    !! TO OUT 
-    ! conditionally output
+    ! output if required
     if (outflag) then
-      write(msg, 24) "Output at t=", t
-      call logger%info("solver_ufds2t2", msg)
+      ! gather grid to rank 0
+      call grid_gather(c_global, N_global, phi)
+      call grid_gather(c_prev_global, N_global, phi_prev)
 
-      dt_out = dt
-      t_out = t
-      c = phi(1:N,1:N)
-      c_prev = phi_prev(1:N,1:N)
-      call dimensionalise(CH_params, c, t_out)
-      call dimensionalise(CH_params, c_prev, dt_out)
+      if (myrank == 0) then
+        write(msg, 24) "Output at t=", t
+        call logger%info("solver_ufds2t2", msg)
+        dt_out = dt
+        t_out = t
+        ! c = phi(1:N,1:N)
+        ! c_prev = phi_prev(1:N,1:N)
+        call dimensionalise(CH_params, c_global, t_out)
+        call dimensionalise(CH_params, c_prev_global, dt_out)
 
-      call write_to_traj(c, c_prev, t_out, dt_out, errors)
+        call write_to_traj(c_global, c_prev_global, t_out, dt_out, errors)
+      endif
 
       it = it + 1
     endif
 
+    call MPI_Abort(MPI_COMM_WORLD, 1, errors)
 
     ! ========================================================================== !
     !   REMAINING TIMESTEPS (second order)                                       !
@@ -282,7 +364,7 @@ module fd_solvers
         ! TODO: finish iteration conditional on the size of the residual
 
         ! perform a single v-cycle
-        call vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
+        ! call vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
 
         ! update with errors
         phi = phi + E1(level)%grid
@@ -292,20 +374,25 @@ module fd_solvers
         ! print *, i, "r1 max = ", maxval(abs(R1(level)%grid))
       enddo
 
-      !! TO OUT 
-      ! conditionally output
+      ! output if required
       if (outflag) then
-        write(msg, 24) "Output at t=", t
-        call logger%info("solver_ufds2t2", msg)
-        dt_out = dt
-        t_out = t
-        c = phi(1:N,1:N)
-        c_prev = phi_prev(1:N,1:N)
-        call dimensionalise(CH_params, c, t_out)
-        call dimensionalise(CH_params, c_prev, dt_out)
-  
-        call write_to_traj(c, c_prev, t_out, dt_out, errors)
-        
+        ! gather grid to rank 0
+        call grid_gather(c_global, N_global, phi)
+        call grid_gather(c_prev_global, N_global, phi_prev)
+
+        if (myrank == 0) then
+          write(msg, 24) "Output at t=", t
+          call logger%info("solver_ufds2t2", msg)
+          dt_out = dt
+          t_out = t
+          ! c = phi(1:N,1:N)
+          ! c_prev = phi_prev(1:N,1:N)
+          call dimensionalise(CH_params, c_global, t_out)
+          call dimensionalise(CH_params, c_prev_global, dt_out)
+
+          call write_to_traj(c_global, c_prev_global, t_out, dt_out, errors)
+        endif
+
         it = it + 1
       endif
     enddo
@@ -494,9 +581,9 @@ module fd_solvers
     ! SMOOTH RED NODES !
     ! ================ !
     ! interior
-    do j=2,n-1
+    do j=1,n
       shift = mod(j,2)
-      do i=2+shift,n-1+shift,2
+      do i=1+shift,n+shift,2
         ! compute RHS
         rhs(1) = R1(i,j) + dx2_ * (E2(i+1,j) + E2(i-1,j) + E2(i,j+1) + E2(i,j-1))
         rhs(2) = R2(i,j) - eps2*dx2_ * (E1(i+1,j) + E1(i-1,j) + E1(i,j+1) + E1(i,j-1))
@@ -507,52 +594,52 @@ module fd_solvers
       enddo
     enddo
 
-    ! left/right
-    do j=2,n-1,2
-      rhs(1) = R1(1,j+1) + dx2_ * (E2(2,j+1) + E2(n,j+1) + E2(1,j+2) + E2(1,j))
-      rhs(2) = R2(1,j+1) - eps2*dx2_ * (E1(2,j+1) + E1(n,j+1) + E1(1,j+2) + E1(1,j))
-      E1(1,j+1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(1,j+1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! ! left/right
+    ! do j=2,n-1,2
+    !   rhs(1) = R1(1,j+1) + dx2_ * (E2(2,j+1) + E2(n,j+1) + E2(1,j+2) + E2(1,j))
+    !   rhs(2) = R2(1,j+1) - eps2*dx2_ * (E1(2,j+1) + E1(n,j+1) + E1(1,j+2) + E1(1,j))
+    !   E1(1,j+1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    !   E2(1,j+1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
-      rhs(1) = R1(n,j) + dx2_ * (E2(1,j) + E2(n-1,j) + E2(n,j+1) + E2(n,j-1))
-      rhs(2) = R2(n,j) - eps2*dx2_ * (E1(1,j) + E1(n-1,j) + E1(n,j+1) + E1(n,j-1))
-      E1(n,j) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(n,j) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
-    enddo
+    !   rhs(1) = R1(n,j) + dx2_ * (E2(1,j) + E2(n-1,j) + E2(n,j+1) + E2(n,j-1))
+    !   rhs(2) = R2(n,j) - eps2*dx2_ * (E1(1,j) + E1(n-1,j) + E1(n,j+1) + E1(n,j-1))
+    !   E1(n,j) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    !   E2(n,j) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! enddo
 
-    ! top/bottom
-    do i=2,n-1,2
-      rhs(1) = R1(i+1,1) + dx2_ * (E2(i+2,1) + E2(i,1) + E2(i+1,2) + E2(i+1,n))
-      rhs(2) = R2(i+1,1) - eps2*dx2_ * (E1(i+2,1) + E1(i,1) + E1(i+1,2) + E1(i+1,n))
-      E1(i+1,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(i+1,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! ! top/bottom
+    ! do i=2,n-1,2
+    !   rhs(1) = R1(i+1,1) + dx2_ * (E2(i+2,1) + E2(i,1) + E2(i+1,2) + E2(i+1,n))
+    !   rhs(2) = R2(i+1,1) - eps2*dx2_ * (E1(i+2,1) + E1(i,1) + E1(i+1,2) + E1(i+1,n))
+    !   E1(i+1,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    !   E2(i+1,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
-      rhs(1) = R1(i,n) + dx2_ * (E2(i+1,n) + E2(i-1,n) + E2(i,1) + E2(i,n-1))
-      rhs(2) = R2(i,n) - eps2*dx2_ * (E1(i+1,n) + E1(i-1,n) + E1(i,1) + E1(i,n-1))
-      E1(i,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(i,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
-    enddo
+    !   rhs(1) = R1(i,n) + dx2_ * (E2(i+1,n) + E2(i-1,n) + E2(i,1) + E2(i,n-1))
+    !   rhs(2) = R2(i,n) - eps2*dx2_ * (E1(i+1,n) + E1(i-1,n) + E1(i,1) + E1(i,n-1))
+    !   E1(i,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    !   E2(i,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! enddo
 
-    ! upper left corner
-    rhs(1) = R1(1,1) + dx2_ * (E2(2,1) + E2(n,1) + E2(1,2) + E2(1,n))
-    rhs(2) = R2(1,1) - eps2*dx2_ * (E1(2,1) + E1(n,1) + E1(1,2) + E1(1,n))
-    E1(1,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-    E2(1,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! ! upper left corner
+    ! rhs(1) = R1(1,1) + dx2_ * (E2(2,1) + E2(n,1) + E2(1,2) + E2(1,n))
+    ! rhs(2) = R2(1,1) - eps2*dx2_ * (E1(2,1) + E1(n,1) + E1(1,2) + E1(1,n))
+    ! E1(1,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    ! E2(1,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
-    ! lower right corner
-    rhs(1) = R1(n,n) + dx2_ * (E2(1,n) + E2(n-1,n) + E2(n,1) + E2(n,n-1))
-    rhs(2) = R2(n,n) - eps2*dx2_ * (E1(1,n) + E1(n-1,n) + E1(n,1) + E1(n,n-1))
-    E1(n,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-    E2(n,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! ! lower right corner
+    ! rhs(1) = R1(n,n) + dx2_ * (E2(1,n) + E2(n-1,n) + E2(n,1) + E2(n,n-1))
+    ! rhs(2) = R2(n,n) - eps2*dx2_ * (E1(1,n) + E1(n-1,n) + E1(n,1) + E1(n,n-1))
+    ! E1(n,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    ! E2(n,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
 
     ! ================== !
     ! SMOOTH BLACK NODES !
     ! ================== !
     ! interior
-    do j=2,n-1
+    do j=1,n
       shift = mod(j-1,2)
-      do i=2+shift,n-1+shift,2
+      do i=1+shift,n+shift,2
         ! compute RHS
         rhs(1) = R1(i,j) + dx2_ * (E2(i+1,j) + E2(i-1,j) + E2(i,j+1) + E2(i,j-1))
         rhs(2) = R2(i,j) - eps2*dx2_ * (E1(i+1,j) + E1(i-1,j) + E1(i,j+1) + E1(i,j-1))
@@ -563,43 +650,43 @@ module fd_solvers
       enddo
     enddo
 
-    ! left/right
-    do j=2,n-1,2
-      rhs(1) = R1(1,j) + dx2_ * (E2(2,j) + E2(n,j) + E2(1,j+1) + E2(1,j-1))
-      rhs(2) = R2(1,j) - eps2*dx2_ * (E1(2,j) + E1(n,j) + E1(1,j+1) + E1(1,j-1))
-      E1(1,j) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(1,j) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! ! left/right
+    ! do j=2,n-1,2
+    !   rhs(1) = R1(1,j) + dx2_ * (E2(2,j) + E2(n,j) + E2(1,j+1) + E2(1,j-1))
+    !   rhs(2) = R2(1,j) - eps2*dx2_ * (E1(2,j) + E1(n,j) + E1(1,j+1) + E1(1,j-1))
+    !   E1(1,j) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    !   E2(1,j) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
-      rhs(1) = R1(n,j+1) + dx2_ * (E2(1,j+1) + E2(n-1,j+1) + E2(n,j+2) + E2(n,j))
-      rhs(2) = R2(n,j+1) - eps2*dx2_ * (E1(1,j+1) + E1(n-1,j+1) + E1(n,j+2) + E1(n,j))
-      E1(n,j+1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(n,j+1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
-    enddo
+    !   rhs(1) = R1(n,j+1) + dx2_ * (E2(1,j+1) + E2(n-1,j+1) + E2(n,j+2) + E2(n,j))
+    !   rhs(2) = R2(n,j+1) - eps2*dx2_ * (E1(1,j+1) + E1(n-1,j+1) + E1(n,j+2) + E1(n,j))
+    !   E1(n,j+1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    !   E2(n,j+1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! enddo
 
-    ! top/bottom
-    do i=2,n-1,2
-      rhs(1) = R1(i,1) + dx2_ * (E2(i+1,1) + E2(i-1,1) + E2(i,2) + E2(i,n))
-      rhs(2) = R2(i,1) - eps2*dx2_ * (E1(i+1,1) + E1(i-1,1) + E1(i,2) + E1(i,n))
-      E1(i,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(i,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! ! top/bottom
+    ! do i=2,n-1,2
+    !   rhs(1) = R1(i,1) + dx2_ * (E2(i+1,1) + E2(i-1,1) + E2(i,2) + E2(i,n))
+    !   rhs(2) = R2(i,1) - eps2*dx2_ * (E1(i+1,1) + E1(i-1,1) + E1(i,2) + E1(i,n))
+    !   E1(i,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    !   E2(i,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
-      rhs(1) = R1(i+1,n) + dx2_ * (E2(i+2,n) + E2(i,n) + E2(i+1,1) + E2(i+1,n-1))
-      rhs(2) = R2(i+1,n) - eps2*dx2_ * (E1(i+2,n) + E1(i,n) + E1(i+1,1) + E1(i+1,n-1))
-      E1(i+1,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-      E2(i+1,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
-    enddo
+    !   rhs(1) = R1(i+1,n) + dx2_ * (E2(i+2,n) + E2(i,n) + E2(i+1,1) + E2(i+1,n-1))
+    !   rhs(2) = R2(i+1,n) - eps2*dx2_ * (E1(i+2,n) + E1(i,n) + E1(i+1,1) + E1(i+1,n-1))
+    !   E1(i+1,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    !   E2(i+1,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! enddo
 
-    ! upper right
-    rhs(1) = R1(1,n) + dx2_ * (E2(2,n) + E2(n,n) + E2(1,1) + E2(1,n-1))
-    rhs(2) = R2(1,n) - eps2*dx2_ * (E1(2,n) + E1(n,n) + E1(1,1) + E1(1,n-1))
-    E1(1,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-    E2(1,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! ! upper right
+    ! rhs(1) = R1(1,n) + dx2_ * (E2(2,n) + E2(n,n) + E2(1,1) + E2(1,n-1))
+    ! rhs(2) = R2(1,n) - eps2*dx2_ * (E1(2,n) + E1(n,n) + E1(1,1) + E1(1,n-1))
+    ! E1(1,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    ! E2(1,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
 
-    ! lower left
-    rhs(1) = R1(n,1) + dx2_ * (E2(1,1) + E2(n-1,1) + E2(n,2) + E2(n,n))
-    rhs(2) = R2(n,1) - eps2*dx2_ * (E1(1,1) + E1(n-1,1) + E1(n,2) + E1(n,n))
-    E1(n,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
-    E2(n,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    ! ! lower left
+    ! rhs(1) = R1(n,1) + dx2_ * (E2(1,1) + E2(n-1,1) + E2(n,2) + E2(n,n))
+    ! rhs(2) = R2(n,1) - eps2*dx2_ * (E1(1,1) + E1(n-1,1) + E1(n,2) + E1(n,n))
+    ! E1(n,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+    ! E2(n,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
   end subroutine smooth
 
 

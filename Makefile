@@ -42,16 +42,16 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.f90
 
 $(OBJ_DIR)/face.o: $(FACEPATH)
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
-	$(FC) -std=f2008 -c -o $@ $< 
+	$(FC) -J$(SRC_DIR) -std=f2008 -c -o $@ $<
 
 $(OBJ_DIR)/logger_mod.o: $(FLOGPATH)
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
-	$(FC) -std=f2008 -c -o $@ $< 
+	$(FC) -J$(SRC_DIR) -std=f2008 -c -o $@ $<
 
 # test_json_parser.o: test_json_parser.mod
-%.o: %.F90
-	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
-	$(FC) -J$(SRC_DIR) $(FFLAGS) -c -o $@ $< 
+# %.o: %.F90
+# 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
+# 	$(FC) -J$(SRC_DIR) $(FFLAGS) -c -o $@ $<
 #$(FLIBS) not needed for linking?
 
 $(SRC_DIR)/libchsolver.a : $(wildcard $(OBJ_DIR)/*.o)

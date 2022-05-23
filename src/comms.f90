@@ -38,22 +38,41 @@ module comms
 
 
   ! Send Initial Parameters Everywhere
-  subroutine broadcast_setup(CH_params, grid_res)
-    real(dp), intent(in), dimension(6) :: CH_params
-    integer, intent(in) :: grid_res
+  subroutine broadcast_setup(CH_params, Tout, grid, grid_res)
+    real(dp), intent(inout), dimension(6) :: CH_params
+    real(dp), intent(inout), allocatable, dimension(:) :: Tout
+    real(dp), dimension(:,:), allocatable :: grid
+    integer, intent(inout) :: grid_res
+    integer :: Tout_size
 
-    call mpi_bcast(CH_params, 6, mpi_float, 0, mpi_comm_world, mpi_err)
-    call mpi_bcast(grid_res, 1, mpi_integer, 0, mpi_comm_world, mpi_err)
+    if (myrank == 0) then
+      Tout_size = size(Tout)
+    else
+      Tout_size = 0
+    endif
 
+    ! broadcast sizes
+    call mpi_bcast(grid_res, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
+    call mpi_bcast(Tout_size, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
 
+    ! allocate on non-master procs
+    if (myrank /= 0) then
+      allocate(Tout(Tout_size))
+      allocate(grid(grid_res,grid_res))
+    endif
+
+    ! broadcast data
+    call mpi_bcast(CH_params, 6, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpi_err)
+    call mpi_bcast(Tout, size(Tout), MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpi_err)
   end subroutine broadcast_setup
 
-  subroutine grid_scatter(grid, grid_res, mpi_grid)
+  subroutine grid_scatter(grid, grid_res, mpi_grid, mpi_res)
     integer, intent(in) :: grid_res
+    integer, intent(in) :: mpi_res
     real(dp), intent(in), dimension(grid_res,grid_res) :: grid
-    real(dp), intent(out), allocatable, dimension(:, :) :: mpi_grid
+    real(dp), intent(out), dimension(0:mpi_res+1, 0:mpi_res+1) :: mpi_grid
 
-    integer :: rank, mpi_res
+    integer :: rank
     integer :: rankcoords(2)
     integer :: dpsize
     integer :: subgrid_basic, subgrid
@@ -64,8 +83,8 @@ module comms
     integer :: req5, req6, req7, req8
 
 
-    mpi_res = int(grid_res/nproc_row)
-    allocate(mpi_grid(0:mpi_res+1, 0:mpi_res+1))
+    ! mpi_res = int(grid_res/nproc_row)
+    ! allocate(mpi_grid(0:mpi_res+1, 0:mpi_res+1))
 
     call mpi_type_create_subarray(2, [grid_res, grid_res], [mpi_res, mpi_res], [0, 0],&
      mpi_order_fortran, mpi_double_precision, subgrid_basic, mpi_err)
@@ -116,7 +135,6 @@ module comms
      call recv_corner(mpi_grid(mpi_res+1, mpi_res+1), "ul")
 
     call MPI_Type_free(subgrid,mpi_err)
-
   end subroutine grid_scatter
 
   subroutine grid_gather(grid, grid_res, mpi_grid)
@@ -154,7 +172,6 @@ module comms
      0, mpi_comm_world, mpi_err)
 
     call MPI_Type_free(subgrid,mpi_err)
-
   end subroutine grid_gather
 
   ! Direction will always correspond to the perspective of sending proc
@@ -193,8 +210,6 @@ module comms
 
     call mpi_isend(val, 1, mpi_double_precision, &
     recv_rank, 1003, cart_comm, req, mpi_err)
-
-
   end subroutine
 
 
@@ -270,8 +285,6 @@ module comms
 
     call mpi_isend(edge, n, mpi_double_precision, &
      neigh(dir_int), 1003, cart_comm, req, mpi_err)
-
-
   end subroutine send_edge
 
   ! Direction will always correspond to the perspective of sending proc
@@ -300,8 +313,6 @@ module comms
 
     call mpi_recv(edge, n, mpi_double_precision, &
      neigh(dir_int), 1003, cart_comm, mpi_status_ignore, mpi_err)
-
-
   end subroutine recv_edge
 
   subroutine comms_final()
