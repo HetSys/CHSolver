@@ -1,4 +1,6 @@
 # compiler and linker
+export HDF5_FC := mpif90
+export HDF5_FLINKER := mpif90
 FC=h5fc # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
 LD=$(FC)
 
