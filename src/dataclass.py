@@ -62,7 +62,7 @@ class Data_class():
         Reads output metadata and checkpoint files from outdir
         '''
 
-        grid_params, sys_params, checkpoint_times = _read_metadata(os.get_cwd() + os.sep + outdir + os.sep + "metadata.dat")
+        grid_params, sys_params, checkpoint_times = _read_metadata(os.getcwd() + os.sep + outdir + os.sep + "metadata.dat")
         
         self.grid_dimensionality = grid_params[0]
         self.grid_level = grid_params[1]
