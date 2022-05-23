@@ -211,7 +211,7 @@ module fd_solvers
       dt = tout(it) - t
       outflag = .true.
     else
-      outflag = .true.
+      outflag = .false.
     endif
     t = t + dt
     dt0 = dt ! store current timestep
@@ -242,7 +242,7 @@ module fd_solvers
       ! TODO: finish iteration conditional on the size of the residual
 
       ! MPI TEST WITH SMOOTH
-      do j=1,1
+      do j=1,10
         ! swap all four edges
         call send_edge(n, E1(level)%grid(1,1:N), "u", req1)
         call send_edge(n, E1(level)%grid(N,1:N), "d", req2)
@@ -307,7 +307,6 @@ module fd_solvers
       it = it + 1
     endif
 
-    call MPI_Abort(MPI_COMM_WORLD, 1, errors)
 
     ! ========================================================================== !
     !   REMAINING TIMESTEPS (second order)                                       !
@@ -362,6 +361,42 @@ module fd_solvers
         R2(level)%grid = tau*phi-eps2*R2(level)%grid - psi
 
         ! TODO: finish iteration conditional on the size of the residual
+
+        ! MPI TEST WITH SMOOTH
+        do j=1,10
+          ! swap all four edges
+          call send_edge(n, E1(level)%grid(1,1:N), "u", req1)
+          call send_edge(n, E1(level)%grid(N,1:N), "d", req2)
+          call send_edge(n, E1(level)%grid(1:N,1), "l", req3)
+          call send_edge(n, E1(level)%grid(1:N,N), "r", req4)
+
+          call mpi_wait(req1, mpi_status_ignore, mpi_err)
+          call mpi_wait(req2, mpi_status_ignore, mpi_err)
+          call mpi_wait(req3, mpi_status_ignore, mpi_err)
+          call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+          call recv_edge(n, E1(level)%grid(N+1,1:N), "u")
+          call recv_edge(n, E1(level)%grid(0,1:N), "d")
+          call recv_edge(n, E1(level)%grid(1:N,N+1), "l")
+          call recv_edge(n, E1(level)%grid(1:N,0), "r")
+
+          call send_edge(n, E2(level)%grid(1,1:N), "u", req1)
+          call send_edge(n, E2(level)%grid(N,1:N), "d", req2)
+          call send_edge(n, E2(level)%grid(1:N,1), "l", req3)
+          call send_edge(n, E2(level)%grid(1:N,N), "r", req4)
+
+          call mpi_wait(req1, mpi_status_ignore, mpi_err)
+          call mpi_wait(req2, mpi_status_ignore, mpi_err)
+          call mpi_wait(req3, mpi_status_ignore, mpi_err)
+          call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+          call recv_edge(n, E2(level)%grid(N+1,1:N), "u")
+          call recv_edge(n, E2(level)%grid(0,1:N), "d")
+          call recv_edge(n, E2(level)%grid(1:N,N+1), "l")
+          call recv_edge(n, E2(level)%grid(1:N,0), "r")
+
+          call smooth(A, E1(level)%grid, E2(level)%grid, R1(level)%grid, R2(level)%grid, eps2, N, dx)
+        enddo
 
         ! perform a single v-cycle
         ! call vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
