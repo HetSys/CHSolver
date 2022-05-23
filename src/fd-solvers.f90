@@ -239,6 +239,9 @@ module fd_solvers
       call laplacian(phi, R2(level)%grid, dx, n)
       R2(level)%grid = tau*phi-eps2*R2(level)%grid - psi
 
+      E1(level)%grid = 0.0_dp
+      E2(level)%grid = 0.0_dp
+
       ! TODO: finish iteration conditional on the size of the residual
 
       ! MPI TEST WITH SMOOTH
@@ -389,6 +392,9 @@ module fd_solvers
         R1(level)%grid = R1(level)%grid - a2/dt*phi + b
         call laplacian(phi, R2(level)%grid, dx, n)
         R2(level)%grid = tau*phi-eps2*R2(level)%grid - psi
+
+        E1(level)%grid = 0.0_dp
+        E2(level)%grid = 0.0_dp
 
         ! TODO: finish iteration conditional on the size of the residual
 

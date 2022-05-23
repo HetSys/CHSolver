@@ -248,8 +248,6 @@ module comms
 
     call mpi_recv(val, 1, mpi_double_precision, &
     source_rank, 1003, cart_comm, mpi_status_ignore, mpi_err)
-
-
   end subroutine
 
   ! Direction will always correspond to the perspective of sending proc
