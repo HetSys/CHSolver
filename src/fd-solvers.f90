@@ -283,6 +283,36 @@ module fd_solvers
       ! update with errors
       phi = phi + E1(level)%grid
       psi = psi + E2(level)%grid
+
+      call send_edge(n, phi(1,1:N), "u", req1)
+      call send_edge(n, phi(N,1:N), "d", req2)
+      call send_edge(n, phi(1:N,1), "l", req3)
+      call send_edge(n, phi(1:N,N), "r", req4)
+
+      call mpi_wait(req1, mpi_status_ignore, mpi_err)
+      call mpi_wait(req2, mpi_status_ignore, mpi_err)
+      call mpi_wait(req3, mpi_status_ignore, mpi_err)
+      call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+      call recv_edge(n, phi(N+1,1:N), "u")
+      call recv_edge(n, phi(0,1:N), "d")
+      call recv_edge(n, phi(1:N,N+1), "l")
+      call recv_edge(n, phi(1:N,0), "r")
+
+      call send_edge(n, psi(1,1:N), "u", req1)
+      call send_edge(n, psi(N,1:N), "d", req2)
+      call send_edge(n, psi(1:N,1), "l", req3)
+      call send_edge(n, psi(1:N,N), "r", req4)
+
+      call mpi_wait(req1, mpi_status_ignore, mpi_err)
+      call mpi_wait(req2, mpi_status_ignore, mpi_err)
+      call mpi_wait(req3, mpi_status_ignore, mpi_err)
+      call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+      call recv_edge(n, psi(N+1,1:N), "u")
+      call recv_edge(n, psi(0,1:N), "d")
+      call recv_edge(n, psi(1:N,N+1), "l")
+      call recv_edge(n, psi(1:N,0), "r")
     enddo
 
     ! output if required
@@ -405,6 +435,36 @@ module fd_solvers
         phi = phi + E1(level)%grid
         psi = psi + E2(level)%grid
 
+        call send_edge(n, phi(1,1:N), "u", req1)
+        call send_edge(n, phi(N,1:N), "d", req2)
+        call send_edge(n, phi(1:N,1), "l", req3)
+        call send_edge(n, phi(1:N,N), "r", req4)
+
+        call mpi_wait(req1, mpi_status_ignore, mpi_err)
+        call mpi_wait(req2, mpi_status_ignore, mpi_err)
+        call mpi_wait(req3, mpi_status_ignore, mpi_err)
+        call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+        call recv_edge(n, phi(N+1,1:N), "u")
+        call recv_edge(n, phi(0,1:N), "d")
+        call recv_edge(n, phi(1:N,N+1), "l")
+        call recv_edge(n, phi(1:N,0), "r")
+
+        call send_edge(n, psi(1,1:N), "u", req1)
+        call send_edge(n, psi(N,1:N), "d", req2)
+        call send_edge(n, psi(1:N,1), "l", req3)
+        call send_edge(n, psi(1:N,N), "r", req4)
+
+        call mpi_wait(req1, mpi_status_ignore, mpi_err)
+        call mpi_wait(req2, mpi_status_ignore, mpi_err)
+        call mpi_wait(req3, mpi_status_ignore, mpi_err)
+        call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+        call recv_edge(n, psi(N+1,1:N), "u")
+        call recv_edge(n, psi(0,1:N), "d")
+        call recv_edge(n, psi(1:N,N+1), "l")
+        call recv_edge(n, psi(1:N,0), "r")
+
         ! print size of residual
         ! print *, i, "r1 max = ", maxval(abs(R1(level)%grid))
       enddo
@@ -485,29 +545,29 @@ module fd_solvers
     dx2_ = 1.0_dp / (dx*dx)
 
     ! interior
-    do j=2,n-1
-      do i=2,n-1
+    do j=1,n
+      do i=1,n
         y(i,j) = dx2_*(x(i+1,j) + x(i-1,j) + x(i,j+1) + x(i,j-1) - 4*x(i,j))
       enddo
     enddo
 
-    ! left/right
-    do j=2,n-1
-      y(1,j) = dx2_*(x(2,j) + x(n,j) + x(1,j+1) + x(1,j-1) - 4*x(1,j))
-      y(n,j) = dx2_*(x(1,j) + x(n-1,j) + x(n,j+1) + x(n,j-1) - 4*x(n,j))
-    enddo
+    ! ! left/right
+    ! do j=2,n-1
+    !   y(1,j) = dx2_*(x(2,j) + x(n,j) + x(1,j+1) + x(1,j-1) - 4*x(1,j))
+    !   y(n,j) = dx2_*(x(1,j) + x(n-1,j) + x(n,j+1) + x(n,j-1) - 4*x(n,j))
+    ! enddo
 
-    ! top/bottom
-    do i=2,n-1
-      y(i,1) = dx2_*(x(i+1,1) + x(i-1,1) + x(i,2) + x(i,1) - 4*x(i,1))
-      y(i,n) = dx2_*(x(i+1,n) + x(i-1,n) + x(i,1) + x(i,n-1) - 4*x(i,n))
-    enddo
+    ! ! top/bottom
+    ! do i=2,n-1
+    !   y(i,1) = dx2_*(x(i+1,1) + x(i-1,1) + x(i,2) + x(i,1) - 4*x(i,1))
+    !   y(i,n) = dx2_*(x(i+1,n) + x(i-1,n) + x(i,1) + x(i,n-1) - 4*x(i,n))
+    ! enddo
 
-    ! corners
-    y(1,1) = dx2_*(x(2,1) + x(n,1) + x(1,2) + x(1,n) - 4*x(1,1))
-    y(n,1) = dx2_*(x(1,1) + x(n-1,1) + x(n,2) + x(n,n) - 4*x(n,1))
-    y(1,n) = dx2_*(x(2,n) + x(n,n) + x(1,1) + x(1,n-1) - 4*x(1,n))
-    y(n,n) = dx2_*(x(1,n) + x(n-1,n) + x(n,1) + x(n,n-1) - 4*x(n,n))
+    ! ! corners
+    ! y(1,1) = dx2_*(x(2,1) + x(n,1) + x(1,2) + x(1,n) - 4*x(1,1))
+    ! y(n,1) = dx2_*(x(1,1) + x(n-1,1) + x(n,2) + x(n,n) - 4*x(n,1))
+    ! y(1,n) = dx2_*(x(2,n) + x(n,n) + x(1,1) + x(1,n-1) - 4*x(1,n))
+    ! y(n,n) = dx2_*(x(1,n) + x(n-1,n) + x(n,1) + x(n,n-1) - 4*x(n,n))
   end subroutine laplacian
 
 
