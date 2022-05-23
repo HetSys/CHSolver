@@ -23,5 +23,9 @@ cd build
 cmake ..
 cmake --build .
 cmake --install .
-cd ..
+cd ../..
+cd ../..
 
+python3.8 -m venv chenv
+source chenv/bin/activate
+pip install -r requirements.txt

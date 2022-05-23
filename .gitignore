@@ -63,3 +63,6 @@ tests/unit_tests/*.inc
 *.png
 *.mp4
 *.gif
+
+#python enviroment
+chenv
