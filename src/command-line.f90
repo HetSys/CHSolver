@@ -27,7 +27,7 @@ module command_line
 
   logical, private :: restart_fnd, chkpnt_fnd
 
-  
+
   !> @var integer linspace_selected 
   !! Integer marker to flag that the start, stop and nsteps
   !! returned by get_lin_log_args should be passed to the lin_tspace procedure in setup.f90
@@ -459,6 +459,15 @@ module command_line
     print *, "  --log_tspace=<arr>                 Sets the array of output times to a logarithmic space array"
     print *, "                                      <arr> is a colon separated list inside curly braces of the form"
     print *, "                                      {<start_time>:<stop_time>:<number_of_output_timesteps>}", newline
+    print *, "Checkpointing & Restarts:"
+    print *, " --restart_num=<val>                 Restart the calculation from the checkpoint '<val>.chkpnt'"
+    print *, " --restart_time=<val>                Restart the calculation from a checkpoint taken at a time <= the given &
+                                                   &restart time"
+    print *, "                                       Restarting will take all of the input variables from the metadata file."
+    print *, "                                       The given time array will be masked to only give outputs at times after &
+                                                   &the checkpoint"
+    print *, "                                       start time"
+
   end subroutine
 
   !> @brief Set arr based on the string representation in str_array
