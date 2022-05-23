@@ -218,7 +218,7 @@ module JSON_Parser
     if (found) then
       call logger%trivia("get_json_params", "Found T array of '"// trim(to_string(Tout)) // "'")
     else
-      call logger%warning("get_json_params", "Input Parameter 'grid_type' not found in JSON file.")
+      call logger%warning("get_json_params", "Input Parameter 'T' not found in JSON file.")
     end if
 
 
