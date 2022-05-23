@@ -243,13 +243,20 @@ module command_line
 
         key_arg = trim(arg(2:)) ! Grab key part
 
+
         call get_command_argument(current_arg+1, arg)
         val_arg = trim(arg)
         do idx=1, len_arg - 1
           ! Loop through all chars in key_arg
           ! EG if -lamk 1.0 specified
           ! Should be equivalent to -l 1.0 -a 1.0...
-          call  parse_keyval_arg(key_arg(idx:idx), val_arg, is_short_arg=.TRUE.)
+          if (current_arg+1 > num_args) then
+            ! No val arg at end
+            call  parse_keyval_arg(key_arg(idx:idx), is_short_arg=.TRUE.)
+          else
+            ! Val arg at end
+            call  parse_keyval_arg(key_arg(idx:idx), val_arg, is_short_arg=.TRUE.)
+          endif
         end do
       end if
     end do
