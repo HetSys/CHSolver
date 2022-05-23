@@ -1,33 +1,72 @@
-from .DataIO import Json_handler, _read_hdf5_files, _read_metadata
+import json
 import os
+import numpy as np
+import h5py
 
-
-class Data_class():
+class CHData():
     '''!
     Class to hold data for file I/O, binding to F90 solvers, and visualisation
     '''
-    _jh = Json_handler()
+    fname = None
+    input_data = {}
+    _data = {}
 
-    def __init__(self):
+    L = 1.0
+    A = 1.0
+    M = 0.25
+    K = 0.0004
+    p0 = -1.0
+    p1 = 1.0
+    T = np.linspace(0, 0.1, 3)
+
+    grid_type = "r"
+    grid_level = 7
+
+    def __init__(self, fname="input-data.json"):
         '''!
-        Define attribute namespaces
-
+        Loads data from JSON file given by fname
+        Will not save old files before opening a new one
         '''
 
-    def open_jsonfile(self, fname):
-        '''!
-        Call the json handler to open a file given by fname
-        '''
-        self._jh._load_data(fname)
-    
-    def get_runnames(self):
-        return self._jh.run_names
+        self.fname = fname
 
-    def get_rundata(self, run_name: str) -> None:
+        self.cwd = os.getcwd()
+        self.filepath = self.cwd + os.sep + fname
+
+        if os.path.isfile(self.filepath):
+            self._read_jsonfile()
+        else:
+            self.save_rundata("default")
+
+
+    def _read_jsonfile(self):
+        try:
+            self._data = json.loads(open(self.filepath).read())
+        except json.decoder.JSONDecodeError:
+            raise RuntimeError(f"Error in reading JSON file {self.fname}, likely due to reading a blank file")
+
+
+    @property
+    def run_names(self) -> list:
         '''!
-        Retrieve input run data from JSON file
+        Get names of all available runs
         '''
-        self.input_data = self._jh.get_rundata(run_name)
+        keys = list(self._data.keys())
+        return keys
+
+    def read_rundata(self, run_name: str) -> None:
+        '''!
+        Search for a run with name matching run_name
+        Throws KeyError if name not found
+
+        '''
+        try:
+            self.input_data = self._data[run_name]
+        except KeyError:
+            print(f"Run {run_name} not found.")
+            print("Currently recognised runs:")
+            print(self.run_names)
+            raise  # Raise the caught KeyError again
 
         self.L = self.input_data["L"]
         self.A = self.input_data["A"]
@@ -36,7 +75,21 @@ class Data_class():
         self.p0 = self.input_data["p0"]
         self.p1 = self.input_data["p1"]
         self.grid_level = self.input_data["grid_level"]
-        self.grid_init = self.input_data["grid_init"]
+        self.grid_type = self.input_data["grid_type"]
+
+        if "T" in self.input_data.keys():
+            self.T = self.input_data["T"]
+
+    def print_rundata(self):
+        print(f"L = {self.L}")
+        print(f"A = {self.A}")
+        print(f"M = {self.M}")
+        print(f"K = {self.K}")
+        print(f"p0 = {self.p0}")
+        print(f"p1 = {self.p1}")
+        print(f"Grid type = {self.grid_type}")
+        print(f"Grid level = {self.grid_level}")
+        print(f"Output Times = {self.T}")
 
     def save_rundata(self, run_name: str) -> None:
         '''!
@@ -50,12 +103,19 @@ class Data_class():
         self.input_data["p0"] = self.p0
         self.input_data["p1"] = self.p1
         self.input_data["grid_level"] = self.grid_level
-        self.input_data["grid_init"] = self.grid_init
+        self.input_data["grid_type"] = self.grid_type
+        self.input_data["T"] = list(self.T)
 
-        self._jh.set_rundata(run_name, self.input_data)
+        if os.path.isfile(self.filepath):
+            # Update internal _data with any changes to the file
+            self._read_jsonfile()
+
+        self._data[run_name] = self.input_data
+        self._save_jsonfile()
     
-    def save_jsonfile(self):
-        self._jh.save_data()
+    def _save_jsonfile(self):
+        with open(self.filepath, 'w') as f:
+                json.dump(self._data, f, indent=2)
 
     def read_outputs(self, outdir):
         '''!
@@ -77,3 +137,29 @@ class Data_class():
 
         self.C = c
 
+
+def _read_metadata(filename):
+  '''! Reads the grid parameters, system parameters and checkpoint times from the metadata.dat file in the out directory.
+  '''
+  with open(filename) as f:
+    grid_params = np.array(f.readline().split()[1:], dtype=int)
+    sys_params = f.readline().split()[1:]
+    sys_params = np.array(sys_params + f.readline().split()[1:], dtype=float)
+  chkpnt_times = np.genfromtxt(filename, skip_header=4, dtype=float)[:, 1]
+
+
+
+  return grid_params, sys_params, chkpnt_times
+
+def _read_hdf5_files(num_checkpoints, grid_res, outdir):
+  '''! Reads concentration at current timestep (c), concentration at previous timestep (c_prev) and the corresponding timestep (dt) from the collection of HDF5 checkpoint files in the out/ directory.
+  '''
+  c = np.zeros((num_checkpoints,grid_res,grid_res))
+  c_prev = np.zeros((num_checkpoints,grid_res,grid_res))
+  dt = np.zeros((num_checkpoints))
+  for i in range(1,num_checkpoints):
+      data = h5py.File(outdir + os.sep + str(i) + '.chkpnt', 'r')
+      test= data['c'][...]
+      c[i,:,:] = test
+      dt[i] = data['dt'][...]
+  return c, c_prev, dt

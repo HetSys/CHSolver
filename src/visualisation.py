@@ -11,7 +11,7 @@ Opening file docstring contains LATEX parsing - \f$\beta\f$
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import numpy as np
-from .dataclass import Data_class
+from .dataclass import CHData
 
 def find_nearest_t_index(t_array:np.array, t):
     '''! Produces an animation for the evolution of species concentration, outputted as an mp4 to the main directory.
@@ -21,7 +21,7 @@ def find_nearest_t_index(t_array:np.array, t):
     index = (np.abs(t_array - t)).argmin()
     return index 
 
-def plot_conc_evol(data_obj:Data_class, animation_fps = 10 , ti = 0, tf=-1):
+def plot_conc_evol(data_obj:CHData, animation_fps = 10 , ti = 0, tf=-1):
   '''! Produces an animation for the evolution of species concentration, outputted as an mp4 to the main directory.
   @param animation_fps Number of frames per second for the animation
   @param ti Time to intialise the visualiation (will use time closest to that specified)
@@ -55,7 +55,7 @@ def plot_conc_evol(data_obj:Data_class, animation_fps = 10 , ti = 0, tf=-1):
   final_an = anim.ArtistAnimation(fig, ims, interval = 5, repeat = True, blit=False)
   final_an.save('Conc_Evolution.gif', writer = anim.PillowWriter(fps = animation_fps))
 
-def plot_free_energy(data_obj:Data_class, ti=0, tf=-1):
+def plot_free_energy(data_obj:CHData, ti=0, tf=-1):
   '''! Produces a plot of Free energy versus time, outputted as a png to the main directory.
   @param ti Time to intialise the visualiation (will use time closest to that specified)
   @param tf Time to finish the visualiation (will use time closest to that specified)
