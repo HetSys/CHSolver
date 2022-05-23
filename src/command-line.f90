@@ -26,6 +26,8 @@ module command_line
   real(dp), private :: restart_cmd_time
 
   logical, private :: restart_fnd, chkpnt_fnd
+
+  
   !> @var integer linspace_selected 
   !! Integer marker to flag that the start, stop and nsteps
   !! returned by get_lin_log_args should be passed to the lin_tspace procedure in setup.f90
