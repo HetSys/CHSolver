@@ -186,6 +186,12 @@ module command_line
     
   end subroutine
 
+  !> @brief Get checkpointing command line args
+  !! @param[inout] checkpoint_number Number of the checkpoint requested. Will not be modified
+  !! if no checkpoint number is given
+  !! @param[inout] restart_time Time of the checkpoint requested. Will not be modified
+  !! if no checkpoint time is given
+  !! @param[out] do_restart Logical flag to indicate whether restarts should occur.
   subroutine get_checkpoint_commands(checkpoint_number, restart_time, do_restart)
     integer, optional, intent(inout) :: checkpoint_number
     real(dp), optional, intent(inout) :: restart_time
