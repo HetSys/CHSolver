@@ -244,12 +244,12 @@ module hdf5_io
   end subroutine 
 
   !> @brief Initialises a restart from a specified checkpoint.
-  !! @param[in]  chkpnt_folder 
+  !! @param[in]  chkpnt_folder Name of folder to store checkpoints and metadata
   !! @param[out]  sys_params Parameters used by the solver, to be placed in metadata.
-  !! @param[out]  current_time
+  !! @param[out]  current_time Time of the system at the checkpoitn selected
   !! @param[out]  error error code
-  !! @param[in]  n_chkpnt 
-  !! @param[in]  start_before_time 
+  !! @param[in]  n_chkpnt (Optional) Restart from the n-th checkpoint. Default is latest checkpoint.
+  !! @param[in]  start_before_time (Optional) Selects latest checkpoint with time before start_before_time. n_chkpnt supercedes this, if both are supplied, in the case of conflict.
 
   subroutine chkpnt_init(chkpnt_folder, sys_params, current_time, error, n_chkpnt, start_before_time)
     character(*), intent(in) :: chkpnt_folder
