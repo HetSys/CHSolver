@@ -21,8 +21,15 @@ program main
   integer :: space_selected, num_outputs
   real(dp) :: start_val, stop_val
 
+  ! MPI timing
+  real(dp) :: t0
+
   ! start up MPI comms
   call comms_init()
+
+  if (myrank == 0) then
+    t0 = MPI_Wtime()
+  endif
 
   ! default fname, run_name, and outdir
   fname = "input-data.json"
@@ -91,5 +98,12 @@ program main
   ! clean up (on all procs)
   deallocate(c0)
   deallocate(Tout)
+
+  if (myrank == 0) then
+    print *, "elapsed time:", MPI_Wtime()-t0
+  endif
+
+  ! shut down comms
+  call comms_final()
 
 end program main

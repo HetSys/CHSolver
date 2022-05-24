@@ -146,6 +146,7 @@ module comms
     integer :: subgrid_basic, subgrid
     integer(kind=mpi_address_kind) :: extent
     integer, dimension(nproc) :: displs, counts
+    integer :: i,j
 
     mpi_res = int(grid_res/nproc_row)
 
@@ -162,14 +163,36 @@ module comms
       call mpi_cart_coords(cart_comm, rank, 2, rankcoords, mpi_err)
 
       displs(rank+1) = rankcoords(2) + nproc_row*mpi_res*rankcoords(1)
-      counts = 1
+      counts = 1 ! TODO: is this right
     end do
 
+    ! if (myrank == 0) print *, "9", counts, displs
+    ! if (myrank == 0) then
+    !   print *, "9.5"
+    !   do i = 1,4
+    !     do j = 1,4
+    !       write(*, "(F5.2, 1X)", advance="no") mpi_grid(i, j)
+    !     end do
+    !     write(*,*)
+    !   end do
+    ! end if
+    ! if (myrank == 0) then
+    !   print *, "9.75"
+    !   do i = 1,8
+    !     do j = 1,8
+    !       write(*, "(F5.2, 1X)", advance="no") grid(i, j)
+    !     end do
+    !     write(*,*)
+    !   end do
+    !   print *, subgrid
+    ! end if
     call MPI_gatherv(mpi_grid(1:mpi_res,1:mpi_res), mpi_res*mpi_res, mpi_double_precision, &
     grid, counts, displs, subgrid, &
      0, mpi_comm_world, mpi_err)
 
+    ! if (myrank == 0) print *, "10"
     call MPI_Type_free(subgrid,mpi_err)
+    ! if (myrank == 0) print *, "11"
   end subroutine grid_gather
 
   ! Direction will always correspond to the perspective of sending proc

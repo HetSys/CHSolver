@@ -25,9 +25,9 @@ module multigrid
     integer, intent(in) :: level
     integer :: i
 
-    allocate(mg(0:level))
+    allocate(mg(1:level))
 
-    do i=0,level
+    do i=1,level
       allocate(mg(i)%grid(0:(1+2**i),0:(1+2**i)))
     enddo
   end subroutine multigrid_alloc
@@ -43,7 +43,7 @@ module multigrid
     integer, intent(in) :: level
     integer :: i
 
-    do i=0,level
+    do i=1,level
       deallocate(mg(i)%grid)
     enddo
 
@@ -65,6 +65,7 @@ module fd_solvers
   ! solver parameters
   real(dp), parameter :: tau = 2.0_dp
   integer, parameter :: niter = 11
+  integer, parameter :: local_min = 2
 
   private tau, niter, invert, laplacian, compute_g, vcycle, smooth, restrict, prolongate
   public solver_ufds2t2
@@ -93,7 +94,7 @@ module fd_solvers
     real(dp) :: t, t_out,  tmax
     real(dp), dimension(2,2) :: A ! smoothing matrix
     real(dp) :: eps
-    integer :: it, i, j ! iterators
+    integer :: it, i ! iterators
     logical :: outflag
     character(len=48) :: msg ! logging message
     integer :: req1, req2, req3, req4
@@ -115,7 +116,7 @@ module fd_solvers
     !   SETUP                                                                  !
     ! ======================================================================== !
     ! set variables
-    N = size(c0,1) / nproc_row ! TODO: this only works with 4 procs!!!
+    N = size(c0,1) / nproc_row
     call ilog2(N,level)
     dx = 1.0_dp/(real(N*nproc_row,dp))
     dt = 2.5_dp * eps2
@@ -148,16 +149,14 @@ module fd_solvers
     call multigrid_alloc(R2, level)
 
     ! allocate global storage
-    if (myrank == 0) then
-      allocate(phi_global(N_global,N_global))
-      allocate(psi_global(N_global,N_global))
-      allocate(c_global(N_global,N_global))
-      allocate(c_prev_global(N_global,N_global))
-      call multigrid_alloc(E1_global, 2)
-      call multigrid_alloc(E2_global, 2)
-      call multigrid_alloc(R1_global, 2)
-      call multigrid_alloc(R2_global, 2)
-    endif
+    allocate(phi_global(N_global,N_global))
+    allocate(psi_global(N_global,N_global))
+    allocate(c_global(N_global,N_global))
+    allocate(c_prev_global(N_global,N_global))
+    call multigrid_alloc(E1_global, level_global-level+local_min)
+    call multigrid_alloc(E2_global, level_global-level+local_min)
+    call multigrid_alloc(R1_global, level_global-level+local_min)
+    call multigrid_alloc(R2_global, level_global-level+local_min)
 
     ! send c0 (global) to phi (local)
     if (nproc > 1) then
@@ -202,8 +201,6 @@ module fd_solvers
         call logger%info("solver_ufds2t2", msg)
         dt_out = dt
         t_out = t
-        ! c = phi(1:N,1:N)
-        ! c_prev = phi_prev(1:N,1:N)
         call dimensionalise(CH_params, c_global, t_out)
         call dimensionalise(CH_params, c_prev_global, dt_out)
 
@@ -257,7 +254,8 @@ module fd_solvers
 
       ! perform a single v-cycle
       if (nproc > 1) then
-        call vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
+        call vcycle(A, E1, E2, R1, R2, E1_global, E2_global, R1_global, R2_global, &
+                    eps2, N, dx, level)
       else
         call vcycle0(A, E1, E2, R1, R2, eps2, N, dx, level)
       endif
@@ -331,7 +329,7 @@ module fd_solvers
     ! ======================================================================== !
     !   REMAINING TIMESTEPS (second order)                                     !
     ! ======================================================================== !
-    do while (it < 10)
+    do while (t < tmax)
       ! set current timestep TODO: condition on curvature rather than time
       if (t < 100.0_dp * eps) then
         dt = 2.5_dp * eps2
@@ -387,7 +385,8 @@ module fd_solvers
 
         ! perform a single v-cycle
         if (nproc > 1) then
-          call vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
+          call vcycle(A, E1, E2, R1, R2, E1_global, E2_global, R1_global, R2_global, &
+                      eps2, N, dx, level)
         else
           call vcycle0(A, E1, E2, R1, R2, eps2, N, dx, level)
         endif
@@ -449,8 +448,6 @@ module fd_solvers
           call logger%info("solver_ufds2t2", msg)
           dt_out = dt
           t_out = t
-          ! c = phi(1:N,1:N)
-          ! c_prev = phi_prev(1:N,1:N)
           call dimensionalise(CH_params, c_global, t_out)
           call dimensionalise(CH_params, c_prev_global, dt_out)
 
@@ -482,16 +479,14 @@ module fd_solvers
     call multigrid_dealloc(R2, level)
 
     ! deallocate global storage
-    if (myrank == 0) then
-      deallocate(phi_global)
-      deallocate(psi_global)
-      deallocate(c_global)
-      deallocate(c_prev_global)
-      call multigrid_dealloc(E1_global, 2)
-      call multigrid_dealloc(E2_global, 2)
-      call multigrid_dealloc(R1_global, 2)
-      call multigrid_dealloc(R2_global, 2)
-    endif
+    deallocate(phi_global)
+    deallocate(psi_global)
+    deallocate(c_global)
+    deallocate(c_prev_global)
+    call multigrid_dealloc(E1_global, level_global-level+local_min)
+    call multigrid_dealloc(E2_global, level_global-level+local_min)
+    call multigrid_dealloc(R1_global, level_global-level+local_min)
+    call multigrid_dealloc(R2_global, level_global-level+local_min)
   end subroutine solver_ufds2t2
 
 
@@ -590,21 +585,22 @@ module fd_solvers
   !! @param N      grid size
   !! @param dx     grid spacing
   !! @param level  grid level
-  subroutine vcycle(A, E1, E2, R1, R2, eps2, N, dx, level)
+  subroutine vcycle(A, E1, E2, R1, R2, E1g, E2g, R1g, R2g, eps2, N, dx, level)
     implicit none
-    real(dp), dimension(2,2), intent(in) :: A
-    type(t_grid), dimension(:), allocatable, intent(inout) :: E1, E2, R1, R2
-    real(dp), intent(in) :: eps2, dx
     integer, intent(in) :: N, level
+    real(dp), dimension(2,2), intent(in) :: A
+    type(t_grid), dimension(:), intent(inout) :: E1, E2, R1, R2
+    type(t_grid), dimension(:), intent(inout) :: E1g, E2g, R1g, R2g
+    real(dp), intent(in) :: eps2, dx
 
-    integer :: l, nl, l_global
+    integer :: l, nl, l_global, nl_global, i
     real(dp) :: dxl
 
     nl = n
     dxl = dx
 
     ! go up, smoothing and restricting
-    do l=level,2,-1
+    do l=level,(local_min+1),-1
       E1(l)%grid = 0.0_dp
       E2(l)%grid = 0.0_dp
 
@@ -615,23 +611,37 @@ module fd_solvers
       dxl = dxl * 2.0_dp
     enddo
 
+    ! ! smooth at level local_min TODO: remove bad workaround
+    ! E1(l)%grid = 0.0_dp
+    ! E2(l)%grid = 0.0_dp
+    ! do i=1,5
+    !   call smooth(A, E1(local_min)%grid, E2(local_min)%grid, R1(local_min)%grid, R2(local_min)%grid, &
+    !               eps2, nl, dxl)
+    ! enddo
+
     ! gather onto rank 0
-    ! TODO: maybe don't go all the way to the top of the local multigrids
     call ilog2(nproc_row, l_global)
-    call grid_gather(E1(l_global)%grid, nproc_row, E1(l)%grid)
-    call grid_gather(E2(l_global)%grid, nproc_row, E2(l)%grid)
+    l_global = l_global + l
+    nl_global = nl*nproc_row
+    call grid_gather(E1g(l_global)%grid(1:nl_global,1:nl_global), nl_global, E1(l)%grid)
+    call grid_gather(E2g(l_global)%grid(1:nl_global,1:nl_global), nl_global, E2(l)%grid)
+    call grid_gather(R1g(l_global)%grid(1:nl_global,1:nl_global), nl_global, R1(l)%grid)
+    call grid_gather(R2g(l_global)%grid(1:nl_global,1:nl_global), nl_global, R2(l)%grid)
 
     ! final vcycles on rank 0
     if (myrank == 0) then
-      call vcycle0(A, E1, E2, R1, R2, eps2, N, dx, level)
+      ! print *, nproc, nproc_row, l_global
+      call vcycle0(A, E1g, E2g, R1g, R2g, eps2, nl*nproc_row, dxl, l_global)
     endif
 
     ! scatter back to all ranks
-    call grid_scatter(E1(l_global)%grid, nproc_row, E1(l)%grid, 1)
-    call grid_scatter(E2(l_global)%grid, nproc_row, E2(l)%grid, 1)
+    call grid_scatter(E1g(l_global)%grid(1:nl_global,1:nl_global), nl_global, E1(l)%grid, nl)
+    call grid_scatter(E2g(l_global)%grid(1:nl_global,1:nl_global), nl_global, E2(l)%grid, nl)
+    call grid_scatter(R1g(l_global)%grid(1:nl_global,1:nl_global), nl_global, R1(l)%grid, nl)
+    call grid_scatter(R2g(l_global)%grid(1:nl_global,1:nl_global), nl_global, R2(l)%grid, nl)
 
     ! go down, smoothing and prolongating
-    do l=1,level-1
+    do l=local_min,level-1
       call prolongate(E1(l+1)%grid, E2(l+1)%grid, E1(l)%grid, E2(l)%grid, nl)
 
       nl = nl*2;
@@ -666,40 +676,25 @@ module fd_solvers
 
     dx2_ = 1.0_dp / (dx*dx)
 
-    ! send and receive all the edges
+    ! send edges
     call send_edge(n, E1(1,1:N), "u", req1)
     call send_edge(n, E1(N,1:N), "d", req2)
     call send_edge(n, E1(1:N,1), "l", req3)
     call send_edge(n, E1(1:N,N), "r", req4)
-    call mpi_wait(req1, mpi_status_ignore, mpi_err)
-    call mpi_wait(req2, mpi_status_ignore, mpi_err)
-    call mpi_wait(req3, mpi_status_ignore, mpi_err)
-    call mpi_wait(req4, mpi_status_ignore, mpi_err)
-    call recv_edge(n, E1(N+1,1:N), "u")
-    call recv_edge(n, E1(0,1:N), "d")
-    call recv_edge(n, E1(1:N,N+1), "l")
-    call recv_edge(n, E1(1:N,0), "r")
 
     call send_edge(n, E2(1,1:N), "u", req1)
     call send_edge(n, E2(N,1:N), "d", req2)
     call send_edge(n, E2(1:N,1), "l", req3)
     call send_edge(n, E2(1:N,N), "r", req4)
-    call mpi_wait(req1, mpi_status_ignore, mpi_err)
-    call mpi_wait(req2, mpi_status_ignore, mpi_err)
-    call mpi_wait(req3, mpi_status_ignore, mpi_err)
-    call mpi_wait(req4, mpi_status_ignore, mpi_err)
-    call recv_edge(n, E2(N+1,1:N), "u")
-    call recv_edge(n, E2(0,1:N), "d")
-    call recv_edge(n, E2(1:N,N+1), "l")
-    call recv_edge(n, E2(1:N,0), "r")
+
 
     ! ================ !
     ! SMOOTH RED NODES !
     ! ================ !
-    ! interior
-    do j=1,n
+    ! interior (while the edges are sent)
+    do j=2,n-1
       shift = mod(j,2)
-      do i=1+shift,n+shift,2
+      do i=2+shift,n-1+shift,2
         ! compute RHS
         rhs(1) = R1(i,j) + dx2_ * (E2(i+1,j) + E2(i-1,j) + E2(i,j+1) + E2(i,j-1))
         rhs(2) = R2(i,j) - eps2*dx2_ * (E1(i+1,j) + E1(i-1,j) + E1(i,j+1) + E1(i,j-1))
@@ -710,13 +705,64 @@ module fd_solvers
       enddo
     enddo
 
+    ! receive edges
+    call mpi_wait(req1, mpi_status_ignore, mpi_err)
+    call mpi_wait(req2, mpi_status_ignore, mpi_err)
+    call mpi_wait(req3, mpi_status_ignore, mpi_err)
+    call mpi_wait(req4, mpi_status_ignore, mpi_err)
+    call recv_edge(n, E1(N+1,1:N), "u")
+    call recv_edge(n, E1(0,1:N), "d")
+    call recv_edge(n, E1(1:N,N+1), "l")
+    call recv_edge(n, E1(1:N,0), "r")
+
+    call mpi_wait(req1, mpi_status_ignore, mpi_err)
+    call mpi_wait(req2, mpi_status_ignore, mpi_err)
+    call mpi_wait(req3, mpi_status_ignore, mpi_err)
+    call mpi_wait(req4, mpi_status_ignore, mpi_err)
+    call recv_edge(n, E2(N+1,1:N), "u")
+    call recv_edge(n, E2(0,1:N), "d")
+    call recv_edge(n, E2(1:N,N+1), "l")
+    call recv_edge(n, E2(1:N,0), "r")
+
+    ! left edge
+    do i=3,n,2
+      rhs(1) = R1(i,1) + dx2_ * (E2(i+1,1) + E2(i-1,1) + E2(i,2) + E2(i,0))
+      rhs(2) = R2(i,1) - eps2*dx2_ * (E1(i+1,1) + E1(i-1,1) + E1(i,2) + E1(i,0))
+      E1(i,1) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(i,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    enddo
+
+    ! right edge
+    do i=2,n,2
+      rhs(1) = R1(i,n) + dx2_ * (E2(i+1,n) + E2(i-1,n) + E2(i,n+1) + E2(i,n-1))
+      rhs(2) = R2(i,n) - eps2*dx2_ * (E1(i+1,n) + E1(i-1,n) + E1(i,n+1) + E1(i,n-1))
+      E1(i,n) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(i,n) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    enddo
+
+    ! top edge
+    do j=1,n,2
+      rhs(1) = R1(1,j) + dx2_ * (E2(2,j) + E2(0,j) + E2(1,j+1) + E2(1,j-1))
+      rhs(2) = R2(1,j) - eps2*dx2_ * (E1(2,j) + E1(0,j) + E1(1,j+1) + E1(1,j-1))
+      E1(1,j) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(1,j) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    enddo
+
+    ! bottom edge
+    do j=2,n,2
+      rhs(1) = R1(n,j) + dx2_ * (E2(n+1,j) + E2(n-1,j) + E2(n,j+1) + E2(n,j-1))
+      rhs(2) = R2(n,j) - eps2*dx2_ * (E1(n+1,j) + E1(n-1,j) + E1(n,j+1) + E1(n,j-1))
+      E1(n,j) = A(1,1)*rhs(1) + A(1,2)*rhs(2)
+      E2(n,j) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
+    enddo
+
 
     ! ================== !
     ! SMOOTH BLACK NODES !
     ! ================== !
-    ! interior
+    ! interior and edges
     do j=1,n
-      shift = mod(j-1,2)
+      shift = mod(j,2)
       do i=1+shift,n+shift,2
         ! compute RHS
         rhs(1) = R1(i,j) + dx2_ * (E2(i+1,j) + E2(i-1,j) + E2(i,j+1) + E2(i,j-1))
@@ -775,26 +821,91 @@ module fd_solvers
     real(dp), parameter :: w2 = 0.1875_dp
     real(dp), parameter :: w3 = 0.0625_dp
 
-    integer :: req1, req2, req3, req4, req5, req6, req7, req8
+    integer :: req01, req02, req03, req04, req05, req06, req07, req08
+    integer :: req11, req12, req13, req14, req15, req16, req17, req18
 
     Nf = 2*N
 
-    call send_edge(Nf, E1f(1,1:Nf), "u", req1)
-    call send_edge(Nf, E1f(Nf,1:Nf), "d", req2)
-    call send_edge(Nf, E1f(1:Nf,1), "l", req3)
-    call send_edge(Nf, E1f(1:Nf,Nf), "r", req4)
-    call send_corner(E1f(1, 1), "ul", req5)
-    call send_corner(E1f(1, Nf), "ur", req6)
-    call send_corner(E1f(Nf, 1), "dl", req7)
-    call send_corner(E1f(Nf, Nf), "dr", req8)
-    call mpi_wait(req1, mpi_status_ignore, mpi_err)
-    call mpi_wait(req2, mpi_status_ignore, mpi_err)
-    call mpi_wait(req3, mpi_status_ignore, mpi_err)
-    call mpi_wait(req4, mpi_status_ignore, mpi_err)
-    call mpi_wait(req5, mpi_status_ignore, mpi_err)
-    call mpi_wait(req6, mpi_status_ignore, mpi_err)
-    call mpi_wait(req7, mpi_status_ignore, mpi_err)
-    call mpi_wait(req8, mpi_status_ignore, mpi_err)
+    ! send edges and corners
+    call send_edge(Nf, E1f(1,1:Nf), "u", req01)
+    call send_edge(Nf, E1f(Nf,1:Nf), "d", req02)
+    call send_edge(Nf, E1f(1:Nf,1), "l", req03)
+    call send_edge(Nf, E1f(1:Nf,Nf), "r", req04)
+    call send_corner(E1f(1, 1), "ul", req05)
+    call send_corner(E1f(1, Nf), "ur", req06)
+    call send_corner(E1f(Nf, 1), "dl", req07)
+    call send_corner(E1f(Nf, Nf), "dr", req08)
+
+    call send_edge(Nf, E2f(1,1:Nf), "u", req11)
+    call send_edge(Nf, E2f(Nf,1:Nf), "d", req12)
+    call send_edge(Nf, E2f(1:Nf,1), "l", req13)
+    call send_edge(Nf, E2f(1:Nf,Nf), "r", req14)
+    call send_corner(E2f(1, 1), "ul", req15)
+    call send_corner(E2f(1, Nf), "ur", req16)
+    call send_corner(E2f(Nf, 1), "dl", req17)
+    call send_corner(E2f(Nf, Nf), "dr", req18)
+
+    ! interior
+    do j=2,n-1
+      jf = 2*j-1
+      do i=2,n-1
+        if = 2*i-1
+
+        ! largest contribution to nearest
+        E1f(if,jf) = E1f(if,jf) + w1*E1c(i,j)
+        E1f(if+1,jf) = E1f(if+1,jf) + w1*E1c(i,j)
+        E1f(if,jf+1) = E1f(if,jf+1) + w1*E1c(i,j)
+        E1f(if+1,jf+1) = E1f(if+1,jf+1) + w1*E1c(i,j)
+
+        ! lesser contribution to intermediate
+        E1f(if-1,jf) = E1f(if-1,jf) + w2*E1c(i,j)
+        E1f(if-1,jf+1) = E1f(if-1,jf+1) + w2*E1c(i,j)
+        E1f(if,jf-1) = E1f(if,jf-1) + w2*E1c(i,j)
+        E1f(if,jf+2) = E1f(if,jf+2) + w2*E1c(i,j)
+        E1f(if+1,jf-1) = E1f(if+1,jf-1) + w2*E1c(i,j)
+        E1f(if+1,jf+2) = E1f(if+1,jf+2) + w2*E1c(i,j)
+        E1f(if+2,jf) = E1f(if+2,jf) + w2*E1c(i,j)
+        E1f(if+2,jf+1) = E1f(if+2,jf+1) + w2*E1c(i,j)
+
+        ! least contribution to furthest
+        E1f(if-1,jf-1) = E1f(if-1,jf-1) + w3*E1c(i,j)
+        E1f(if-1,jf+2) = E1f(if-1,jf+2) + w3*E1c(i,j)
+        E1f(if+2,jf-1) = E1f(if+2,jf-1) + w3*E1c(i,j)
+        E1f(if+2,jf+2) = E1f(if+2,jf+2) + w3*E1c(i,j)
+
+        ! largest contribution to nearest
+        E2f(if,jf) = E2f(if,jf) + w1*E2c(i,j)
+        E2f(if+1,jf) = E2f(if+1,jf) + w1*E2c(i,j)
+        E2f(if,jf+1) = E2f(if,jf+1) + w1*E2c(i,j)
+        E2f(if+1,jf+1) = E2f(if+1,jf+1) + w1*E2c(i,j)
+
+        ! lesser contribution to intermediate
+        E2f(if-1,jf) = E2f(if-1,jf) + w2*E2c(i,j)
+        E2f(if-1,jf+1) = E2f(if-1,jf+1) + w2*E2c(i,j)
+        E2f(if,jf-1) = E2f(if,jf-1) + w2*E2c(i,j)
+        E2f(if,jf+2) = E2f(if,jf+2) + w2*E2c(i,j)
+        E2f(if+1,jf-1) = E2f(if+1,jf-1) + w2*E2c(i,j)
+        E2f(if+1,jf+2) = E2f(if+1,jf+2) + w2*E2c(i,j)
+        E2f(if+2,jf) = E2f(if+2,jf) + w2*E2c(i,j)
+        E2f(if+2,jf+1) = E2f(if+2,jf+1) + w2*E2c(i,j)
+
+        ! least contribution to furthest
+        E2f(if-1,jf-1) = E2f(if-1,jf-1) + w3*E2c(i,j)
+        E2f(if-1,jf+2) = E2f(if-1,jf+2) + w3*E2c(i,j)
+        E2f(if+2,jf-1) = E2f(if+2,jf-1) + w3*E2c(i,j)
+        E2f(if+2,jf+2) = E2f(if+2,jf+2) + w3*E2c(i,j)
+      enddo
+    enddo
+
+    ! receive edges and corners
+    call mpi_wait(req01, mpi_status_ignore, mpi_err)
+    call mpi_wait(req02, mpi_status_ignore, mpi_err)
+    call mpi_wait(req03, mpi_status_ignore, mpi_err)
+    call mpi_wait(req04, mpi_status_ignore, mpi_err)
+    call mpi_wait(req05, mpi_status_ignore, mpi_err)
+    call mpi_wait(req06, mpi_status_ignore, mpi_err)
+    call mpi_wait(req07, mpi_status_ignore, mpi_err)
+    call mpi_wait(req08, mpi_status_ignore, mpi_err)
     call recv_edge(Nf, E1f(Nf+1,1:Nf), "u")
     call recv_edge(Nf, E1f(0,1:Nf), "d")
     call recv_edge(Nf, E1f(1:Nf,N+1), "l")
@@ -804,22 +915,14 @@ module fd_solvers
     call recv_corner(E1f(Nf+1, 0), "ur")
     call recv_corner(E1f(Nf+1, Nf+1), "ul")
 
-    call send_edge(Nf, E2f(1,1:Nf), "u", req1)
-    call send_edge(Nf, E2f(Nf,1:Nf), "d", req2)
-    call send_edge(Nf, E2f(1:Nf,1), "l", req3)
-    call send_edge(Nf, E2f(1:Nf,Nf), "r", req4)
-    call send_corner(E2f(1, 1), "ul", req5)
-    call send_corner(E2f(1, Nf), "ur", req6)
-    call send_corner(E2f(Nf, 1), "dl", req7)
-    call send_corner(E2f(Nf, Nf), "dr", req8)
-    call mpi_wait(req1, mpi_status_ignore, mpi_err)
-    call mpi_wait(req2, mpi_status_ignore, mpi_err)
-    call mpi_wait(req3, mpi_status_ignore, mpi_err)
-    call mpi_wait(req4, mpi_status_ignore, mpi_err)
-    call mpi_wait(req5, mpi_status_ignore, mpi_err)
-    call mpi_wait(req6, mpi_status_ignore, mpi_err)
-    call mpi_wait(req7, mpi_status_ignore, mpi_err)
-    call mpi_wait(req8, mpi_status_ignore, mpi_err)
+    call mpi_wait(req11, mpi_status_ignore, mpi_err)
+    call mpi_wait(req12, mpi_status_ignore, mpi_err)
+    call mpi_wait(req13, mpi_status_ignore, mpi_err)
+    call mpi_wait(req14, mpi_status_ignore, mpi_err)
+    call mpi_wait(req15, mpi_status_ignore, mpi_err)
+    call mpi_wait(req16, mpi_status_ignore, mpi_err)
+    call mpi_wait(req17, mpi_status_ignore, mpi_err)
+    call mpi_wait(req18, mpi_status_ignore, mpi_err)
     call recv_edge(Nf, E2f(Nf+1,1:Nf), "u")
     call recv_edge(Nf, E2f(0,1:Nf), "d")
     call recv_edge(Nf, E2f(1:Nf,Nf+1), "l")
@@ -829,10 +932,166 @@ module fd_solvers
     call recv_corner(E2f(Nf+1, 0), "ur")
     call recv_corner(E2f(Nf+1, Nf+1), "ul")
 
-    ! interior
-    do j=1,N
+    ! left
+    do j=2,n-1
       jf = 2*j-1
-      do i=1,N
+      do i=1,1
+        if = 2*i-1
+
+        ! largest contribution to nearest
+        E1f(if,jf) = E1f(if,jf) + w1*E1c(i,j)
+        E1f(if+1,jf) = E1f(if+1,jf) + w1*E1c(i,j)
+        E1f(if,jf+1) = E1f(if,jf+1) + w1*E1c(i,j)
+        E1f(if+1,jf+1) = E1f(if+1,jf+1) + w1*E1c(i,j)
+
+        ! lesser contribution to intermediate
+        E1f(if-1,jf) = E1f(if-1,jf) + w2*E1c(i,j)
+        E1f(if-1,jf+1) = E1f(if-1,jf+1) + w2*E1c(i,j)
+        E1f(if,jf-1) = E1f(if,jf-1) + w2*E1c(i,j)
+        E1f(if,jf+2) = E1f(if,jf+2) + w2*E1c(i,j)
+        E1f(if+1,jf-1) = E1f(if+1,jf-1) + w2*E1c(i,j)
+        E1f(if+1,jf+2) = E1f(if+1,jf+2) + w2*E1c(i,j)
+        E1f(if+2,jf) = E1f(if+2,jf) + w2*E1c(i,j)
+        E1f(if+2,jf+1) = E1f(if+2,jf+1) + w2*E1c(i,j)
+
+        ! least contribution to furthest
+        E1f(if-1,jf-1) = E1f(if-1,jf-1) + w3*E1c(i,j)
+        E1f(if-1,jf+2) = E1f(if-1,jf+2) + w3*E1c(i,j)
+        E1f(if+2,jf-1) = E1f(if+2,jf-1) + w3*E1c(i,j)
+        E1f(if+2,jf+2) = E1f(if+2,jf+2) + w3*E1c(i,j)
+
+        ! largest contribution to nearest
+        E2f(if,jf) = E2f(if,jf) + w1*E2c(i,j)
+        E2f(if+1,jf) = E2f(if+1,jf) + w1*E2c(i,j)
+        E2f(if,jf+1) = E2f(if,jf+1) + w1*E2c(i,j)
+        E2f(if+1,jf+1) = E2f(if+1,jf+1) + w1*E2c(i,j)
+
+        ! lesser contribution to intermediate
+        E2f(if-1,jf) = E2f(if-1,jf) + w2*E2c(i,j)
+        E2f(if-1,jf+1) = E2f(if-1,jf+1) + w2*E2c(i,j)
+        E2f(if,jf-1) = E2f(if,jf-1) + w2*E2c(i,j)
+        E2f(if,jf+2) = E2f(if,jf+2) + w2*E2c(i,j)
+        E2f(if+1,jf-1) = E2f(if+1,jf-1) + w2*E2c(i,j)
+        E2f(if+1,jf+2) = E2f(if+1,jf+2) + w2*E2c(i,j)
+        E2f(if+2,jf) = E2f(if+2,jf) + w2*E2c(i,j)
+        E2f(if+2,jf+1) = E2f(if+2,jf+1) + w2*E2c(i,j)
+
+        ! least contribution to furthest
+        E2f(if-1,jf-1) = E2f(if-1,jf-1) + w3*E2c(i,j)
+        E2f(if-1,jf+2) = E2f(if-1,jf+2) + w3*E2c(i,j)
+        E2f(if+2,jf-1) = E2f(if+2,jf-1) + w3*E2c(i,j)
+        E2f(if+2,jf+2) = E2f(if+2,jf+2) + w3*E2c(i,j)
+      enddo
+    enddo
+
+    ! right
+    do j=2,n-1
+      jf = 2*j-1
+      do i=n,n
+        if = 2*i-1
+
+        ! largest contribution to nearest
+        E1f(if,jf) = E1f(if,jf) + w1*E1c(i,j)
+        E1f(if+1,jf) = E1f(if+1,jf) + w1*E1c(i,j)
+        E1f(if,jf+1) = E1f(if,jf+1) + w1*E1c(i,j)
+        E1f(if+1,jf+1) = E1f(if+1,jf+1) + w1*E1c(i,j)
+
+        ! lesser contribution to intermediate
+        E1f(if-1,jf) = E1f(if-1,jf) + w2*E1c(i,j)
+        E1f(if-1,jf+1) = E1f(if-1,jf+1) + w2*E1c(i,j)
+        E1f(if,jf-1) = E1f(if,jf-1) + w2*E1c(i,j)
+        E1f(if,jf+2) = E1f(if,jf+2) + w2*E1c(i,j)
+        E1f(if+1,jf-1) = E1f(if+1,jf-1) + w2*E1c(i,j)
+        E1f(if+1,jf+2) = E1f(if+1,jf+2) + w2*E1c(i,j)
+        E1f(if+2,jf) = E1f(if+2,jf) + w2*E1c(i,j)
+        E1f(if+2,jf+1) = E1f(if+2,jf+1) + w2*E1c(i,j)
+
+        ! least contribution to furthest
+        E1f(if-1,jf-1) = E1f(if-1,jf-1) + w3*E1c(i,j)
+        E1f(if-1,jf+2) = E1f(if-1,jf+2) + w3*E1c(i,j)
+        E1f(if+2,jf-1) = E1f(if+2,jf-1) + w3*E1c(i,j)
+        E1f(if+2,jf+2) = E1f(if+2,jf+2) + w3*E1c(i,j)
+
+        ! largest contribution to nearest
+        E2f(if,jf) = E2f(if,jf) + w1*E2c(i,j)
+        E2f(if+1,jf) = E2f(if+1,jf) + w1*E2c(i,j)
+        E2f(if,jf+1) = E2f(if,jf+1) + w1*E2c(i,j)
+        E2f(if+1,jf+1) = E2f(if+1,jf+1) + w1*E2c(i,j)
+
+        ! lesser contribution to intermediate
+        E2f(if-1,jf) = E2f(if-1,jf) + w2*E2c(i,j)
+        E2f(if-1,jf+1) = E2f(if-1,jf+1) + w2*E2c(i,j)
+        E2f(if,jf-1) = E2f(if,jf-1) + w2*E2c(i,j)
+        E2f(if,jf+2) = E2f(if,jf+2) + w2*E2c(i,j)
+        E2f(if+1,jf-1) = E2f(if+1,jf-1) + w2*E2c(i,j)
+        E2f(if+1,jf+2) = E2f(if+1,jf+2) + w2*E2c(i,j)
+        E2f(if+2,jf) = E2f(if+2,jf) + w2*E2c(i,j)
+        E2f(if+2,jf+1) = E2f(if+2,jf+1) + w2*E2c(i,j)
+
+        ! least contribution to furthest
+        E2f(if-1,jf-1) = E2f(if-1,jf-1) + w3*E2c(i,j)
+        E2f(if-1,jf+2) = E2f(if-1,jf+2) + w3*E2c(i,j)
+        E2f(if+2,jf-1) = E2f(if+2,jf-1) + w3*E2c(i,j)
+        E2f(if+2,jf+2) = E2f(if+2,jf+2) + w3*E2c(i,j)
+      enddo
+    enddo
+
+    ! top
+    do j=1,1
+      jf = 2*j-1
+      do i=1,n
+        if = 2*i-1
+
+        ! largest contribution to nearest
+        E1f(if,jf) = E1f(if,jf) + w1*E1c(i,j)
+        E1f(if+1,jf) = E1f(if+1,jf) + w1*E1c(i,j)
+        E1f(if,jf+1) = E1f(if,jf+1) + w1*E1c(i,j)
+        E1f(if+1,jf+1) = E1f(if+1,jf+1) + w1*E1c(i,j)
+
+        ! lesser contribution to intermediate
+        E1f(if-1,jf) = E1f(if-1,jf) + w2*E1c(i,j)
+        E1f(if-1,jf+1) = E1f(if-1,jf+1) + w2*E1c(i,j)
+        E1f(if,jf-1) = E1f(if,jf-1) + w2*E1c(i,j)
+        E1f(if,jf+2) = E1f(if,jf+2) + w2*E1c(i,j)
+        E1f(if+1,jf-1) = E1f(if+1,jf-1) + w2*E1c(i,j)
+        E1f(if+1,jf+2) = E1f(if+1,jf+2) + w2*E1c(i,j)
+        E1f(if+2,jf) = E1f(if+2,jf) + w2*E1c(i,j)
+        E1f(if+2,jf+1) = E1f(if+2,jf+1) + w2*E1c(i,j)
+
+        ! least contribution to furthest
+        E1f(if-1,jf-1) = E1f(if-1,jf-1) + w3*E1c(i,j)
+        E1f(if-1,jf+2) = E1f(if-1,jf+2) + w3*E1c(i,j)
+        E1f(if+2,jf-1) = E1f(if+2,jf-1) + w3*E1c(i,j)
+        E1f(if+2,jf+2) = E1f(if+2,jf+2) + w3*E1c(i,j)
+
+        ! largest contribution to nearest
+        E2f(if,jf) = E2f(if,jf) + w1*E2c(i,j)
+        E2f(if+1,jf) = E2f(if+1,jf) + w1*E2c(i,j)
+        E2f(if,jf+1) = E2f(if,jf+1) + w1*E2c(i,j)
+        E2f(if+1,jf+1) = E2f(if+1,jf+1) + w1*E2c(i,j)
+
+        ! lesser contribution to intermediate
+        E2f(if-1,jf) = E2f(if-1,jf) + w2*E2c(i,j)
+        E2f(if-1,jf+1) = E2f(if-1,jf+1) + w2*E2c(i,j)
+        E2f(if,jf-1) = E2f(if,jf-1) + w2*E2c(i,j)
+        E2f(if,jf+2) = E2f(if,jf+2) + w2*E2c(i,j)
+        E2f(if+1,jf-1) = E2f(if+1,jf-1) + w2*E2c(i,j)
+        E2f(if+1,jf+2) = E2f(if+1,jf+2) + w2*E2c(i,j)
+        E2f(if+2,jf) = E2f(if+2,jf) + w2*E2c(i,j)
+        E2f(if+2,jf+1) = E2f(if+2,jf+1) + w2*E2c(i,j)
+
+        ! least contribution to furthest
+        E2f(if-1,jf-1) = E2f(if-1,jf-1) + w3*E2c(i,j)
+        E2f(if-1,jf+2) = E2f(if-1,jf+2) + w3*E2c(i,j)
+        E2f(if+2,jf-1) = E2f(if+2,jf-1) + w3*E2c(i,j)
+        E2f(if+2,jf+2) = E2f(if+2,jf+2) + w3*E2c(i,j)
+      enddo
+    enddo
+
+    ! bottom
+    do j=n,n
+      jf = 2*j-1
+      do i=1,n
         if = 2*i-1
 
         ! largest contribution to nearest
@@ -939,7 +1198,7 @@ module fd_solvers
   subroutine vcycle0(A, E1, E2, R1, R2, eps2, N, dx, level)
     implicit none
     real(dp), dimension(2,2), intent(in) :: A
-    type(t_grid), dimension(:), allocatable, intent(inout) :: E1, E2, R1, R2
+    type(t_grid), dimension(:), intent(inout) :: E1, E2, R1, R2
     real(dp), intent(in) :: eps2, dx
     integer, intent(in) :: N, level
 
