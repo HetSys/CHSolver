@@ -46,14 +46,14 @@ module JSON_Parser
     
     if (error) then
       call logger%fatal("read_json", "Issues found fetching JSON params")
-      stop
+      stop 1
     end if
 
     call json%destroy()
 
     if (json%failed()) then
       call logger%fatal("open_json", "Failed to cleanup json object")
-      stop
+      stop 1
     end if
   end subroutine
 
@@ -75,7 +75,7 @@ module JSON_Parser
 
     if (json%failed()) then
       call logger%fatal("open_json", fname // " could not be opened.")
-      stop
+      stop 1
     end if
     
     call json%print_to_string(j_string)
