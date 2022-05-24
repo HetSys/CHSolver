@@ -21,6 +21,13 @@ module command_line
 
   integer, private :: current_arg
 
+  integer, private :: restart_cmd_num
+
+  real(dp), private :: restart_cmd_time
+
+  logical, private :: restart_fnd, chkpnt_fnd
+
+
   !> @var integer linspace_selected 
   !! Integer marker to flag that the start, stop and nsteps
   !! returned by get_lin_log_args should be passed to the lin_tspace procedure in setup.f90
@@ -60,6 +67,9 @@ module command_line
 
     linspace_fnd = .FALSE.
     logspace_fnd = .FALSE.
+
+    restart_fnd = .FALSE.
+    chkpnt_fnd = .FALSE.
 
     call parse_args()
 
@@ -176,6 +186,31 @@ module command_line
     
   end subroutine
 
+  !> @brief Get checkpointing command line args
+  !! @param[inout] checkpoint_number Number of the checkpoint requested. Will not be modified
+  !! if no checkpoint number is given
+  !! @param[inout] restart_time Time of the checkpoint requested. Will not be modified
+  !! if no checkpoint time is given
+  !! @param[out] do_restart Logical flag to indicate whether restarts should occur.
+  subroutine get_checkpoint_commands(checkpoint_number, restart_time, do_restart)
+    integer, optional, intent(inout) :: checkpoint_number
+    real(dp), optional, intent(inout) :: restart_time
+    logical, intent(out) :: do_restart
+
+    do_restart = .FALSE.
+
+    if (chkpnt_fnd .AND. present(checkpoint_number)) then
+      checkpoint_number = restart_cmd_num
+      do_restart = .TRUE.
+    end if
+
+    if (restart_fnd .AND. present(restart_time)) then
+      restart_time = restart_cmd_time
+      do_restart = .TRUE.
+    end if
+
+  end subroutine
+
   !> @brief Get the start, stop, and num_steps to define a linspace or logspace time array
   !! @param[out] selected Integer marker for what time array was defined. Will be equal to either
   !! LINSPACE_SELECTED, LOGSPACE_SELECTED, or NONE_SELECTED
@@ -243,13 +278,20 @@ module command_line
 
         key_arg = trim(arg(2:)) ! Grab key part
 
+
         call get_command_argument(current_arg+1, arg)
         val_arg = trim(arg)
         do idx=1, len_arg - 1
           ! Loop through all chars in key_arg
           ! EG if -lamk 1.0 specified
           ! Should be equivalent to -l 1.0 -a 1.0...
-          call  parse_keyval_arg(key_arg(idx:idx), val_arg, is_short_arg=.TRUE.)
+          if (current_arg+1 > num_args) then
+            ! No val arg at end
+            call  parse_keyval_arg(key_arg(idx:idx), is_short_arg=.TRUE.)
+          else
+            ! Val arg at end
+            call  parse_keyval_arg(key_arg(idx:idx), val_arg, is_short_arg=.TRUE.)
+          endif
         end do
       end if
     end do
@@ -359,6 +401,18 @@ module command_line
           cmd_outpath = val_arg
           is_val(current_arg+1) = is_short_arg
         end if
+
+      ! RESTARTING FROM CHECKPOINTS
+      case ("restart_time")
+        if (present(val_arg)) then
+          restart_cmd_time = str_to_real(val_arg)
+          restart_fnd = .TRUE.
+        end if
+      case ("restart_num")
+        if (present(val_arg)) then
+          restart_cmd_num = str_to_int(val_arg)
+          chkpnt_fnd = .TRUE.
+        end if
       case ("p")
       end select
   end subroutine parse_keyval_arg
@@ -411,6 +465,15 @@ module command_line
     print *, "  --log_tspace=<arr>                 Sets the array of output times to a logarithmic space array"
     print *, "                                      <arr> is a colon separated list inside curly braces of the form"
     print *, "                                      {<start_time>:<stop_time>:<number_of_output_timesteps>}", newline
+    print *, "Checkpointing & Restarts:"
+    print *, " --restart_num=<val>                 Restart the calculation from the checkpoint '<val>.chkpnt'"
+    print *, " --restart_time=<val>                Restart the calculation from a checkpoint taken at a time <= the given &
+                                                   &restart time"
+    print *, "                                       Restarting will take all of the input variables from the metadata file."
+    print *, "                                       The given time array will be masked to only give outputs at times after &
+                                                   &the checkpoint"
+    print *, "                                       start time"
+
   end subroutine
 
   !> @brief Set arr based on the string representation in str_array

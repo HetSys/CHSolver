@@ -121,6 +121,22 @@ class CHData():
         with open(self.filepath, 'w') as f:
                 json.dump(self._data, f, indent=2)
 
+    def solve(self, cmd_args=""):
+        exe = "./chsolver"
+        CH_cmds = f" -l {self.L} -a {self.A} -m {self.M} -k {self.K} -0 {self.p0} -1 {self.p1}"
+        T_cmds = " -t {" + ":".join([str(t) for t in self.T]) + "}"
+        other_cmds = f" -L {self.grid_level} -i {self.grid_type}"
+
+        full_cmd = exe + CH_cmds + T_cmds + other_cmds + " " + cmd_args
+        error_code = os.system(full_cmd)
+        
+        if error_code != 0:
+            # Error has occurred
+            print(full_cmd)
+            raise FortranSourceError("Error occurred in solving backend")
+
+        self.read_outputs("out")
+
     def read_outputs(self, outdir):
         '''!
         Reads output metadata and checkpoint files from outdir
@@ -167,3 +183,9 @@ def _read_hdf5_files(num_checkpoints, grid_res, outdir):
       c[i,:,:] = test
       dt[i] = data['dt'][...]
   return c, c_prev, dt
+
+class FortranSourceError(BaseException):
+    pass
+
+if __name__ == "__main__":
+    CHData() # Generate input-data.json if it does not exist
