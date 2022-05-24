@@ -167,3 +167,7 @@ def _read_hdf5_files(num_checkpoints, grid_res, outdir):
       c[i,:,:] = test
       dt[i] = data['dt'][...]
   return c, c_prev, dt
+
+
+if __name__ == "__main__":
+    CHData() # Generate inpu-data.json if it does not exist
