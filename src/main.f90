@@ -72,7 +72,7 @@ program main
 
   if (errors) then
     call logger%fatal("main", "Errors found in input params, aborting.")
-    stop
+    stop 1
   end if
 
   !!! END JSON, CLI, and LOGGING
