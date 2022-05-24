@@ -28,7 +28,7 @@ module hdf5_io
   !dt Metadata
   integer(hid_t) :: dt_dset_id !dataset id for c
   integer(hid_t) :: dt_dspace_id ! dataspace identifier for 3/4D
-  integer(hsize_t), allocatable, dimension(:) :: dt_dims
+  integer(hsize_t), dimension(1) :: dt_dims
 
   contains
 
@@ -47,13 +47,12 @@ module hdf5_io
     integer :: iu
 
     allocate(c_dims(grid_params(1)))
-    allocate(dt_dims(1))
 
     folder = foldername 
     c_dims = int(2**grid_params(2), hsize_t)
     dt_dims = 1
 
-    call execute_command_line("rm "//trim(foldername)//"/*.chkpnt "//trim(foldername)//"/metadata.dat", wait=.true.)
+    call execute_command_line("rm "//trim(foldername)//"/*.chkpnt "//trim(foldername)//"/metadata.dat 2> /dev/null", wait=.true.)
     call execute_command_line("mkdir -p "//trim(foldername), wait=.true.)
 
     open(newunit=iu, file=trim(foldername)//metadata_fname, status="new")
@@ -358,7 +357,6 @@ module hdf5_io
     end if
 
     allocate(c_dims(grid_rank))
-    allocate(dt_dims(1))
     c_dims = int(2**grid_res, hsize_t)
     dt_dims = 1
 
