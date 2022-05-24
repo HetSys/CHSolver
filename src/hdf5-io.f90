@@ -28,7 +28,7 @@ module hdf5_io
   !dt Metadata
   integer(hid_t) :: dt_dset_id !dataset id for c
   integer(hid_t) :: dt_dspace_id ! dataspace identifier for 3/4D
-  integer(hsize_t), allocatable, dimension(:) :: dt_dims
+  integer(hsize_t), dimension(1) :: dt_dims
 
 
   !> @brief Called from within solvers to output c, c_prev and dt to a HDF5 checkpoint file.
@@ -59,7 +59,6 @@ module hdf5_io
     integer :: iu
 
     allocate(c_dims(grid_params(1)))
-    allocate(dt_dims(1))
 
     folder = foldername 
     c_dims = int(2**grid_params(2), hsize_t)
@@ -406,7 +405,6 @@ module hdf5_io
     end if
 
     allocate(c_dims(grid_rank))
-    allocate(dt_dims(1))
     c_dims = int(2**grid_res, hsize_t)
     dt_dims = 1
 
