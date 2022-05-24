@@ -1,10 +1,16 @@
 # compiler and linker
 export HDF5_FC := mpif90
 export HDF5_FLINKER := mpif90
+
+ifeq (, $(shell which h5pfc))
+$(info $(shell tput setaf 1)Message: No h5pfc (parallel wrapper) found, using h5fc (serial wrapper)$(shell tput sgr0))
 FC=h5fc # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
+else ifeq (, $(shell which h5fc))
+$(info $(shell tput setaf 1)Message: Neither h5fc or h5pfc found!$(shell tput sgr0))
+else
+FC=h5pfc # parallel wrapper
+endif
 LD=$(FC)
-
-
 
 # flags and libraries
 FFLAGS= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 -g -fall-intrinsics#h5fc-show is equiv to nf-config --fflags/flibs to find these
