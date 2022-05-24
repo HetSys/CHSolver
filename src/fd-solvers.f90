@@ -78,12 +78,15 @@ module fd_solvers
   !! @param[in] Tout  output times
   !! @param[in] c0    initial concentration
   !! @param[in] eps2  dimensionless number
-  subroutine solver_ufds2t2(Tout, CH_params, c0, eps2, errors)
+  subroutine solver_ufds2t2(t_0, Tout, CH_params, c0, eps2, errors, c1, dt_in)
     implicit none
+    real(dp), intent(in) :: t_0
     real(dp), intent(in) :: Tout(:)
     real(dp), intent(in) :: eps2
     real(dp), intent(in), dimension(6) :: CH_params
     real(dp), dimension(:,:), allocatable, intent(in) :: c0
+    real(dp), dimension(:,:), allocatable, intent(in), optional :: c1
+    real(dp), intent(in), optional :: dt_in
     integer :: errors
 
     integer :: N ! grid size
@@ -98,7 +101,8 @@ module fd_solvers
     integer :: it, i ! iterators
     logical :: outflag
     character(len=32) :: msg ! logging message
-    integer :: req1, req2, req3, req4
+    integer :: req1, req2, req3, req4 ! MPI comms
+    logical :: double_start
 
     ! grid storage (local)
     real(dp), dimension(:,:), allocatable :: phi, psi, g, b, phi_prev, g_prev, work
@@ -122,11 +126,12 @@ module fd_solvers
     dx = 1.0_dp/(real(N*nproc_row,dp))
     dt = 2.5_dp * eps2
     tmax = maxval(tout)
-    t = 0.0_dp
+    t = t_0
     it = 1
     eps = sqrt(eps2)
-    t0 = 10.0_dp * eps
-    t1 = 20.0_dp * eps
+    t0 = 10.0_dp * eps + t_0
+    t1 = 20.0_dp * eps + t_0
+    double_start = .false.
 
     call logger%info("solver_ufds2t2", "eps:"//to_string(eps))
 
@@ -163,6 +168,20 @@ module fd_solvers
     call multigrid_alloc(R1_global, level_global-level+local_min)
     call multigrid_alloc(R2_global, level_global-level+local_min)
 
+    ! check if optionals are present
+    if (present(c1)) then
+      if (.not. present(dt_in)) then
+        call logger%warning("solver_ufds2t2", "no timestep provided, defaulting to first order")
+      else
+        double_start = .true.
+        dt = dt_in
+      endif
+    else
+      if (present(dt_in)) then
+        call logger%warning("solver_ufds2t2", "no paired concentration provided, defaulting to first order")
+      endif
+    endif
+
     ! send c0 (global) to phi (local)
     if (nproc > 1) then
       call grid_scatter(c0, N_global, phi, N)
@@ -191,7 +210,7 @@ module fd_solvers
     end if
 
     ! output if required
-    if (tout(it) < epsilon(tout(it))) then
+    if (tout(it)-t_0 < epsilon(tout(it))) then
       ! gather grid to rank 0
       if (nproc > 1) then
         call grid_gather(c_global, N_global, phi)
@@ -219,115 +238,154 @@ module fd_solvers
     ! ======================================================================== !
     !   FIRST TIMESTEP (first order)                                           !
     ! ======================================================================== !
-    ! restrict timestep if we would otherwise exceed an output time
-    if (t + dt + epsilon(t) > Tout(it)) then
-      dt = tout(it) - t
-      outflag = .true.
-    else
-      outflag = .false.
-    endif
-    t = t + dt
-    dt0 = dt ! store current timestep
-
-    ! compute RHS
-    call compute_g(g, phi, dx, N, work)
-    b = phi/dt + g
-
-    ! store current variables
-    phi_prev = phi
-    g_prev = g
-
-    ! set first order smoothing matrix
-    A(1,1) = 1.0_dp/dt
-    A(1,2) = 4.0_dp/(dx*dx)
-    A(2,1) = -(tau+4.0_dp*eps2/(dx*dx))
-    A(2,2) = 1.0_dp
-    call invert(A)
-
-    ! solve system with repeated v-cycles
-    do i=1,niter
-      ! compute residuals TODO: maybe use MPI
-      call laplacian(psi, R1(level)%grid, dx, n)
-      R1(level)%grid = R1(level)%grid - phi/dt + b
-      call laplacian(phi, R2(level)%grid, dx, n)
-      R2(level)%grid = tau*phi-eps2*R2(level)%grid - psi
-
-      E1(level)%grid = 0.0_dp
-      E2(level)%grid = 0.0_dp
-
-      ! TODO: finish iteration conditional on the size of the residual
-
-      ! perform a single v-cycle
-      if (nproc > 1) then
-        call vcycle(A, E1, E2, R1, R2, E1_global, E2_global, R1_global, R2_global, &
-                    eps2, N, dx, level)
+    if (.not. double_start) then
+      ! restrict timestep if we would otherwise exceed an output time
+      if (t + dt + epsilon(t) > Tout(it)) then
+        dt = tout(it) - t
+        outflag = .true.
       else
-        call vcycle0(A, E1, E2, R1, R2, eps2, N, dx, level)
+        outflag = .false.
       endif
+      t = t + dt
+      dt0 = dt ! store current timestep
 
-      ! update with errors
-      phi = phi + E1(level)%grid
-      psi = psi + E2(level)%grid
+      ! compute RHS
+      call compute_g(g, phi, dx, N, work)
+      b = phi/dt + g
 
-      ! send edges between ranks
+      ! store current variables
+      phi_prev = phi
+      g_prev = g
+
+      ! set first order smoothing matrix
+      A(1,1) = 1.0_dp/dt
+      A(1,2) = 4.0_dp/(dx*dx)
+      A(2,1) = -(tau+4.0_dp*eps2/(dx*dx))
+      A(2,2) = 1.0_dp
+      call invert(A)
+
+      ! solve system with repeated v-cycles
+      do i=1,niter
+        ! compute residuals TODO: maybe use MPI
+        call laplacian(psi, R1(level)%grid, dx, n)
+        R1(level)%grid = R1(level)%grid - phi/dt + b
+        call laplacian(phi, R2(level)%grid, dx, n)
+        R2(level)%grid = tau*phi-eps2*R2(level)%grid - psi
+
+        E1(level)%grid = 0.0_dp
+        E2(level)%grid = 0.0_dp
+
+        ! TODO: finish iteration conditional on the size of the residual
+
+        ! perform a single v-cycle
+        if (nproc > 1) then
+          call vcycle(A, E1, E2, R1, R2, E1_global, E2_global, R1_global, R2_global, &
+                      eps2, N, dx, level)
+        else
+          call vcycle0(A, E1, E2, R1, R2, eps2, N, dx, level)
+        endif
+
+        ! update with errors
+        phi = phi + E1(level)%grid
+        psi = psi + E2(level)%grid
+
+        ! send edges between ranks
+        if (nproc > 1) then
+          call send_edge(n, phi(1,1:N), "u", req1)
+          call send_edge(n, phi(N,1:N), "d", req2)
+          call send_edge(n, phi(1:N,1), "l", req3)
+          call send_edge(n, phi(1:N,N), "r", req4)
+
+          call mpi_wait(req1, mpi_status_ignore, mpi_err)
+          call mpi_wait(req2, mpi_status_ignore, mpi_err)
+          call mpi_wait(req3, mpi_status_ignore, mpi_err)
+          call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+          call recv_edge(n, phi(N+1,1:N), "u")
+          call recv_edge(n, phi(0,1:N), "d")
+          call recv_edge(n, phi(1:N,N+1), "l")
+          call recv_edge(n, phi(1:N,0), "r")
+
+          call send_edge(n, psi(1,1:N), "u", req1)
+          call send_edge(n, psi(N,1:N), "d", req2)
+          call send_edge(n, psi(1:N,1), "l", req3)
+          call send_edge(n, psi(1:N,N), "r", req4)
+
+          call mpi_wait(req1, mpi_status_ignore, mpi_err)
+          call mpi_wait(req2, mpi_status_ignore, mpi_err)
+          call mpi_wait(req3, mpi_status_ignore, mpi_err)
+          call mpi_wait(req4, mpi_status_ignore, mpi_err)
+
+          call recv_edge(n, psi(N+1,1:N), "u")
+          call recv_edge(n, psi(0,1:N), "d")
+          call recv_edge(n, psi(1:N,N+1), "l")
+          call recv_edge(n, psi(1:N,0), "r")
+        endif
+      enddo
+
+      ! output if required
+      if (outflag) then
+        ! gather grid to rank 0
+        if (nproc > 1) then
+          call grid_gather(c_global, N_global, phi)
+          call grid_gather(c_prev_global, N_global, phi_prev)
+        else
+          c_global = phi(1:N,1:N)
+          c_prev_global = phi_prev(1:N,1:N)
+        end if
+
+        if (myrank == 0) then
+          write(msg, 24) "Output at t=", t
+          call logger%info("solver_ufds2t2", msg)
+          dt_out = dt
+          t_out = t
+          ! c = phi(1:N,1:N)
+          ! c_prev = phi_prev(1:N,1:N)
+          call dimensionalise(CH_params, c_global, t_out)
+          call dimensionalise(CH_params, c_prev_global, dt_out)
+
+          call write_to_traj(c_global, c_prev_global, t_out, dt_out, errors)
+        endif
+
+        it = it + 1
+      endif
+    else
+      ! compute RHS
+      call compute_g(g, phi, dx, N, work)
+
+      ! move c0 to previous timestep
+      phi_prev = phi
+      g_prev = g
+
+      !! REAPEAT FOR C1
+      ! send c0 (global) to phi (local)
       if (nproc > 1) then
-        call send_edge(n, phi(1,1:N), "u", req1)
-        call send_edge(n, phi(N,1:N), "d", req2)
-        call send_edge(n, phi(1:N,1), "l", req3)
-        call send_edge(n, phi(1:N,N), "r", req4)
+        call grid_scatter(c1, N_global, phi, N)
+      else
+        phi(1:N,1:N) = c1
+      end if
 
-        call mpi_wait(req1, mpi_status_ignore, mpi_err)
-        call mpi_wait(req2, mpi_status_ignore, mpi_err)
-        call mpi_wait(req3, mpi_status_ignore, mpi_err)
-        call mpi_wait(req4, mpi_status_ignore, mpi_err)
+      ! set coupled variable
+      call laplacian(phi, psi, dx, N)
+      psi = tau*phi - eps2*psi
 
-        call recv_edge(n, phi(N+1,1:N), "u")
-        call recv_edge(n, phi(0,1:N), "d")
-        call recv_edge(n, phi(1:N,N+1), "l")
-        call recv_edge(n, phi(1:N,0), "r")
-
+      ! swap all four edges of psi
+      if (nproc > 1) then
         call send_edge(n, psi(1,1:N), "u", req1)
         call send_edge(n, psi(N,1:N), "d", req2)
         call send_edge(n, psi(1:N,1), "l", req3)
         call send_edge(n, psi(1:N,N), "r", req4)
-
         call mpi_wait(req1, mpi_status_ignore, mpi_err)
         call mpi_wait(req2, mpi_status_ignore, mpi_err)
         call mpi_wait(req3, mpi_status_ignore, mpi_err)
         call mpi_wait(req4, mpi_status_ignore, mpi_err)
-
         call recv_edge(n, psi(N+1,1:N), "u")
         call recv_edge(n, psi(0,1:N), "d")
         call recv_edge(n, psi(1:N,N+1), "l")
         call recv_edge(n, psi(1:N,0), "r")
-      endif
-    enddo
-
-    ! output if required
-    if (outflag) then
-      ! gather grid to rank 0
-      if (nproc > 1) then
-        call grid_gather(c_global, N_global, phi)
-        call grid_gather(c_prev_global, N_global, phi_prev)
-      else
-        c_global = phi(1:N,1:N)
-        c_prev_global = phi_prev(1:N,1:N)
       end if
 
-      if (myrank == 0) then
-        write(msg, 24) "Output at t=", t
-        call logger%info("solver_ufds2t2", msg)
-        dt_out = dt
-        t_out = t
-        ! c = phi(1:N,1:N)
-        ! c_prev = phi_prev(1:N,1:N)
-        call dimensionalise(CH_params, c_global, t_out)
-        call dimensionalise(CH_params, c_prev_global, dt_out)
-
-        call write_to_traj(c_global, c_prev_global, t_out, dt_out, errors)
-      endif
-
-      it = it + 1
+      dt0 = dt_in
     endif
 
 
