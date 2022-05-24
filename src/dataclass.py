@@ -122,11 +122,11 @@ class CHData():
         with open(self.filepath, 'w') as f:
                 json.dump(self._data, f, indent=2)
 
-    def solve(self, cmd_args=""):
+    def solve(self, out_dir="out", cmd_args=""):
         exe = "./chsolver"
         CH_cmds = f" -l {self.L} -a {self.A} -m {self.M} -k {self.K} -0 {self.p0} -1 {self.p1}"
         T_cmds = " -t {" + ":".join([str(t) for t in self.T]) + "}"
-        other_cmds = f" -L {self.grid_level} -i {self.grid_type}"
+        other_cmds = f" -L {self.grid_level} -i {self.grid_type} -o {out_dir}"
 
         full_cmd = exe + CH_cmds + T_cmds + other_cmds + " " + cmd_args
         error_code = os.system(full_cmd)
@@ -136,7 +136,7 @@ class CHData():
             print(full_cmd)
             raise FortranSourceError("Error occurred in solving backend")
 
-        self.read_outputs("out")
+        self.read_outputs(out_dir)
 
     def read_outputs(self, outdir):
         '''!
@@ -178,8 +178,8 @@ def _read_hdf5_files(num_checkpoints, grid_res, outdir):
   c = np.zeros((num_checkpoints,grid_res,grid_res))
   c_prev = np.zeros((num_checkpoints,grid_res,grid_res))
   dt = np.zeros((num_checkpoints))
-  for i in range(1,num_checkpoints):
-      data = h5py.File(outdir + os.sep + str(i) + '.chkpnt', 'r')
+  for i in range(num_checkpoints):
+      data = h5py.File(outdir + os.sep + str(i+1) + '.chkpnt', 'r')
       test= data['c'][...]
       c[i,:,:] = test
       dt[i] = data['dt'][...]
