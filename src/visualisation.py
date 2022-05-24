@@ -1,7 +1,7 @@
-"""!
-Opening file docstring contains LATEX parsing - \f$\beta\f$
+# """!
+# Opening file docstring contains LATEX parsing - \f$\beta\f$
 
-"""
+# """
 
 # def foo():
 #     '''!
@@ -13,18 +13,20 @@ import matplotlib.animation as anim
 import numpy as np
 
 def find_nearest_t_index(t_array:np.array, t):
-    '''! Produces an animation for the evolution of species concentration, outputted as an mp4 to the main directory.
-    @param animation_fps Number of frames per second for the animation
+    '''! Finds the index of the time closest to t within the t_array.
+    @param t_array array of all outputted times.
+    @param t desired start time
     '''
     t_array = np.asarray(t_array)
     index = (np.abs(t_array - t)).argmin()
     return index 
 
+
 def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1):
-  '''! Produces an animation for the evolution of species concentration, outputted as an mp4 to the main directory.
-  @param animation_fps Number of frames per second for the animation
-  @param ti Time to intialise the visualiation (will use time closest to that specified)
-  @param tf Time to finish the visualiation (will use time closest to that specified)
+  '''! Produces an animation for the evolution of species concentration, outputted as an gif to the main directory.
+  @param animation_fps Number of frames per second for the animation. Default is 10.
+  @param ti Time to intialise the visualiation (will use time closest to that specified). Default is 0
+  @param tf Time to finish the visualiation (will use time closest to that specified). Default is the final time recorded.
   '''
 
   t_array = data_obj.T
@@ -54,10 +56,12 @@ def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1):
   final_an = anim.ArtistAnimation(fig, ims, interval = 5, repeat = True, blit=False)
   final_an.save('Conc_Evolution.gif', writer = anim.PillowWriter(fps = animation_fps))
 
+
 def plot_free_energy(data_obj, ti=0, tf=-1):
-  '''! Produces a plot of Free energy versus time, outputted as a png to the main directory.
-  @param ti Time to intialise the visualiation (will use time closest to that specified)
-  @param tf Time to finish the visualiation (will use time closest to that specified)
+  '''! Produces a plot of Free energy (F) versus time, outputted as a png to the main directory.
+  \f$F = \int_V[f(c) + \frac{1}{2}\kappa(\nabla c)^2]\ dV$, where $f(c) = A(c-p_0)^2(c-p_1)^2\f$
+  @param ti Time to intialise the visualiation (will use time closest to that specified). Default is 0
+  @param tf Time to finish the visualiation (will use time closest to that specified). Default is the final time recorded.
   '''
   t_array = data_obj.T
   grid_res = 2 ** data_obj.grid_level

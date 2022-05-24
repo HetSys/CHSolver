@@ -28,8 +28,8 @@ program main
   outdir = "./out"
 
   !!! START  JSON, CLI, and LOGGING
-  
-  ! CLI 
+
+  ! CLI
   call initialise()
 
   ! Get JSON filename, run name, and output directory
@@ -84,10 +84,14 @@ program main
    call output_init(outdir, [2, grid_res], CH_params, ierr)
 
    
-   call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
+   call solver_1(Tout, c0, CH_params, SOLVER_PS, ierr)
   else
 
-  ! call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
+  !do st_Tout = 1, size(Tout)
+  !  if (Tout(st_Tout) > t0) then
+  !    exit
+  !  end if
+  !end do
 
     call chkpnt_init(outdir, ch_params, t0, ierr)
     allocate(c0(c_dims(1), c_dims(2)), c1(c_dims(1), c_dims(2)))
@@ -105,8 +109,6 @@ program main
     call solver_2(t0, updated_Tout, c0, c1, dt, CH_params, SOLVER_FD2, ierr)
   end if
 
-  
-  
   call output_final(ierr)
 
 
