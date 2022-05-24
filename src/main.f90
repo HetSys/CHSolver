@@ -17,14 +17,14 @@ program main
   logical :: errors, all_params_fnd
   integer :: ierr, n
 
-  ! Lin/Logspace params
+  ! lin/logspace params
   integer :: space_selected, num_outputs
   real(dp) :: start_val, stop_val
 
   ! start up MPI comms
   call comms_init()
 
-  ! Default fname, run_name, and outdir
+  ! default fname, run_name, and outdir
   fname = "input-data.json"
   run_name = "default"
   outdir = "./out"
@@ -73,10 +73,10 @@ program main
   call broadcast_setup(CH_params, Tout, c0, n)
 
   if (myrank == 0) then
-    !!! START GRID AND HDF5 SETUP
     ! initial concentration
     call setup_grid(c0, grid_res, ch_params, init)
 
+    ! set up HDF5 outputting
     call output_init(outdir, [2, grid_res], CH_params, ierr)
   endif
 
@@ -84,6 +84,7 @@ program main
   call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
 
   if (myrank == 0) then
+    ! finish HDF5 outputting
     call output_final(ierr)
   endif
 

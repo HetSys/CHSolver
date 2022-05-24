@@ -12,7 +12,6 @@ module comms
   contains
 
   subroutine comms_init()
-
     ! Assert that nrank
 
     call mpi_init(mpi_err)
@@ -33,7 +32,6 @@ module comms
 
     call mpi_cart_shift(cart_comm, 1, 1, neigh(1), neigh(2), mpi_err)
     call mpi_cart_shift(cart_comm, 0, 1, neigh(4), neigh(3), mpi_err)
-
   end subroutine comms_init
 
 
@@ -213,7 +211,7 @@ module comms
   end subroutine
 
 
-    ! Direction will always correspond to the perspective of sending proc
+  ! Direction will always correspond to the perspective of sending proc
   ! Please call mpi_wait(req, mpi_ignore_status, mpi_err)
   ! when you want to gaurantee a sent request is complete
   ! See scatter for an example. If you recieve before the send operation is

@@ -38,7 +38,7 @@ for k in range(0, len(c)):
     ims.append(im)
 fig.colorbar(shw)
 
-final_an = anim.ArtistAnimation(fig, ims, interval=50, repeat=False)
+final_an = anim.ArtistAnimation(fig, ims, interval=500, repeat=False)
 plt.gca().set_aspect('equal', adjustable='box')
 
 plt.axis('off')

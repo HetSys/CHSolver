@@ -64,6 +64,7 @@ tests/unit_tests/*.inc
 
 # Other
 **/.DS_Store
+remote.sh
 
 # Python Enviroment
 chenv/**

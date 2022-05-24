@@ -1,13 +1,12 @@
 # compiler and linker
 export HDF5_FC := mpif90
 export HDF5_FLINKER := mpif90
-FC=h5fc # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
+FC=h5pfc # use h5fc's alias to get correct flags
 LD=$(FC)
 
-
-
 # flags and libraries
-FFLAGS= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 -g -fall-intrinsics#h5fc-show is equiv to nf-config --fflags/flibs to find these
+FFLAGS= -Wall -Wextra -Wconversion-extra -std=f2008 -g -fall-intrinsics
+FFLAGS+= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib
 FLIBS= -lpthread -lsz -lz -ldl -lm ./src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
 
 # executable names
