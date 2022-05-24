@@ -37,7 +37,7 @@ contains
     tmax = maxval(Tout)
     i = 1
     t = 0.0_dp
-    kappa = sqrt(eps2)
+    kappa = eps2
     outflag = .true.
     caseflag = 0
 
