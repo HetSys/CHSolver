@@ -24,12 +24,12 @@ contains
     integer                                           :: N, i, n_threads, j, k, caseflag
     type(C_PTR)                                       :: fwplan, bwplan, pc0, pc1
     real(dp), dimension(:, :), allocatable            :: ksq
-    complex(cdc), dimension(:,:), pointer:: c0, c1
+    complex(cdc), dimension(:,:), pointer             :: c0, c1
     real(dp), allocatable, dimension(:,:)             :: rc0, rc1
     real(dp)                                          :: dt1, dt2, t, tmax, dt, dt0, t_out, dt_out, kappa, origdt
-    logical :: outflag
-    character(len=48) :: msg
-    character(1), parameter :: newline = NEW_LINE('a')
+    logical                                           :: outflag
+    character(len=48)                                 :: msg
+    character(1), parameter                           :: newline = NEW_LINE('a')
 
     ! SETUP=====================================================================
     24 format(A, F7.4)
@@ -82,26 +82,30 @@ contains
 
     fwplan = fftw_plan_dft_2d(N, N, c0, c1, FFTW_FORWARD, FFTW_ESTIMATE)
     bwplan = fftw_plan_dft_2d(N, N, c0, c1, FFTW_BACKWARD, FFTW_ESTIMATE)
-    if (caseflag == 1) then
 
+    ! START FROM BEGINNING======================================================
+    if (caseflag == 1) then
+      !$OMP PARALLEL PRIVATE(j, k)
       do j = 1, N
         do k = 1, N
           c0(j,k) = cmplx(inarr(j, k), kind=cdc)
         end do
       end do
+      !$OMP END PARALLEL
 
       if (tout(i) < epsilon(tout(i))) then
         write(msg, 24) "Initial condition output at t=  ", t
         call logger%info("solver_pssi", msg)
         dt_out = dt
         t_out = t
-
+        !$OMP PARALLEL PRIVATE(j, k)
         do j = 1, N
           do k = 1, N
             rc0(j,k) = real(c0(j, k), kind=dp)
             rc1(j,k) = real(c1(j, k), kind=dp)
           end do
         end do
+        !$OMP END PARALLEL
 
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
@@ -110,7 +114,7 @@ contains
         i = i + 1
       endif
 
-      ! INITAL TIMESTEP===========================================================
+    ! INITAL TIMESTEP===========================================================
       if ( t + dt + epsilon(t) > Tout(i) ) then
         dt = tout(i) - t
         outflag = .true.
@@ -131,12 +135,14 @@ contains
         dt_out = dt
         t_out = t
 
+        !$OMP PARALLEL PRIVATE(j, k)
         do j = 1, N
           do k = 1, N
             rc0(j,k) = real(c0(j, k), kind=dp)
             rc1(j,k) = real(c1(j, k), kind=dp)
           end do
         end do
+        !$OMP END PARALLEL
 
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
@@ -146,16 +152,19 @@ contains
         i = i + 1
       end if
 
+    ! START FROM CHECKPOINT=====================================================
     else if (caseflag == 0) then
 
       dt = dt_in
 
+      !$OMP PARALLEL PRIVATE(j, k)
       do j = 1, N
         do k = 1, N
           c0(j,k) = cmplx(inarr(j, k), kind=cdc)
           c1(j,k) = cmplx(inarr1(j, k), kind=cdc)
         end do
       end do
+      !$OMP END PARALLEL
 
       if (tout(i) < epsilon(tout(i))) then
         write(msg, 24) "Initial from checkpoint output at t=  ", t
@@ -163,12 +172,14 @@ contains
         dt_out = dt
         t_out = t
 
+        !$OMP PARALLEL PRIVATE(j, k)
         do j = 1, N
           do k = 1, N
             rc0(j,k) = real(c0(j, k), kind=dp)
             rc1(j,k) = real(c1(j, k), kind=dp)
           end do
         end do
+        !$OMP END PARALLEL
 
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
@@ -189,7 +200,6 @@ contains
       end if
       t = t + dt
       dt0 = dt
-      !print*, t, dt
 
       call iteration(dt, ksq, kappa, A, c0, c1, fwplan, bwplan)
       dt = origdt
@@ -201,12 +211,14 @@ contains
         dt_out = dt
         t_out = t
 
+        !$OMP PARALLEL PRIVATE(j, k)
         do j = 1, N
           do k = 1, N
             rc0(j,k) = real(c0(j, k), kind=dp)
             rc1(j,k) = real(c1(j, k), kind=dp)
           end do
         end do
+        !$OMP END PARALLEL
 
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)

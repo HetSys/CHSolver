@@ -71,7 +71,7 @@ program main
    call output_init(outdir, [2, grid_res], CH_params, ierr)
 
    call solver_1(Tout, c0, CH_params, SOLVER_PS, ierr)
-   print*, c0
+   !print*, c0
 
   !call chkpnt_init(outdir, ch_params, t0, ierr)
   !allocate(c0(c_dims(1), c_dims(2)), c1(c_dims(1), c_dims(2)))

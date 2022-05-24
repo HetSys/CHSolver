@@ -121,8 +121,9 @@ module solver_utils
     ctau = cmplx(tau, kind=cdc)
     ckappa = cmplx(kappa, kind=cdc)
     cA = cmplx(A, kind=cdc)
-    cksq = cmplx(ksq, kind=cdc)
+
     !$OMP PARALLEL WORKSHARE
+    cksq(:,:) = cmplx(ksq(:,:), kind=cdc)
     res(:,:) = (cmplx(2.0_dp,kind=cdc)*ctau/(cmplx(3.0_dp,kind=cdc)+cmplx(2.0_dp,kind=cdc)&
     *ctau*ckappa*cksq(:,:)*cksq(:,:)-cmplx(2.0_dp,kind=cdc)*ctau*cA*cksq(:,:)))&
     *(cmplx(2.0_dp,kind=cdc)*cksq(:,:)*ft_fc1(:,:)-cksq(:,:)*ft_fc0(:,:)-&
@@ -176,9 +177,10 @@ module solver_utils
 
     ctau1 = cmplx(tau1, kind=cdc)
     ckappa = cmplx(kappa, kind=cdc)
-    cksq = cmplx(ksq, kind=cdc)
+
 
     !$OMP PARALLEL WORKSHARE
+    cksq(:,:) = cmplx(ksq(:,:), kind=cdc)
     ft_c1(:,:) = ctau1*(-ckappa*cksq(:,:)*cksq(:,:)*ft_c0(:,:)+cksq(:,:)*ft_fc0(:,:))+ft_c0(:,:)
     !$OMP END PARALLEL WORKSHARE
 
