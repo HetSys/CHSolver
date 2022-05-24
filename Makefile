@@ -1,7 +1,17 @@
 # compiler and linker
 export HDF5_FC := mpif90
 export HDF5_FLINKER := mpif90
-FC=h5pfc
+ifeq (, $(shell which h5pfc))
+ifeq (, $(shell which h5fc))
+$(info $(shell tput setaf 1)Message: Neither h5fc nor h5pfc found!$(shell tput sgr0))
+else
+$(info $(shell tput setaf 1)Message: No h5pfc (parallel wrapper) found, defaulting to h5fc (serial wrapper)$(shell tput sgr0))
+FC=h5fc # use h5fc's alias to get correct flags
+endif
+else
+$(info $(shell tput setaf 1)Message: Using h5pfc (parallel wrapper)$(shell tput sgr0))
+FC=h5pfc  # use h5pfc's alias to get correct flags
+endif
 LD=$(FC)
 
 # flags and libraries
