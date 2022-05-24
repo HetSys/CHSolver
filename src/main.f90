@@ -27,6 +27,7 @@ program main
   ! start up MPI comms
   call comms_init()
 
+  t0 = 0.0_dp
   if (myrank == 0) then
     t0 = MPI_Wtime()
   endif
@@ -100,7 +101,7 @@ program main
   deallocate(Tout)
 
   if (myrank == 0) then
-    print *, "elapsed time:", MPI_Wtime()-t0
+    call logger%info("main", "total time: "//to_string(MPI_Wtime()-t0))
   endif
 
   ! shut down comms

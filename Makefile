@@ -5,7 +5,7 @@ FC=h5pfc
 LD=$(FC)
 
 # flags and libraries
-FFLAGS= -Wall -Wextra -Wconversion-extra -std=f2008 -g -fall-intrinsics -fcheck=all
+FFLAGS= -Wall -Wextra -Wconversion-extra -std=f2008 -g -fall-intrinsics -O3
 FFLAGS+= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib
 FLIBS= -lpthread -lsz -lz -ldl -lm ./src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
 

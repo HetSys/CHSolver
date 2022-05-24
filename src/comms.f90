@@ -88,7 +88,7 @@ module comms
      mpi_order_fortran, mpi_double_precision, subgrid_basic, mpi_err)
 
     call mpi_type_size(mpi_double_precision, dpsize, mpi_err)
-    extent = mpi_res*dpsize
+    extent = int(mpi_res*dpsize,mpi_address_kind)
     call mpi_type_create_resized(subgrid_basic, int(0, mpi_address_kind), extent, subgrid, mpi_err)
     call mpi_type_commit(subgrid, mpi_err)
 
@@ -146,7 +146,6 @@ module comms
     integer :: subgrid_basic, subgrid
     integer(kind=mpi_address_kind) :: extent
     integer, dimension(nproc) :: displs, counts
-    integer :: i,j
 
     mpi_res = int(grid_res/nproc_row)
 
@@ -154,7 +153,7 @@ module comms
      mpi_order_fortran, mpi_double_precision, subgrid_basic, mpi_err)
 
     call mpi_type_size(mpi_double_precision, dpsize, mpi_err)
-    extent = mpi_res*dpsize
+    extent = int(mpi_res*dpsize,mpi_address_kind)
     call mpi_type_create_resized(subgrid_basic, int(0, mpi_address_kind), extent, subgrid, mpi_err)
     call mpi_type_commit(subgrid, mpi_err)
 
@@ -207,6 +206,8 @@ module comms
     integer, intent(out) :: req
 
     integer :: dir(2), recv_coords(2), recv_rank
+    integer :: err
+    dir = [0, 0]
 
     select case(direction)
 
@@ -221,6 +222,10 @@ module comms
 
     case("dr")
       dir = [1, 1]
+
+    case default
+      call logger%fatal("recv_edge", "invalid direction: not in ul, ur, dl, dr")
+      call MPI_Abort(MPI_COMM_WORLD, 1, err)
 
     end select
 
@@ -245,6 +250,8 @@ module comms
     character(2), intent(in) :: direction
 
     integer :: dir(2), source_coords(2), source_rank
+    integer :: err
+    dir = [0, 0]
 
     select case(direction)
 
@@ -259,6 +266,10 @@ module comms
 
     case("dr")
       dir = [1, 1]
+
+    case default
+      call logger%fatal("recv_edge", "invalid direction: not in ul, ur, dl, dr")
+      call MPI_Abort(MPI_COMM_WORLD, 1, err)
 
     end select
 
@@ -285,6 +296,9 @@ module comms
     integer, intent(out) :: req
 
     integer :: dir_int
+    integer :: err
+
+    dir_int = 0
 
     select case(direction)
 
@@ -299,6 +313,10 @@ module comms
 
     case("d")
       dir_int = 2
+
+    case default
+      call logger%fatal("recv_edge", "invalid direction: not in u, d, l, r")
+      call MPI_Abort(MPI_COMM_WORLD, 1, err)
 
     end select
 
@@ -313,6 +331,8 @@ module comms
     character, intent(in) :: direction
 
     integer :: dir_int
+    integer :: err
+    dir_int = 0
 
     select case(direction)
 
@@ -327,6 +347,10 @@ module comms
 
     case("d")
       dir_int = 1
+
+    case default
+      call logger%fatal("recv_edge", "invalid direction: not in u, d, l, r")
+      call MPI_Abort(MPI_COMM_WORLD, 1, err)
 
     end select
 

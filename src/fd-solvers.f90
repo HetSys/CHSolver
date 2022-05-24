@@ -92,11 +92,12 @@ module fd_solvers
     real(dp) :: dt, dt0, dt1, dt_out ! timesteps
     real(dp) :: a0, a1, a2, b0, b1 ! time constants
     real(dp) :: t, t_out,  tmax
+    real(dp) :: t0, t1 ! adaptive timestep
     real(dp), dimension(2,2) :: A ! smoothing matrix
     real(dp) :: eps
     integer :: it, i ! iterators
     logical :: outflag
-    character(len=48) :: msg ! logging message
+    character(len=32) :: msg ! logging message
     integer :: req1, req2, req3, req4
 
     ! grid storage (local)
@@ -124,6 +125,10 @@ module fd_solvers
     t = 0.0_dp
     it = 1
     eps = sqrt(eps2)
+    t0 = 10.0_dp * eps
+    t1 = 20.0_dp * eps
+
+    call logger%info("solver_ufds2t2", "eps:"//to_string(eps))
 
     ! set global variables
     call ilog2(nproc_row,level_global)
@@ -197,7 +202,7 @@ module fd_solvers
       end if
 
       if (myrank == 0) then
-        write(msg, 24) "Initial condition output at t=  0.000"
+        write(msg, 24) "Initial output at t=  0.000"
         call logger%info("solver_ufds2t2", msg)
         dt_out = dt
         t_out = t
@@ -331,10 +336,12 @@ module fd_solvers
     ! ======================================================================== !
     do while (t < tmax)
       ! set current timestep TODO: condition on curvature rather than time
-      if (t < 100.0_dp * eps) then
+      if (t < t0) then
         dt = 2.5_dp * eps2
+      else if (t < t1) then
+        dt = ((t1-t) * 2.5_dp * eps2 + (t-t0) * dx)/(t1-t0)
       else
-        dt = 2.5_dp * eps2
+        dt = dx
       endif
 
       ! restrict timestep if we would otherwise exceed an output time
@@ -593,7 +600,7 @@ module fd_solvers
     type(t_grid), dimension(:), intent(inout) :: E1g, E2g, R1g, R2g
     real(dp), intent(in) :: eps2, dx
 
-    integer :: l, nl, l_global, nl_global, i
+    integer :: l, nl, l_global, nl_global
     real(dp) :: dxl
 
     nl = n
