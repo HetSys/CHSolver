@@ -1,0 +1,46 @@
+module test_setup
+  use funit
+  use globals
+  use setup
+                         
+contains
+
+  @before
+  subroutine before()
+    logger%disable_all_logging = .TRUE.
+
+  end subroutine
+
+
+  !============================================================================!
+  ! TIMESPACE TESTS                                                            !
+  ! Check linear and log timespaces define correct time arrays                 !
+  !============================================================================!
+
+  @test
+  subroutine test_linspace()
+    real(dp), parameter :: start_1=0.0_dp, start_2=1.0_dp, stop_1=1.0_dp, stop_2=1.5_dp
+    integer, parameter :: nstep_1=20, nstep_2=4
+
+    real(dp), dimension(nstep_1+1), parameter :: T_1 = (/0.0_dp, 0.05_dp, 0.1_dp, 0.15_dp, 0.2_dp, 0.25_dp, &
+                                                       0.3_dp, 0.35_dp, 0.4_dp, 0.45_dp, 0.5_dp, 0.55_dp, &
+                                                       0.6_dp, 0.65_dp, 0.7_dp, 0.75_dp, 0.8_dp, 0.85_dp, &
+                                                       0.9_dp, 0.95_dp, 1.0_dp/)
+
+    real(dp),dimension(nstep_2+1), parameter :: T_2 = (/1.0_dp, 1.125_dp, 1.25_dp, 1.375_dp, 1.5_dp/)
+
+    real(dp), dimension(:), allocatable :: tbuf
+
+    call lin_tspace(start_1, stop_1, nstep_1, tbuf)
+
+    @assertEqual(T_1, tbuf, tolerance=1E-5)
+
+    deallocate(tbuf)
+
+    call lin_tspace(start_2, stop_2, nstep_2, tbuf)
+
+    @assertEqual(T_2, tbuf, tolerance=1E-5)
+
+  end subroutine
+
+end module test_setup

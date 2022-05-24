@@ -168,7 +168,7 @@ module setup
 
     if (error) then
       call logger%fatal("tspace_validation", "Invalid timespace setup")
-      stop
+      stop 1
     end if
   end subroutine
 end module
