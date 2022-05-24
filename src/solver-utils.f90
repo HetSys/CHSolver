@@ -1,5 +1,10 @@
 module solver_utils
+  use, intrinsic :: iso_fortran_env
+  use, intrinsic :: iso_c_binding
   use globals
+  use omp_lib
+  use fftw3
+
 
   implicit none
   save
@@ -86,5 +91,4 @@ module solver_utils
 
     res = bit_size(val)-leadz(val)-1
   end subroutine ilog2
-
 end module solver_utils
