@@ -46,6 +46,7 @@ class CHData():
     def _read_jsonfile(self):
         try:
             self._data = json.loads(open(self.filepath).read())
+            self.read_rundata("default")
         except json.decoder.JSONDecodeError:
             raise RuntimeError(f"Error in reading JSON file {self.fname}, likely due to reading a blank file")
 
