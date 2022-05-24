@@ -64,7 +64,9 @@ tests/unit_tests/*.inc
 
 # Other
 **/.DS_Store
-remote.sh
+*.png
+*.mp4
+*.gif
 
-# Python Enviroment
-chenv/**
+#python enviroment
+chenv
