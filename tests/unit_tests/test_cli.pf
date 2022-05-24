@@ -1,0 +1,255 @@
+module test_cli
+  use funit
+  use globals
+  use command_line
+                         
+contains
+
+  @before
+  subroutine setup()
+    logger%disable_all_logging = .TRUE.
+
+    call unittest_alloc_is_val(6)
+
+  end subroutine
+
+  !===================================================================================!
+  ! INPUT PARAM TESTS                                                                 !
+  ! Test key/val pairs modify the returned input params as expected                   !
+  !===================================================================================!
+
+  @test
+  subroutine test_cmd_init()
+  character(1) :: default_init, new_init
+  character(:), allocatable :: init_buf
+
+
+    new_init = "c"
+
+    default_init = "r"
+    init_buf = default_init
+
+    call get_input_commands(init=init_buf)
+
+    ! Name should be unchanged as json filename key not passed
+    @assertEqual(default_init, init_buf)
+
+    call parse_keyval_arg("i", new_init, .TRUE.)
+
+    call get_input_commands(init=init_buf)
+
+    @assertEqual(new_init, init_buf)
+
+  end subroutine
+
+
+  @test
+  subroutine test_cmd_level()
+    integer :: default_level, level_buf, new_level
+
+
+    new_level = 7
+
+    default_level = 2
+    level_buf = default_level
+
+    call get_input_commands(level=level_buf)
+
+    ! Name should be unchanged as json filename key not passed
+    @assertEqual(default_level, level_buf)
+
+    call parse_keyval_arg("L", trim(to_string(new_level)), .TRUE.)
+
+    call get_input_commands(level=level_buf)
+
+    @assertEqual(new_level, level_buf)
+
+  end subroutine
+
+  @test
+  subroutine test_cmd_CH_params()
+    real(dp), dimension(6) :: default_CH, CH_buf, new_CH
+    integer :: idx
+
+    character(1), dimension(6), parameter :: keys = (/"l", "a", "m", "k", "0", "1"/)
+
+
+    default_CH = 0.0_dp
+
+    new_CH = (/1.0_dp, 2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp, 6.0_dp/)
+
+    CH_buf = default_CH
+
+    do idx=1,6
+
+      call get_input_commands(CH_buf)
+
+      ! Name should be unchanged as json filename key not passed
+      @assertEqual(default_CH(idx), CH_buf(idx))
+
+      call parse_keyval_arg(keys(idx), trim(to_string(new_CH(idx))), .TRUE.)
+
+      call get_input_commands(CH_buf)
+
+      @assertEqual(new_CH(idx), CH_buf(idx))
+
+    end do
+
+  end subroutine
+
+
+
+  !===================================================================================!
+  ! IO PARAM TESTS                                                                    !
+  ! Test key/val pairs modify the returned IO params as expected                      !
+  !===================================================================================!
+
+
+  @test
+  subroutine test_cmd_json_fname()
+    character(120) :: default_fname, name_buf, new_fname
+    logical :: ch_fnd
+
+
+    new_fname = "new.json"
+
+    default_fname = "default.json"
+    name_buf = default_fname
+
+    call get_io_commands(filename=name_buf, all_params_fnd=ch_fnd)
+
+    ! Name should be unchanged as json filename key not passed
+    @assertEqual(default_fname, name_buf)
+
+    call parse_keyval_arg("j", new_fname, .TRUE.)
+
+    call get_io_commands(filename=name_buf, all_params_fnd=ch_fnd)
+
+    @assertEqual(new_fname, name_buf)
+
+  end subroutine
+
+
+  @test
+  subroutine test_cmd_json_runname()
+    character(120) :: default_name, name_buf, new_name
+    logical :: ch_fnd
+
+
+    new_name = "new"
+
+    default_name = "default"
+    name_buf = default_name
+
+    call get_io_commands(run_name=name_buf, all_params_fnd=ch_fnd)
+
+    ! Name should be unchanged as json filename key not passed
+    @assertEqual(default_name, name_buf)
+
+    call parse_keyval_arg("r", new_name, .TRUE.)
+
+    call get_io_commands(run_name=name_buf, all_params_fnd=ch_fnd)
+
+    @assertEqual(new_name, name_buf)
+
+  end subroutine
+
+  @test
+  subroutine test_cmd_outdir()
+    character(120) :: default_name, name_buf, new_name
+    logical :: ch_fnd
+
+
+    new_name = "new"
+
+    default_name = "default"
+    name_buf = default_name
+
+    call get_io_commands(output_dir=name_buf, all_params_fnd=ch_fnd)
+
+    ! Name should be unchanged as json filename key not passed
+    @assertEqual(default_name, name_buf)
+
+    call parse_keyval_arg("o", new_name, .TRUE.)
+
+    call get_io_commands(output_dir=name_buf, all_params_fnd=ch_fnd)
+
+    @assertEqual(new_name, name_buf)
+
+  end subroutine
+
+
+
+  !===================================================================================!
+  ! STR CONVERSIONS TESTS                                                             !
+  ! Test conversions between strings and ints/reals/real arrays work as expected      !
+  !===================================================================================!
+
+  @test
+  subroutine test_str_to_int()
+    character(len=3), parameter, dimension(4) :: str_form = (/"  1", " 21", "123", " 5 "/)
+    integer, parameter, dimension(4) :: int_form = (/1, 21, 123, 5/)
+    integer :: num_tests, idx
+
+    character(len=3) :: test_str
+    integer :: test_int
+
+    num_tests = size(str_form)
+
+    do idx=1,num_tests
+      test_str = str_form(idx)
+      test_int = int_form(idx)
+      @assertEqual(test_int, str_to_int(test_str))
+    end do
+  end subroutine
+
+
+  @test
+  subroutine test_str_to_real()
+    character(len=5), parameter, dimension(4) :: str_form = (/"0.000", "1.000", "6.021", "10.13"/)
+    real(dp), parameter, dimension(4) :: real_form = (/0.0_DP, 1.0_DP, 6.021_DP, 10.13_DP/)
+    integer :: num_tests, idx
+
+    character(len=5) :: test_str
+    real(dp) :: test_real
+
+    num_tests = size(str_form)
+
+    do idx=1,num_tests
+      test_str = str_form(idx)
+      test_real = real_form(idx)
+      @assertEqual(test_real, str_to_real(test_str), tolerance=1E-10_DP)
+    end do
+  end subroutine
+
+
+  @test
+  subroutine test_allocate_array()
+    character(len=*), parameter :: simple_strarr = "{0.0:0.1:0.2:0.3:0.4}", &
+                                  unequal_strarr = "{0.0021:1:123.4567}", &
+                                     long_strarr = "{1:2:3:4:5:6:7:8:9:10:11:12}"
+                                     
+    real(dp), parameter, dimension(5) :: simple_realarr = (/0.0_dp, 0.1_dp, 0.2_dp, 0.3_dp, 0.4_dp/)
+    real(dp), parameter, dimension(3) :: unequal_realarr = (/0.0021_dp, 1.0_dp, 123.4567_dp/)
+    real(dp), parameter, dimension(12) :: long_realarr = (/1.0_dp, 2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp, 6.0_dp, 7.0_dp, &
+                                                          8.0_dp, 9.0_dp, 10.0_dp, 11.0_dp, 12.0_dp/)
+
+    real(dp), allocatable :: buf(:)
+
+    call allocate_array(simple_strarr, buf)
+    @assertEqual(simple_realarr, buf, tolerance=1E-10_DP)
+
+    deallocate(buf)
+
+    call allocate_array(unequal_strarr, buf)
+    @assertEqual(unequal_realarr, buf, tolerance=1E-10_DP)
+
+    deallocate(buf)
+
+    call allocate_array(long_strarr, buf)
+    @assertEqual(long_realarr, buf, tolerance=1E-10_DP)
+
+    deallocate(buf)
+  end subroutine
+
+end module test_cli

@@ -9,7 +9,7 @@ module test_json_parser
   type(json_core) :: json
   type(json_file) :: jfile
   type(json_value), pointer :: root, good_run, missing_L, missing_A, missing_M, missing_K, &
-                               missing_p0, missing_p1, missing_init, missing_level
+                               missing_p0, missing_p1, missing_init, missing_level, retrieve_test
   
   character(*), parameter ::  good_run_name       = "working_run",     &
                               missing_L_name      = "missing_l",       &
@@ -19,7 +19,8 @@ module test_json_parser
                               missing_p0_name     = "missing_p0",      &
                               missing_p1_name     = "missing_p1",      &
                               missing_init_name   = "missing_init",    &
-                              missing_level_name  = "missing_level"
+                              missing_level_name  = "missing_level",   &
+                              retrieve_test_name  = "retrieve_test"
   
   character(*), parameter ::  L_name              = "L",               &
                               A_name              = "A",               &
@@ -30,8 +31,61 @@ module test_json_parser
                               init_name           = "grid_type",       &
                               level_name          = "grid_level"
   character(*), parameter :: fname = "test.json"
+
+
+  real(dp), parameter, dimension(6) ::  retrieve_CH_vals = (/1.0_dp, 2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp, 6.0_dp/)
+  integer, parameter ::                 retrieve_level_val = 7
+  character(len=1), parameter ::        retrieve_init_val = "r"
   
   contains
+
+  !============================================================================!
+  ! JSON RETRIEVAL TESTS                                                       !
+  ! Test that data is correctly retrieved from the JSON_file data structure    !
+  !============================================================================!
+
+  @test
+  subroutine test_CH_retrieval()
+    real(dp), dimension(6) :: fnd_CH_vals
+    logical :: fnd
+
+    fnd = json_retrieve(jfile, retrieve_test_name, L_name, fnd_CH_vals(1))
+    @assertTrue(fnd)
+    fnd = json_retrieve(jfile, retrieve_test_name, A_name, fnd_CH_vals(2))
+    @assertTrue(fnd)
+    fnd = json_retrieve(jfile, retrieve_test_name, M_name, fnd_CH_vals(3))
+    @assertTrue(fnd)
+    fnd = json_retrieve(jfile, retrieve_test_name, K_name, fnd_CH_vals(4))
+    @assertTrue(fnd)
+    fnd = json_retrieve(jfile, retrieve_test_name, p0_name, fnd_CH_vals(5))
+    @assertTrue(fnd)
+    fnd = json_retrieve(jfile, retrieve_test_name, p1_name, fnd_CH_vals(6))
+    @assertTrue(fnd)
+
+    @assertEqual(fnd_CH_vals, retrieve_CH_vals)
+  end subroutine
+
+  @test
+  subroutine test_level_retrieval()
+    integer :: level
+    logical :: fnd
+
+    fnd = json_retrieve(jfile, retrieve_test_name, level_name, level)
+    @assertTrue(fnd)
+
+    @assertEqual(level, retrieve_level_val)
+  end subroutine
+
+  @test
+  subroutine test_init_retrieval()
+    character(len=:), allocatable :: init
+    logical :: fnd
+
+    fnd = json_retrieve(jfile, retrieve_test_name, init_name, init)
+    @assertTrue(fnd)
+
+    @assertEqual(init, retrieve_init_val)
+  end subroutine
 
   !============================================================================!
   ! PATH GENERATION TESTS                                                      !
@@ -76,7 +130,7 @@ module test_json_parser
   end subroutine
 
   !============================================================================!
-  ! PARAM JSON TESTS                                                           !
+  ! MISSING PARAM JSON TESTS                                                   !
   ! Check that get_json_params correctly flags missing parameters as errors    !
   !============================================================================!
 
@@ -315,6 +369,19 @@ module test_json_parser
     call json%add(missing_level, p1_name, real_fill_val)
     call json%add(missing_level, init_name, char_fill_val)
     !call json%add(missing_level, level_name, int_fill_val)
+
+
+    ! Retrieve test
+    call json%create_object(retrieve_test, retrieve_test_name)
+    call json%add(root, retrieve_test)
+    call json%add(retrieve_test, L_name, retrieve_CH_vals(1))
+    call json%add(retrieve_test, A_name, retrieve_CH_vals(2))
+    call json%add(retrieve_test, M_name, retrieve_CH_vals(3))
+    call json%add(retrieve_test, K_name, retrieve_CH_vals(4))
+    call json%add(retrieve_test, p0_name, retrieve_CH_vals(5))
+    call json%add(retrieve_test, p1_name, retrieve_CH_vals(6))
+    call json%add(retrieve_test, init_name, retrieve_init_val)
+    call json%add(retrieve_test, level_name, retrieve_level_val)
 
 
     jfile = json_file(root, json)
