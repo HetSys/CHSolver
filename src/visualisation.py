@@ -1,5 +1,6 @@
 """!
 Opening file docstring contains LATEX parsing - \f$\beta\f$
+
 """
 
 # def foo():
