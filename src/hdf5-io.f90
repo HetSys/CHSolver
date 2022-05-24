@@ -45,7 +45,7 @@ module hdf5_io
   contains
 
 
-  !> @brief Should create a folder to store the trajectory and in the folder, a metadata file should be created. Also, hdf5 variables should be allocated to fit grid lengths/ranks.
+  !> @brief Creates a folder to store the trajectory and inside the folder a metadata file is created. HDF5 variables are allocated to fit grid lengths/ranks.
   !! @param[in]  foldername Folder name to store the checkpoint files and metadata.
   !! @param[in]  grid_params (1) Number of dimensions, (2) 2 raised to the power of this number will give the grid resolution.
   !! @param[in]  sys_params Parameters used by the solver, to be placed in metadata.
