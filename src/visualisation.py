@@ -117,6 +117,8 @@ def plot_free_energy(data_obj:CHData, ti=0, tf=-1):
 
 if __name__ == "__main__":
   dat = CHData()
+
+  # Read outputs from default loc and plot visualisation
   dat.read_outputs("out")
   plot_conc_evol(dat)
   plot_free_energy(dat)

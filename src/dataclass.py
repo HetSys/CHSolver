@@ -170,4 +170,4 @@ def _read_hdf5_files(num_checkpoints, grid_res, outdir):
 
 
 if __name__ == "__main__":
-    CHData() # Generate inpu-data.json if it does not exist
+    CHData() # Generate input-data.json if it does not exist
