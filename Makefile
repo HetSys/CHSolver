@@ -5,8 +5,8 @@ LD=$(FC)
 
 
 # flags and libraries
-FFLAGS= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -Wall -Wextra -Wconversion-extra -std=f2008 -g -fall-intrinsics#h5fc-show is equiv to nf-config --fflags/flibs to find these
-FLIBS= -lpthread -lsz -lz -ldl -lm ./src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
+FFLAGS= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -I/usr/include -Wall -Wextra -Wconversion-extra -std=f2008 -g -fopenmp -fall-intrinsics#h5fc-show is equiv to nf-config --fflags/flibs to find these
+FLIBS= -lpthread -lsz -lz -ldl -lfftw3_omp -lfftw3 -lm ./src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
 
 # executable names
 EXE=chsolver
@@ -29,25 +29,25 @@ OBJ= $(OBJ_DIR)/face.o $(OBJ_DIR)/logger_mod.o  $(addprefix $(OBJ_DIR)/, $(notdi
 chsolver: directories $(OBJ)
 	@printf "`tput bold``tput setaf 2`Linking`tput sgr0`\n"
 	@echo $(OBJ)
-	$(LD) $(FFLAGS) -o $(EXE) $(OBJ) $(FLIBS) 
-	
+	$(LD) $(FFLAGS) -o $(EXE) $(OBJ) $(FLIBS)
+
 # Build rule for binaries (puts .mod files in SRC_DIR to simplify linting)
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.f90
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
-	$(FC) -J$(SRC_DIR) $(FFLAGS) -c -o $@ $< 
+	$(FC) -J$(SRC_DIR) $(FFLAGS) -c -o $@ $<
 
 $(OBJ_DIR)/face.o: $(FACEPATH)
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
-	$(FC) -std=f2008 -c -o $@ $< 
+	$(FC) -std=f2008 -c -o $@ $<
 
 $(OBJ_DIR)/logger_mod.o: $(FLOGPATH)
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
-	$(FC) -std=f2008 -c -o $@ $< 
+	$(FC) -std=f2008 -c -o $@ $<
 
 # test_json_parser.o: test_json_parser.mod
 %.o: %.F90
 	@printf "`tput bold``tput setaf 6`Building %s`tput sgr0`\n" $@
-	$(FC) -J$(SRC_DIR) $(FFLAGS) -c -o $@ $< 
+	$(FC) -J$(SRC_DIR) $(FFLAGS) -c -o $@ $<
 #$(FLIBS) not needed for linking?
 
 $(SRC_DIR)/libchsolver.a : $(wildcard $(OBJ_DIR)/*.o)
@@ -82,18 +82,18 @@ all: clean chsolver
 # Generate Doxygen documentation
 .PHONY: docs
 docs:
-	doxygen ./doxygen/doxygen-config 
+	doxygen ./doxygen/doxygen-config
 	(cd ./doxygen/output/latex && make)
 	cp ./doxygen/output/latex/refman.pdf CH-docs.pdf
 
 # dependencies
 $(OBJ_DIR)/logger_mod.o : $(OBJ_DIR)/face.o
 $(OBJ_DIR)/globals.o : $(OBJ_DIR)/logging.o
-$(OBJ_DIR)/solver-utils.o : $(OBJ_DIR)/globals.o
+$(OBJ_DIR)/solver-utils.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/fftw3.o
 $(OBJ_DIR)/solvers.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o $(OBJ_DIR)/fd-solvers.o
 $(OBJ_DIR)/fd-solvers.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o $(OBJ_DIR)/hdf5-io.o
+$(OBJ_DIR)/pseudo_spectral_solver.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o $(OBJ_DIR)/hdf5-io.o $(OBJ_DIR)/fftw3.o
 $(OBJ_DIR)/logging.o : $(OBJ_DIR)/logger_mod.o
-$(OBJ_DIR)/json-parser.o $(OBJ_DIR)/hdf5-io.o $(OBJ_DIR)/setup.o $(OBJ_DIR)/solvers.o $(OBJ_DIR)/progress.o : $(OBJ_DIR)/globals.o 
+$(OBJ_DIR)/json-parser.o $(OBJ_DIR)/hdf5-io.o $(OBJ_DIR)/setup.o $(OBJ_DIR)/solvers.o $(OBJ_DIR)/progress.o : $(OBJ_DIR)/globals.o
 $(OBJ_DIR)/command-line.o : $(OBJ_DIR)/globals.o
 $(OBJ_DIR)/main.o : $(OBJ_DIR)/json-parser.o $(OBJ_DIR)/solvers.o $(OBJ_DIR)/globals.o $(OBJ_DIR)/progress.o $(OBJ_DIR)/hdf5-io.o $(OBJ_DIR)/setup.o $(OBJ_DIR)/globals.o
-

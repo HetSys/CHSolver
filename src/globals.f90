@@ -1,17 +1,19 @@
 !> @brief Globally accessible methods and variables
-!! @details Includes methods for string conversion, logging setup, 
+!! @details Includes methods for string conversion, logging setup,
 !! parameter validation, and random seeding setup
-!! @author Tom Rocke 
+!! @author Tom Rocke
 
 module globals
   use iso_fortran_env
+  use iso_c_binding
   use logging, only: logger, log_debug => debug, log_trivia => trivia, log_info => info, &
                      log_warning => warning, log_error => error, log_fatal => fatal
 
   implicit none
-  !> @var integer dp 
+  !> @var integer dp
   !! Kind/precision of reals to use
   integer, parameter :: dp = real64
+  integer, parameter :: cdc = C_DOUBLE_COMPLEX
 
   ! Logging defaults
 
@@ -189,11 +191,11 @@ module globals
 
 
   !> @brief Initializes Seed for PRNG
-  !! @param[in]  seed Integer seed for PRNG. 
+  !! @param[in]  seed Integer seed for PRNG.
   !! If Seed is set to -1, will use datetime for seed
   subroutine set_ranseed(seed)
     integer, intent(in) :: seed
-    
+
     integer, allocatable :: state(:)
     integer :: state_size
     integer, dimension(8) :: datetime
@@ -203,16 +205,16 @@ module globals
 
     if (seed == -1) then
 
-      !Current milisecond of the hour 
+      !Current milisecond of the hour
       call date_and_time(values=datetime)
       state = 60000*datetime(6) + 1000*datetime(7) + datetime(8)
 
-    else 
+    else
       state = seed
     end if
 
     call random_seed(put=state)
-  
+
   end subroutine
 
 end module globals

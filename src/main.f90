@@ -28,8 +28,8 @@ program main
   outdir = "./out"
 
   !!! START  JSON, CLI, and LOGGING
-  
-  ! CLI 
+
+  ! CLI
   call initialise()
 
   ! Get JSON filename, run name, and output directory
@@ -58,38 +58,39 @@ program main
   !!! END JSON, CLI, and LOGGING
 
 
-  !!! START GRID AND HDF5 SETUP 
+  !!! START GRID AND HDF5 SETUP
   ! initial concentration
 
-  ! !!! END GRID AND HDF5 SETUP 
+  ! !!! END GRID AND HDF5 SETUP
 
 
-  
+
   ! call solver
 
-  ! call setup_grid(c0, grid_res, ch_params, init)
-  ! call output_init(outdir, [2, grid_res], CH_params, ierr)
+   call setup_grid(c0, grid_res, ch_params, init)
+   call output_init(outdir, [2, grid_res], CH_params, ierr)
 
-  ! call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
+   call solver_1(Tout, c0, CH_params, SOLVER_PS, ierr)
+   print*, c0
 
-  call chkpnt_init(outdir, ch_params, t0, ierr)
-  allocate(c0(c_dims(1), c_dims(2)), c1(c_dims(1), c_dims(2)))
-  call read_hdf5_chkpnt(c0, c1, dt, ierr)
+  !call chkpnt_init(outdir, ch_params, t0, ierr)
+  !allocate(c0(c_dims(1), c_dims(2)), c1(c_dims(1), c_dims(2)))
+  !call read_hdf5_chkpnt(c0, c1, dt, ierr)
 
-  do st_Tout = 1, size(Tout)
-    if (Tout(st_Tout) > t0) then
-      exit
-    end if 
-  end do
+  !do st_Tout = 1, size(Tout)
+  !  if (Tout(st_Tout) > t0) then
+  !    exit
+  !  end if
+  !end do
 
-  allocate(updated_Tout(size(Tout) - st_Tout))
+  !allocate(updated_Tout(size(Tout) - st_Tout))
 
-  updated_Tout = Tout(st_Tout:)
+  !updated_Tout = Tout(st_Tout:)
 
-  call solver_2(t0, updated_Tout, c0, c1, dt, CH_params, SOLVER_FD2, ierr)
+  !call solver_2(t0, updated_Tout, c0, c1, dt, CH_params, SOLVER_FD2, ierr)
 
-  
-  
+
+
   call output_final(ierr)
 
 
