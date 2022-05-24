@@ -22,6 +22,9 @@ program main
   integer :: space_selected, num_outputs
   real(dp) :: start_val, stop_val
 
+  ! Solver Selection
+  integer :: selected_solver
+
   ! Default fname, run_name, and outdir
   fname = "input-data.json"
   run_name = "default"
@@ -77,6 +80,9 @@ program main
 
   !!! END JSON, CLI, and LOGGING
 
+  ! SOLVER SELECTION
+  call get_selected_solver(selected_solver)
+
   ! GRID INITIALISATION
 
   if (.NOT. do_restart) then
@@ -84,7 +90,7 @@ program main
    call output_init(outdir, [2, grid_res], CH_params, ierr)
 
    
-   call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
+   call solver_1(Tout, c0, CH_params, selected_solver, ierr)
   else
 
   ! call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
@@ -102,7 +108,7 @@ program main
     allocate(updated_Tout(size(Tout) - st_Tout))
 
     updated_Tout = Tout(st_Tout:)
-    call solver_2(t0, updated_Tout, c0, c1, dt, CH_params, SOLVER_FD2, ierr)
+    call solver_2(t0, updated_Tout, c0, c1, dt, CH_params, selected_solver, ierr)
   end if
 
   
