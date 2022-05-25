@@ -528,7 +528,6 @@ module command_line
 
     character(1), parameter :: separator = ":"
 
-    print *, str_array
     n_elements = 1
     do idx=2, len(str_array) - 1
       ! Find length of t array to allocate
