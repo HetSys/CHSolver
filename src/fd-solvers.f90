@@ -1,3 +1,6 @@
+!> @brief Module defining a type and allocs and deallocs for Multigrids.
+!!
+!! A multigrid is an array of rank-2 arrays. The ith entry is 2**i-by-2**i.
 module multigrid
   use globals
 
@@ -7,7 +10,7 @@ module multigrid
   !> @brief multigrid internal grid type
   !!
   !! This is just a wrapper around an array of reals. An array of these forms a
-  !! multigrid
+  !! multigrid.
   type :: t_grid
     real(dp), dimension(:,:), allocatable :: grid
   end type
@@ -52,6 +55,12 @@ module multigrid
 end module multigrid
 
 
+!> @brief Module containing the solver_ufds2t2 function to solve the CH equation
+!!
+!! This module contains the public function solver_ufds2t2, which solves the
+!! dimensionless Cahn-Hilliard equation using a semi-implicit splitting method,
+!! solved with a linear multigrid solver. See doi:10.1016/j.jcp.2007.02.019 for
+!! a fuller explaination of the algorithm.
 module fd_solvers
   use globals
   use multigrid
@@ -75,9 +84,14 @@ module fd_solvers
 
   !> @brief solves the dimensionless CH equation
   !!
-  !! @param[in] Tout  output times
-  !! @param[in] c0    initial concentration
-  !! @param[in] eps2  dimensionless number
+  !! @param[in] t_0        starting time
+  !! @param[in] Tout       output times
+  !! @param[in] CH_params  solver/domain parameters
+  !! @param[in] c0         initial concentration
+  !! @param[in] eps2       dimensionless number
+  !! @param[out] errors    return error
+  !! @param[in] c1         (optional) concentration at dt_in
+  !! @param[in] dt_in      (optional) initial timestep
   subroutine solver_ufds2t2(t_0, Tout, CH_params, c0, eps2, errors, c1, dt_in)
     implicit none
     real(dp), intent(in) :: t_0
@@ -566,6 +580,7 @@ module fd_solvers
 
 
   !> @brief inverts a non-singular 2x2 matrix A in place
+  !! @param[inout] A  matrix to be inverted
   subroutine invert(A)
     implicit none
     real(dp), dimension(2,2), intent(inout) :: A
@@ -585,10 +600,10 @@ module fd_solvers
 
   !> @brief computes the periodic Laplacian for a grid in vector form
   !!
-  !! @param x   input grid
-  !! @param y   output grid, y = Lx
-  !! @param dx  grid spacing
-  !! @param n   grid size
+  !! @param[in] x      input grid
+  !! @param[inout] y   output grid, y = Lx
+  !! @param[in] dx     grid spacing
+  !! @param[in] n      grid size
   subroutine laplacian(x, y, dx, n)
     implicit none
     integer, intent(in) :: n
@@ -611,12 +626,11 @@ module fd_solvers
 
   !> @brief computes the periodic Laplacian for a grid in vector form
   !!
-  !! @param g    output g vector
-  !! @param phi  input phi vector
-  !! @param dx   grid spacing
-  !! @param tau  solver parameter
-  !! @param n    grid size
-  !! @param work allocated work vector (same size as g)
+  !! @param[inout] g    output g vector
+  !! @param[in] phi     input phi vector
+  !! @param[in] dx      grid spacing
+  !! @param[in] n       grid size
+  !! @param[inout] work allocated work vector (same size as g)
   subroutine compute_g(g, phi, dx, n, work)
     implicit none
     integer, intent(in) :: n
@@ -633,15 +647,19 @@ module fd_solvers
 
   !> @brief performs a single iteration of the multigrid v-cycle
   !!
-  !! @param A      2x2 smoothing matrix (solution matrix for a 1x1 system)
-  !! @param E1     error multigrid for the first variable
-  !! @param E2     error multigrid for the second variable
-  !! @param R1     residual multigrid for the first variable
-  !! @param R2     residual multigrid for the second variable
-  !! @param eps2   PDE parameter
-  !! @param N      grid size
-  !! @param dx     grid spacing
-  !! @param level  grid level
+  !! @param[in] A       2x2 smoothing matrix (solution matrix for a 1x1 system)
+  !! @param[inout] E1   error multigrid for the first variable (local)
+  !! @param[inout] E2   error multigrid for the second variable (local)
+  !! @param[inout] R1   residual multigrid for the first variable (local)
+  !! @param[inout] R2   residual multigrid for the second variable (local)
+  !! @param[inout] E1g  error multigrid for the first variable (global)
+  !! @param[inout] E2g  error multigrid for the second variable (global)
+  !! @param[inout] R1g  residual multigrid for the first variable (global)
+  !! @param[inout] R2g  residual multigrid for the second variable (global)
+  !! @param[in] eps2    PDE parameter
+  !! @param[in] N       grid size
+  !! @param[in] dx      grid spacing
+  !! @param[in] level   grid level
   subroutine vcycle(A, E1, E2, R1, R2, E1g, E2g, R1g, R2g, eps2, N, dx, level)
     implicit none
     integer, intent(in) :: N, level
@@ -710,14 +728,14 @@ module fd_solvers
 
   !> @brief performs a single red/black smooth
   !!
-  !! @param A      2x2 smoothing matrix (inverse solution matrix for a 1x1 system)
-  !! @param E1     error array for the first variable at level
-  !! @param E2     error array for the second variable at level
-  !! @param R1     residual array for the first variable at level
-  !! @param R2     residual array for the second variable at level
-  !! @param eps2   PDE parameter
-  !! @param N      grid size
-  !! @param dx     grid spacing
+  !! @param[in] A      2x2 smoothing matrix (inverse solution matrix for a 1x1 system)
+  !! @param[inout] E1  error array for the first variable at level
+  !! @param[inout] E2  error array for the second variable at level
+  !! @param[inout] R1  residual array for the first variable at level
+  !! @param[inout] R2  residual array for the second variable at level
+  !! @param[in] eps2   PDE parameter
+  !! @param[in] N      grid size
+  !! @param[in] dx     grid spacing
   subroutine smooth(A, E1, E2, R1, R2, eps2, N, dx)
     implicit none
     integer, intent(in) :: n
@@ -834,9 +852,11 @@ module fd_solvers
 
   !> @brief restricts (ie coarsens) to level-1 from level
   !!
-  !! @param R1     residual multigrid for the first variable
-  !! @param R2     residual multigrid for the second variable
-  !! @param N      grid size
+  !! @param[inout] R1f  residual multigrid for the first variable (fine)
+  !! @param[inout] R2f  residual multigrid for the second variable (fine)
+  !! @param[inout] R1c  residual multigrid for the first variable (coarse)
+  !! @param[inout] R2c  residual multigrid for the second variable (coarse)
+  !! @param[in] N       grid size
   subroutine restrict(R1f, R2f, R1c, R2c, N)
     implicit none
     integer, intent(in) :: n
@@ -862,9 +882,11 @@ module fd_solvers
 
   !> @brief prolongates (ie refines) from level to level+1 (bilinear interpolation)
   !!
-  !! @param E1     error multigrid for the first variable
-  !! @param E2     error multigrid for the second variable
-  !! @param N      grid size
+  !! @param[inout] E1f  error multigrid for the first variable (fine)
+  !! @param[inout] E2f  error multigrid for the second variable (fine)
+  !! @param[inout] E1c  error multigrid for the first variable (coarse)
+  !! @param[inout] E2c  error multigrid for the second variable (coarse)
+  !! @param[in] N       grid size
   subroutine prolongate(E1f, E2f, E1c, E2c, N)
     implicit none
     integer, intent(in) :: n
@@ -1201,6 +1223,7 @@ module fd_solvers
   ! ========================================================================== !
   !   SERIAL SUBROUTINES                                                       !
   ! ========================================================================== !
+  !> @brief Serial version of laplacian
   subroutine laplacian0(x, y, dx, n)
     implicit none
     integer, intent(in) :: n
@@ -1238,6 +1261,7 @@ module fd_solvers
     y(n,n) = dx2_*(x(1,n) + x(n-1,n) + x(n,1) + x(n,n-1) - 4*x(n,n))
   end subroutine laplacian0
 
+  !> @brief Serial version of compute_g
   subroutine compute_g0(g, phi, dx, n, work)
     implicit none
     integer, intent(in) :: n
@@ -1251,6 +1275,7 @@ module fd_solvers
     call laplacian0(work, g, dx, n)
   end subroutine compute_g0
 
+  !> @brief Serial version of vcycle
   subroutine vcycle0(A, E1, E2, R1, R2, eps2, N, dx, level)
     implicit none
     real(dp), dimension(2,2), intent(in) :: A
@@ -1295,6 +1320,7 @@ module fd_solvers
     enddo
   end subroutine vcycle0
 
+  !> @brief Serial version of smooth
   subroutine smooth0(A, E1, E2, R1, R2, eps2, N, dx)
     implicit none
     integer, intent(in) :: n
@@ -1420,6 +1446,7 @@ module fd_solvers
     E2(n,1) = A(2,1)*rhs(1) + A(2,2)*rhs(2)
   end subroutine smooth0
 
+  !> @brief Serial version of restrict
   subroutine restrict0(R1f, R2f, R1c, R2c, N)
     implicit none
     integer, intent(in) :: n
@@ -1442,6 +1469,7 @@ module fd_solvers
     enddo
   end subroutine restrict0
 
+  !> @brief Serial version of prolongate
   subroutine prolongate0(E1f, E2f, E1c, E2c, N)
     implicit none
     integer, intent(in) :: n
