@@ -155,13 +155,11 @@ module fd_solvers
     allocate(g_prev(0:N+1,0:N+1))
     allocate(work(0:N+1,0:N+1))
 
-
     ! allocate multigrid storage
     call multigrid_alloc(E1, level)
     call multigrid_alloc(E2, level)
     call multigrid_alloc(R1, level)
     call multigrid_alloc(R2, level)
-
     
     ! allocate global storage
     allocate(phi_global(N_global,N_global))
@@ -188,7 +186,7 @@ module fd_solvers
 
     ! send c0 (global) to phi (local)
     if (nproc > 1) then
-        call grid_scatter(c0, N_global, phi, N)
+      call grid_scatter(c0, N_global, phi, N)
     else
       phi(1:N,1:N) = c0
     end if
