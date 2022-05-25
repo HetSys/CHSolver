@@ -1,9 +1,6 @@
 module solver_utils
-  use, intrinsic :: iso_fortran_env
-  use, intrinsic :: iso_c_binding
   use globals
   use omp_lib
-  use fftw3
 
 
   implicit none
