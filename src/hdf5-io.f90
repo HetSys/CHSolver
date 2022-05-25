@@ -1,9 +1,5 @@
-! Metadata file format (as of now)
-!   Start of file:  "nchkpnts {(I5)}"
-!   Buffer Line:
-!   Records Line: "{(I5)}  {(F15.5)}" representing chkpnt and time when chkpnt is taken
-! 
-
+  !> @brief Module containing all the subroutines for HDF5 outputting and checkpointing, used within main and solver code.
+  !! @details A new HDF5 file (.chkpnt) is created for each output time requested, with a metadata.dat file storing the parameters used by the solver, as well as the times outputted at. 
 module hdf5_io
   use hdf5
   use globals
@@ -362,8 +358,6 @@ module hdf5_io
     n = 2**grid_res
     c_dims = int(n, hsize_t)
     dt_dims = 1
-
-    print *, cur_chkpnt
 
     folder = chkpnt_folder
 

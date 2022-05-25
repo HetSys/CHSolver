@@ -14,16 +14,23 @@ module comms
 
   !> @brief Sets up MPI communications
   subroutine comms_init()
-    ! Assert that nrank
+    integer :: l
 
     call mpi_init(mpi_err)
     call mpi_comm_size(mpi_comm_world, nproc, mpi_err)
 
+    ! assert that nproc is a power of 4
+    call ilog2(nproc, l)
+    if (mod(l,2) /= 0 .or. 2**l /= nproc) then
+      call logger%fatal("nproc_validate", "nproc must be a power of 4")
+      call MPI_Abort(MPI_COMM_WORLD, 1, mpi_err)
+    endif
 
     call ilog2(nproc, nproc_row)
     nproc_row = nproc_row/2
     nproc_row = 2**nproc_row
 
+    ! set up a cartesian grid
     call mpi_cart_create(mpi_comm_world, 2, [nproc_row, nproc_row], &
      [.true., .true.], .true., cart_comm, mpi_err)
 
@@ -34,6 +41,27 @@ module comms
     call mpi_cart_shift(cart_comm, 1, 1, neigh(1), neigh(2), mpi_err)
     call mpi_cart_shift(cart_comm, 0, 1, neigh(4), neigh(3), mpi_err)
   end subroutine comms_init
+
+  !> @brief Ensures that nprocs is correct for the selected solver
+  !! @param[in] selected_solver  solver code
+  subroutine nproc_validate(selected_solver)
+    implicit none
+    integer, intent(in) :: selected_solver
+    integer :: l
+
+    if (selected_solver == 1) then
+      call ilog2(nproc, l)
+      if (mod(l,2) /= 0 .or. 2**l /= nproc) then
+        call logger%fatal("nproc_validate", "nproc must be a power of 4 for the FD solver")
+        call MPI_Abort(MPI_COMM_WORLD, 1, mpi_err)
+      endif
+    else
+      if (nproc > 1) then
+        call logger%fatal("nproc_validate", "nproc must be set to 1 for the PS solver")
+        call MPI_Abort(MPI_COMM_WORLD, 1, mpi_err)
+      endif
+    endif
+  end subroutine nproc_validate
 
   !> @brief Sends initial parameters to all processes
   !! @param[inout] CH_params        equation and domain parameters
@@ -64,7 +92,6 @@ module comms
 
     call mpi_bcast(do_restart, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, mpi_err)
     call mpi_bcast(selected_solver, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
-
 
     ! allocate on non-master procs
     if (myrank /= 0) then
@@ -98,12 +125,8 @@ module comms
     integer :: req1, req2, req3, req4
     integer :: req5, req6, req7, req8
 
-
-    ! mpi_res = int(grid_res/nproc_row)
-    ! allocate(mpi_grid(0:mpi_res+1, 0:mpi_res+1))
-
     call mpi_type_create_subarray(2, [grid_res, grid_res], [mpi_res, mpi_res], [0, 0],&
-     mpi_order_fortran, mpi_double_precision, subgrid_basic, mpi_err)
+      mpi_order_fortran, mpi_double_precision, subgrid_basic, mpi_err)
 
     call mpi_type_size(mpi_double_precision, dpsize, mpi_err)
     extent = int(mpi_res*dpsize,mpi_address_kind)
@@ -111,7 +134,6 @@ module comms
     call mpi_type_commit(subgrid, mpi_err)
 
     do rank = 0, nproc-1
-
       call mpi_cart_coords(cart_comm, rank, 2, rankcoords, mpi_err)
 
       displs(rank+1) = rankcoords(2) + nproc_row*mpi_res*rankcoords(1)
@@ -120,35 +142,35 @@ module comms
     mpi_grid = 0.0_dp
 
     call MPI_scatterv(grid, counts, displs, subgrid, &
-     mpi_grid(1:mpi_res,1:mpi_res), mpi_res*mpi_res, mpi_double_precision, &
-     0, mpi_comm_world, mpi_err)
+      mpi_grid(1:mpi_res,1:mpi_res), mpi_res*mpi_res, mpi_double_precision, &
+      0, mpi_comm_world, mpi_err)
 
-     call send_edge(mpi_res,  mpi_grid(mpi_res, 1:mpi_res), "d", req1)
-     call send_edge(mpi_res,  mpi_grid(1, 1:mpi_res), "u", req2)
-     call send_edge(mpi_res,  mpi_grid(1:mpi_res, mpi_res), "r", req3)
-     call send_edge(mpi_res,  mpi_grid(1:mpi_res, 1), "l", req4)
-     call send_corner(mpi_grid(1, 1), "ul", req5)
-     call send_corner(mpi_grid(1, mpi_res), "ur", req6)
-     call send_corner(mpi_grid(mpi_res, 1), "dl", req7)
-     call send_corner(mpi_grid(mpi_res, mpi_res), "dr", req8)
+    call send_edge(mpi_res,  mpi_grid(mpi_res, 1:mpi_res), "d", req1)
+    call send_edge(mpi_res,  mpi_grid(1, 1:mpi_res), "u", req2)
+    call send_edge(mpi_res,  mpi_grid(1:mpi_res, mpi_res), "r", req3)
+    call send_edge(mpi_res,  mpi_grid(1:mpi_res, 1), "l", req4)
+    call send_corner(mpi_grid(1, 1), "ul", req5)
+    call send_corner(mpi_grid(1, mpi_res), "ur", req6)
+    call send_corner(mpi_grid(mpi_res, 1), "dl", req7)
+    call send_corner(mpi_grid(mpi_res, mpi_res), "dr", req8)
 
-     call mpi_wait(req1, mpi_status_ignore, mpi_err)
-     call mpi_wait(req2, mpi_status_ignore, mpi_err)
-     call mpi_wait(req3, mpi_status_ignore, mpi_err)
-     call mpi_wait(req4, mpi_status_ignore, mpi_err)
-     call mpi_wait(req5, mpi_status_ignore, mpi_err)
-     call mpi_wait(req6, mpi_status_ignore, mpi_err)
-     call mpi_wait(req7, mpi_status_ignore, mpi_err)
-     call mpi_wait(req8, mpi_status_ignore, mpi_err)
+    call mpi_wait(req1, mpi_status_ignore, mpi_err)
+    call mpi_wait(req2, mpi_status_ignore, mpi_err)
+    call mpi_wait(req3, mpi_status_ignore, mpi_err)
+    call mpi_wait(req4, mpi_status_ignore, mpi_err)
+    call mpi_wait(req5, mpi_status_ignore, mpi_err)
+    call mpi_wait(req6, mpi_status_ignore, mpi_err)
+    call mpi_wait(req7, mpi_status_ignore, mpi_err)
+    call mpi_wait(req8, mpi_status_ignore, mpi_err)
 
-     call recv_edge(mpi_res,  mpi_grid(0, 1:mpi_res), "d")
-     call recv_edge(mpi_res,  mpi_grid(mpi_res+1, 1:mpi_res), "u")
-     call recv_edge(mpi_res,  mpi_grid(1:mpi_res, 0), "r")
-     call recv_edge(mpi_res,  mpi_grid(1:mpi_res, mpi_res+1), "l")
-     call recv_corner(mpi_grid(0, 0), "dr")
-     call recv_corner(mpi_grid(0, mpi_res+1), "dl")
-     call recv_corner(mpi_grid(mpi_res+1, 0), "ur")
-     call recv_corner(mpi_grid(mpi_res+1, mpi_res+1), "ul")
+    call recv_edge(mpi_res,  mpi_grid(0, 1:mpi_res), "d")
+    call recv_edge(mpi_res,  mpi_grid(mpi_res+1, 1:mpi_res), "u")
+    call recv_edge(mpi_res,  mpi_grid(1:mpi_res, 0), "r")
+    call recv_edge(mpi_res,  mpi_grid(1:mpi_res, mpi_res+1), "l")
+    call recv_corner(mpi_grid(0, 0), "dr")
+    call recv_corner(mpi_grid(0, mpi_res+1), "dl")
+    call recv_corner(mpi_grid(mpi_res+1, 0), "ur")
+    call recv_corner(mpi_grid(mpi_res+1, mpi_res+1), "ul")
 
     call MPI_Type_free(subgrid,mpi_err)
   end subroutine grid_scatter
@@ -172,7 +194,7 @@ module comms
     mpi_res = int(grid_res/nproc_row)
 
     call mpi_type_create_subarray(2, [grid_res, grid_res], [mpi_res, mpi_res], [0, 0],&
-     mpi_order_fortran, mpi_double_precision, subgrid_basic, mpi_err)
+      mpi_order_fortran, mpi_double_precision, subgrid_basic, mpi_err)
 
     call mpi_type_size(mpi_double_precision, dpsize, mpi_err)
     extent = int(mpi_res*dpsize,mpi_address_kind)
@@ -180,40 +202,17 @@ module comms
     call mpi_type_commit(subgrid, mpi_err)
 
     do rank = 0, nproc-1
-
       call mpi_cart_coords(cart_comm, rank, 2, rankcoords, mpi_err)
 
       displs(rank+1) = rankcoords(2) + nproc_row*mpi_res*rankcoords(1)
       counts = 1 ! TODO: is this right
     end do
 
-    ! if (myrank == 0) print *, "9", counts, displs
-    ! if (myrank == 0) then
-    !   print *, "9.5"
-    !   do i = 1,4
-    !     do j = 1,4
-    !       write(*, "(F5.2, 1X)", advance="no") mpi_grid(i, j)
-    !     end do
-    !     write(*,*)
-    !   end do
-    ! end if
-    ! if (myrank == 0) then
-    !   print *, "9.75"
-    !   do i = 1,8
-    !     do j = 1,8
-    !       write(*, "(F5.2, 1X)", advance="no") grid(i, j)
-    !     end do
-    !     write(*,*)
-    !   end do
-    !   print *, subgrid
-    ! end if
     call MPI_gatherv(mpi_grid(1:mpi_res,1:mpi_res), mpi_res*mpi_res, mpi_double_precision, &
-    grid, counts, displs, subgrid, &
-     0, mpi_comm_world, mpi_err)
+      grid, counts, displs, subgrid, &
+      0, mpi_comm_world, mpi_err)
 
-    ! if (myrank == 0) print *, "10"
     call MPI_Type_free(subgrid,mpi_err)
-    ! if (myrank == 0) print *, "11"
   end subroutine grid_gather
 
   !> @brief Sends a corner to the process in the corresponding direction
@@ -233,23 +232,21 @@ module comms
     dir = [0, 0]
 
     select case(direction)
+      case("ul")
+        dir = [-1, -1]
 
-    case("ul")
-      dir = [-1, -1]
+      case("ur")
+        dir = [-1, 1]
 
-    case("ur")
-      dir = [-1, 1]
+      case("dl")
+        dir = [1, -1]
 
-    case("dl")
-      dir = [1, -1]
+      case("dr")
+        dir = [1, 1]
 
-    case("dr")
-      dir = [1, 1]
-
-    case default
-      call logger%fatal("recv_edge", "invalid direction: not in ul, ur, dl, dr")
-      call MPI_Abort(MPI_COMM_WORLD, 1, err)
-
+      case default
+        call logger%fatal("recv_edge", "invalid direction: not in ul, ur, dl, dr")
+        call MPI_Abort(MPI_COMM_WORLD, 1, err)
     end select
 
     recv_coords(1) = mod(mycoords(1) + dir(1), nproc_row)
@@ -258,7 +255,7 @@ module comms
     call mpi_cart_rank(cart_comm, recv_coords, recv_rank, mpi_err)
 
     call mpi_isend(val, 1, mpi_double_precision, &
-    recv_rank, 1003, cart_comm, req, mpi_err)
+      recv_rank, 1003, cart_comm, req, mpi_err)
   end subroutine
 
 
@@ -277,23 +274,21 @@ module comms
     dir = [0, 0]
 
     select case(direction)
+      case("ul")
+        dir = [-1, -1]
 
-    case("ul")
-      dir = [-1, -1]
+      case("ur")
+        dir = [-1, 1]
 
-    case("ur")
-      dir = [-1, 1]
+      case("dl")
+        dir = [1, -1]
 
-    case("dl")
-      dir = [1, -1]
+      case("dr")
+        dir = [1, 1]
 
-    case("dr")
-      dir = [1, 1]
-
-    case default
-      call logger%fatal("recv_edge", "invalid direction: not in ul, ur, dl, dr")
-      call MPI_Abort(MPI_COMM_WORLD, 1, err)
-
+      case default
+        call logger%fatal("recv_edge", "invalid direction: not in ul, ur, dl, dr")
+        call MPI_Abort(MPI_COMM_WORLD, 1, err)
     end select
 
     source_coords(1) = mod(mycoords(1) - dir(1), nproc_row)
@@ -302,7 +297,7 @@ module comms
     call mpi_cart_rank(cart_comm, source_coords, source_rank, mpi_err)
 
     call mpi_recv(val, 1, mpi_double_precision, &
-    source_rank, 1003, cart_comm, mpi_status_ignore, mpi_err)
+      source_rank, 1003, cart_comm, mpi_status_ignore, mpi_err)
   end subroutine
 
   !> @brief Sends an edge to the process in the corresponding direction
@@ -325,27 +320,25 @@ module comms
     dir_int = 0
 
     select case(direction)
+      case("l")
+        dir_int = 4
 
-    case("l")
-      dir_int = 4
+      case("r")
+        dir_int = 3
 
-    case("r")
-      dir_int = 3
+      case("u")
+        dir_int = 1
 
-    case("u")
-      dir_int = 1
+      case("d")
+        dir_int = 2
 
-    case("d")
-      dir_int = 2
-
-    case default
-      call logger%fatal("recv_edge", "invalid direction: not in u, d, l, r")
-      call MPI_Abort(MPI_COMM_WORLD, 1, err)
-
+      case default
+        call logger%fatal("recv_edge", "invalid direction: not in u, d, l, r")
+        call MPI_Abort(MPI_COMM_WORLD, 1, err)
     end select
 
     call mpi_isend(edge, n, mpi_double_precision, &
-     neigh(dir_int), 1003, cart_comm, req, mpi_err)
+      neigh(dir_int), 1003, cart_comm, req, mpi_err)
   end subroutine send_edge
 
   !> @brief Receives an edge from the process in the corresponding direction
@@ -365,27 +358,25 @@ module comms
     dir_int = 0
 
     select case(direction)
+      case("l")
+        dir_int = 3
 
-    case("l")
-      dir_int = 3
+      case("r")
+        dir_int = 4
 
-    case("r")
-      dir_int = 4
+      case("u")
+        dir_int = 2
 
-    case("u")
-      dir_int = 2
+      case("d")
+        dir_int = 1
 
-    case("d")
-      dir_int = 1
-
-    case default
-      call logger%fatal("recv_edge", "invalid direction: not in u, d, l, r")
-      call MPI_Abort(MPI_COMM_WORLD, 1, err)
-
+      case default
+        call logger%fatal("recv_edge", "invalid direction: not in u, d, l, r")
+        call MPI_Abort(MPI_COMM_WORLD, 1, err)
     end select
 
     call mpi_recv(edge, n, mpi_double_precision, &
-     neigh(dir_int), 1003, cart_comm, mpi_status_ignore, mpi_err)
+      neigh(dir_int), 1003, cart_comm, mpi_status_ignore, mpi_err)
   end subroutine recv_edge
 
   !> @brief Shuts down MPI communications

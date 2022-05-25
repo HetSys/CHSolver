@@ -14,12 +14,14 @@ def find_previous_t_index(t_array:np.array, t):
     return index
 
 
-def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1, metadata = True):
+def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1, metadata = True, filetype = 'mp4'):
   '''! Produces an animation for the evolution of species concentration, outputted as an mp4 to the main directory.
   @param animation_fps Number of frames per second for the animation. Default is 10.
   @param ti Time to intialise the visualiation (will use closest time prior to that specified). Default is 0
   @param tf Time to finish the visualiation (will use closest time prior to that specified). Default is the final time recorded.
   @param metadata Show metadata at top of the visual. Default is True
+  @param filetype Specify filetype (mp4 or gif) for the animation. Default is mp4
+
 
   '''
 
@@ -54,7 +56,14 @@ def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1, metadata = True
   if metadata == True:
     plt.suptitle('L = '+str(L)+', A = '+str(A)+', M = '+str(M)+ ', K = '+str(K)+', p0 = '+str(p0)+', p1 = '+str(p1), fontsize = 8)
   final_an = anim.ArtistAnimation(fig, ims, interval = 5, repeat = True, blit=False)
-  final_an.save('Conc_Evolution.mp4', writer = "ffmpeg", fps = animation_fps)
+  if filetype == 'gif':
+    final_an.save('Conc_Evolution.gif', writer = anim.PillowWriter(fps = animation_fps))
+  elif filetype == 'mp4':
+    final_an.save('Conc_Evolution.mp4', writer = "ffmpeg", fps = animation_fps)
+  else:
+    print('Unable to use specified filetype, defaulting to mp4.')
+    final_an.save('Conc_Evolution.mp4', writer = "ffmpeg", fps = animation_fps)
+
   return final_an
 
 def plot_conc_snapshot(data_obj, t, metadata = True):
@@ -151,7 +160,7 @@ if __name__ == "__main__":
 
   # Read outputs from default loc and plot visualisation
   dat.read_outputs("out")
-  plot_conc_evol(dat)
+  plot_conc_evol(dat, filetype = 'mp4')
   plt.clf()
   plot_free_energy(dat)
   plt.clf()

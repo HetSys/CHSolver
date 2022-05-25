@@ -2,9 +2,9 @@
 !> @brief Command Line Interface for the CH Solver.
 !! @details Parses for getopt style args to adjust input parameters, logging verbosity,
 !! and other features.
-!! @author Tom Rocke
 module command_line
   use globals
+  use comms
   implicit none
 
   real(dp), private :: cmd_CH_params(6)
@@ -30,6 +30,9 @@ module command_line
   integer, private :: SELECTED_SOLVER
 
   integer, parameter :: SOLVER_FD_SELECTED = 1, SOLVER_PS_SELECTED = 2
+
+
+  integer, private :: ierr
 
 
   !> @var integer linspace_selected 
@@ -124,7 +127,7 @@ module command_line
 
     if (present(run_name) .AND. allocated(cmd_runname)) then
       run_name = cmd_runname
-      call logger%debug("get_io_commands", "Run name "// trim(run_name) // "set from CLI")
+      call logger%debug("get_io_commands", "Run name "// trim(run_name) // " set from CLI")
     end if
 
     if (present(output_dir) .AND. allocated(cmd_outpath)) then
@@ -243,15 +246,13 @@ module command_line
   end subroutine
 
   !> @brief Check which solver was selected from the CLI
-  !! @param[out] selection Integer marker for which solver was selected. Compare against
+  !! @param[inout] selection Integer marker for which solver was selected. Compare against
   !! SOLVER_FD_SELECTED and SOLVER_PS_SELECTED
   subroutine get_selected_solver(selection)
-    integer, intent(out) :: selection
+    integer, intent(inout) :: selection
 
     if (SELECTED_SOLVER == SOLVER_FD_SELECTED .OR. SELECTED_SOLVER == SOLVER_FD_SELECTED) then
       selection = SELECTED_SOLVER
-    else
-      selection = SOLVER_PS_SELECTED
     end if
 
   end subroutine
@@ -261,7 +262,7 @@ module command_line
   subroutine parse_args()
     integer :: num_args
     character(:), allocatable :: key_arg, val_arg
-    character(len=100) :: arg
+    character(len=:), allocatable :: arg
     integer :: len_arg, equals_pos, idx
 
     num_args = command_argument_count()
@@ -269,6 +270,7 @@ module command_line
     is_val = .FALSE.
 
     cmd_CH_params = -1.0_dp
+    val_arg = ""
 
     if (num_args == 0) return ! Nothing to do if no args provided
 
@@ -277,7 +279,11 @@ module command_line
 
       if (is_val(current_arg) .EQV. .TRUE.) cycle ! Skip values for short -{key} {val} notation
 
-      call get_command_argument(current_arg, arg, len_arg)
+      call get_command_argument(current_arg, length=len_arg)
+      if(allocated(arg)) deallocate(arg)
+      allocate(character(len_arg)::arg)
+      call get_command_argument(current_arg, arg)
+
       ! Ignore arg if it's not a -{key} or --{key}
       if (len_arg < 2 .OR. arg(1:1) /= "-") cycle
       ! Check if arg is short (-{key}), or long (--{key})
@@ -298,8 +304,12 @@ module command_line
 
         key_arg = trim(arg(2:)) ! Grab key part
 
-
-        call get_command_argument(current_arg+1, arg)
+        if (current_arg+1 <= num_args) then
+          call get_command_argument(current_arg + 1, length=len_arg)
+          if(allocated(arg)) deallocate(arg)
+          allocate(character(len_arg)::arg)
+          call get_command_argument(current_arg + 1, arg)
+        end if
         val_arg = trim(arg)
         do idx=1, len_arg - 1
           ! Loop through all chars in key_arg
@@ -335,17 +345,19 @@ module command_line
 
     integer :: idx
 
+    idx = 0
+
     select case (key_arg)
       ! HELP
       case ("h", "help")
         call print_help_text()
-        stop
+        call MPI_Abort(MPI_COMM_WORLD, 0, ierr)
       ! LOGGING & STDOUTPUT
       case ("v", "verbose")
         cmd_stdout_val = cmd_stdout_val - 10
       case ("V", "version")
         print *, "CHSolver 1.0"
-        stop
+        call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
       case ("q", "quiet")
         logger%log_enabled = .FALSE.
         cmd_stdout_val = cmd_stdout_val + 10
@@ -399,7 +411,7 @@ module command_line
         case ("1", "p1")
           idx = 6
         end select
-        if (present(val_arg)) then
+        if (present(val_arg) .AND. val_arg(1:1) .NE. "{") then
           cmd_CH_params(idx) = str_to_real(val_arg)
           is_val(current_arg+1) = is_short_arg
           CH_fnd(idx) = .TRUE.
@@ -522,6 +534,7 @@ module command_line
     integer :: n_elements, idx, last_idx, t_idx
 
     character(1), parameter :: separator = ":"
+
     n_elements = 1
     do idx=2, len(str_array) - 1
       ! Find length of t array to allocate

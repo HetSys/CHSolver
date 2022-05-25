@@ -132,7 +132,6 @@ module fd_solvers
     ! ======================================================================== !
     !   SETUP                                                                  !
     ! ======================================================================== !
-   
     double_start = .false.
 
     ! check if optionals are present
@@ -151,8 +150,7 @@ module fd_solvers
     if (double_start) then
       call mpi_bcast(dt_in, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpi_err)
     end if
-      
-   
+
     ! set variables    
     N = size(c0,1) / nproc_row
     call ilog2(N,level)
@@ -201,7 +199,6 @@ module fd_solvers
     call multigrid_alloc(E2_global, level_global-level+local_min)
     call multigrid_alloc(R1_global, level_global-level+local_min)
     call multigrid_alloc(R2_global, level_global-level+local_min)
-
 
     ! send c0 (global) to phi (local)
     if (nproc > 1) then
@@ -287,7 +284,7 @@ module fd_solvers
 
       ! solve system with repeated v-cycles
       do i=1,niter
-        ! compute residuals TODO: maybe use MPI
+        ! compute residuals
         call laplacian(psi, R1(level)%grid, dx, n)
         R1(level)%grid = R1(level)%grid - phi/dt + b
         call laplacian(phi, R2(level)%grid, dx, n)
@@ -295,8 +292,6 @@ module fd_solvers
 
         E1(level)%grid = 0.0_dp
         E2(level)%grid = 0.0_dp
-
-        ! TODO: finish iteration conditional on the size of the residual
 
         ! perform a single v-cycle
         if (nproc > 1) then
@@ -360,8 +355,6 @@ module fd_solvers
           call logger%info("solver_ufds2t2", msg)
           dt_out = dt
           t_out = t
-          ! c = phi(1:N,1:N)
-          ! c_prev = phi_prev(1:N,1:N)
           call dimensionalise(CH_params, c_global, t_out)
           call dimensionalise(CH_params, c_prev_global, dt_out)
 
@@ -378,8 +371,7 @@ module fd_solvers
       phi_prev = phi
       g_prev = g
 
-      !! REAPEAT FOR C1
-      ! send c0 (global) to phi (local)
+      ! send c1 (global) to phi (local)
       if (nproc > 1) then
         call grid_scatter(c1, N_global, phi, N)
       else
@@ -409,14 +401,14 @@ module fd_solvers
       ! set timesteps
       dt0 = dt_in
       dt_min = dt_in
-
     endif
+
 
     ! ======================================================================== !
     !   REMAINING TIMESTEPS (second order)                                     !
     ! ======================================================================== !
     do while (t < tmax)
-      ! set current timestep TODO: condition on curvature rather than time
+      ! set current timestep
       if (t < t0) then
         dt = dt_min
       else if (t < t1) then
@@ -424,6 +416,9 @@ module fd_solvers
       else
         dt = dt_max
       endif
+
+      ! ensure timestep doesn't change too fast
+      dt = dt0 + 0.1_dp * (dt - dt0)
 
       ! restrict timestep if we would otherwise exceed an output time
       if (t + dt + epsilon(t) >= tout(it)) then
@@ -468,8 +463,6 @@ module fd_solvers
 
         E1(level)%grid = 0.0_dp
         E2(level)%grid = 0.0_dp
-
-        ! TODO: finish iteration conditional on the size of the residual
 
         ! perform a single v-cycle
         if (nproc > 1) then
@@ -544,6 +537,7 @@ module fd_solvers
       endif
     enddo
 
+    call MPI_Barrier(MPI_COMM_WORLD, mpi_err)
 
     ! ========================================================================== !
     !   CLEAN UP                                                                 !
@@ -611,7 +605,6 @@ module fd_solvers
 
     dx2_ = 1.0_dp / (dx*dx)
 
-    ! interior
     do j=1,n
       do i=1,n
         y(i,j) = dx2_*(x(i+1,j) + x(i-1,j) + x(i,j+1) + x(i,j-1) - 4*x(i,j))
@@ -680,14 +673,6 @@ module fd_solvers
       dxl = dxl * 2.0_dp
     enddo
 
-    ! ! smooth at level local_min TODO: remove bad workaround
-    ! E1(l)%grid = 0.0_dp
-    ! E2(l)%grid = 0.0_dp
-    ! do i=1,5
-    !   call smooth(A, E1(local_min)%grid, E2(local_min)%grid, R1(local_min)%grid, R2(local_min)%grid, &
-    !               eps2, nl, dxl)
-    ! enddo
-
     ! gather onto rank 0
     call ilog2(nproc_row, l_global)
     l_global = l_global + l
@@ -739,7 +724,7 @@ module fd_solvers
     real(dp), dimension(2) :: rhs
     real(dp) :: dx2_
     integer :: i, j, shift
-    integer :: req1, req2, req3, req4
+    integer :: req1, req2, req3, req4, req5, req6, req7, req8
 
     dx2_ = 1.0_dp / (dx*dx)
 
@@ -749,10 +734,10 @@ module fd_solvers
     call send_edge(n, E1(1:N,1), "l", req3)
     call send_edge(n, E1(1:N,N), "r", req4)
 
-    call send_edge(n, E2(1,1:N), "u", req1)
-    call send_edge(n, E2(N,1:N), "d", req2)
-    call send_edge(n, E2(1:N,1), "l", req3)
-    call send_edge(n, E2(1:N,N), "r", req4)
+    call send_edge(n, E2(1,1:N), "u", req5)
+    call send_edge(n, E2(N,1:N), "d", req6)
+    call send_edge(n, E2(1:N,1), "l", req7)
+    call send_edge(n, E2(1:N,N), "r", req8)
 
 
     ! ================ !
@@ -782,10 +767,10 @@ module fd_solvers
     call recv_edge(n, E1(1:N,N+1), "l")
     call recv_edge(n, E1(1:N,0), "r")
 
-    call mpi_wait(req1, mpi_status_ignore, mpi_err)
-    call mpi_wait(req2, mpi_status_ignore, mpi_err)
-    call mpi_wait(req3, mpi_status_ignore, mpi_err)
-    call mpi_wait(req4, mpi_status_ignore, mpi_err)
+    call mpi_wait(req5, mpi_status_ignore, mpi_err)
+    call mpi_wait(req6, mpi_status_ignore, mpi_err)
+    call mpi_wait(req7, mpi_status_ignore, mpi_err)
+    call mpi_wait(req8, mpi_status_ignore, mpi_err)
     call recv_edge(n, E2(N+1,1:N), "u")
     call recv_edge(n, E2(0,1:N), "d")
     call recv_edge(n, E2(1:N,N+1), "l")

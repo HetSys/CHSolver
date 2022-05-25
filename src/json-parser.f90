@@ -1,13 +1,14 @@
 !> @brief Parser for input JSON formatted files
 !! @details Methods to search a target JSON file for the required input parameters
-!! @author Tom Rocke
 
 module JSON_Parser
 
   use globals
   use json_module
+  use comms
 
   implicit none
+  integer, private :: ierr
 
   !> @brief interface for retrieving parameterss from the JSON file
   interface json_retrieve
@@ -46,14 +47,14 @@ module JSON_Parser
     
     if (error) then
       call logger%fatal("read_json", "Issues found fetching JSON params")
-      stop 1
+      call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
     end if
 
     call json%destroy()
 
     if (json%failed()) then
       call logger%fatal("open_json", "Failed to cleanup json object")
-      stop 1
+      call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
     end if
   end subroutine
 
@@ -75,7 +76,7 @@ module JSON_Parser
 
     if (json%failed()) then
       call logger%fatal("open_json", fname // " could not be opened.")
-      stop 1
+      call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
     end if
     
     call json%print_to_string(j_string)

@@ -1,6 +1,6 @@
 PFUNIT_DIR=../../src/submodules/pFUnit/build/installed/PFUNIT-4.3
 include $(PFUNIT_DIR)/include/PFUNIT.mk
-FC= gfortran # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
+FC= mpif90 # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
 LD=$(FC)
 
 FFLAGS= -Wall -Wextra -Wconversion-extra -std=f2008 -Wno-maybe-uninitialized
@@ -10,7 +10,7 @@ FFLAGS += -I/usr/include/hdf5/serial -I../../src/submodules/bin/jsonfortran-gnu-
 FFLAGS += $(PFUNIT_EXTRA_FFLAGS)
 
 FLIBS = ../../src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a
-FLIBS += $(filter-out ../../obj/main.o ../../obj/hdf5-io.o ../../obj/solvers.o ../../obj/fd-solvers.o, $(wildcard ../../obj/*.o))
+FLIBS += $(filter-out ../../obj/main.o ../../obj/hdf5-io.o ../../obj/solvers.o ../../obj/fd-solvers.o ../../obj/pseudo_spectral_solver.o, $(wildcard ../../obj/*.o))
 # FLIBS += $(filter-out ../../obj/main.o, $(wildcard ../../obj/*.o))
 
 # directories
