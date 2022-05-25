@@ -271,6 +271,7 @@ module command_line
     is_val = .FALSE.
 
     cmd_CH_params = -1.0_dp
+    val_arg = ""
 
     if (num_args == 0) return ! Nothing to do if no args provided
 
