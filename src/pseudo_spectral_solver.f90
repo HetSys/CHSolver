@@ -110,7 +110,7 @@ contains
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
-        call write_to_traj_2D(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
+        call write_to_traj(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
         i = i + 1
       endif
 
@@ -147,7 +147,7 @@ contains
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
-        call write_to_traj_2D(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
+        call write_to_traj(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
 
         i = i + 1
       end if
@@ -184,7 +184,7 @@ contains
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
-        call write_to_traj_2D(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
+        call write_to_traj(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
         i = i + 1
       end if
 
@@ -223,7 +223,7 @@ contains
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
-        call write_to_traj_2D(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
+        call write_to_traj(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
 
         i = i + 1
       end if
