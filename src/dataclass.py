@@ -62,6 +62,19 @@ class CHData():
         keys = list(self._data.keys())
         return keys
 
+    
+    def print_cli_help(self) -> None:
+        '''!
+        Prints CLI Help Doc
+        '''
+        error_code = os.system("./chsolver -h")
+        
+        if error_code != 0:
+            # Error has occurred
+            raise FortranSourceError("Error occurred in Fetching help")
+
+        
+
     def read_rundata(self, run_name: str) -> None:
         '''!
         Search for a run with name matching run_name
