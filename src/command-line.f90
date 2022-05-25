@@ -340,6 +340,8 @@ module command_line
 
     integer :: idx
 
+    idx = 0
+
     select case (key_arg)
       ! HELP
       case ("h", "help")
