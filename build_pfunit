@@ -1,0 +1,10 @@
+#!/bin/bash
+
+echo Building pfUnit
+cd src/submodules
+cd pFUnit
+mkdir build
+cd build
+cmake ..
+cmake --build .
+cmake --install .
