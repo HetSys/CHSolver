@@ -35,7 +35,7 @@ module comms
     call mpi_cart_shift(cart_comm, 0, 1, neigh(4), neigh(3), mpi_err)
   end subroutine comms_init
 
-  !> @Brief Sends initial parameters to all processes
+  !> @brief Sends initial parameters to all processes
   !! @param[inout] CH_params        equation and domain parameters
   !! @param[inout] Tout             output times
   !! @param[inout] grid_res         grid resolution
@@ -77,7 +77,7 @@ module comms
     call mpi_bcast(Tout, size(Tout), MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpi_err)
   end subroutine broadcast_setup
 
-  !> @Brief Scatters a grid from rank 0 to mpi_grids on all processes
+  !> @brief Scatters a grid from rank 0 to mpi_grids on all processes
   !! @param[in] grid       global grid
   !! @param[in] grid_res   global grid resolution
   !! @param[out] mpi_grid  local grid
@@ -153,7 +153,7 @@ module comms
     call MPI_Type_free(subgrid,mpi_err)
   end subroutine grid_scatter
 
-  !> @Brief Gathers a grid to rank 0 from mpi_grids on all processes
+  !> @brief Gathers a grid to rank 0 from mpi_grids on all processes
   !! @param[in] grid         global grid
   !! @param[inout] grid_res  global grid resolution
   !! @param[in] mpi_grid     local grid
@@ -216,8 +216,8 @@ module comms
     ! if (myrank == 0) print *, "11"
   end subroutine grid_gather
 
-  !> @Brief Sends a corner to the process in the corresponding direction
-  !! Direction will always correspond to the perspective of sending proc
+  !> @brief Sends a corner to the process in the corresponding direction
+  !! @details Direction will always correspond to the perspective of sending proc
   !! Please call mpi_wait(req, mpi_ignore_status, mpi_err) to guarantee a sent
   !! request is complete (see scatter for an example).
   !! @param[in] val        value of the corner
@@ -262,8 +262,8 @@ module comms
   end subroutine
 
 
-  !> @Brief Receives a corner from the process in the corresponding direction
-  !! Direction will always correspond to the perspective of sending proc
+  !> @brief Receives a corner from the process in the corresponding direction
+  !! @details Direction will always correspond to the perspective of sending proc
   !! Please call mpi_wait(req, mpi_ignore_status, mpi_err) to guarantee a sent
   !! request is complete (see scatter for an example).
   !! @param[out] val       value of the corner
@@ -305,8 +305,8 @@ module comms
     source_rank, 1003, cart_comm, mpi_status_ignore, mpi_err)
   end subroutine
 
-  !> @Brief Sends an edge to the process in the corresponding direction
-  !! Direction will always correspond to the perspective of sending proc
+  !> @brief Sends an edge to the process in the corresponding direction
+  !! @details Direction will always correspond to the perspective of sending proc
   !! Please call mpi_wait(req, mpi_ignore_status, mpi_err) to guarantee a sent
   !! request is complete (see scatter for an example).
   !! @param[in] n          length of the edge
@@ -348,8 +348,8 @@ module comms
      neigh(dir_int), 1003, cart_comm, req, mpi_err)
   end subroutine send_edge
 
-  !> @Brief Receives an edge from the process in the corresponding direction
-  !! Direction will always correspond to the perspective of sending proc
+  !> @brief Receives an edge from the process in the corresponding direction
+  !! @details Direction will always correspond to the perspective of sending proc
   !! Please call mpi_wait(req, mpi_ignore_status, mpi_err) to guarantee a sent
   !! request is complete (see scatter for an example).
   !! @param[in] n          length of the edge
@@ -388,7 +388,7 @@ module comms
      neigh(dir_int), 1003, cart_comm, mpi_status_ignore, mpi_err)
   end subroutine recv_edge
 
-  !> @Brief Shuts down MPI communications
+  !> @brief Shuts down MPI communications
   subroutine comms_final()
     call mpi_finalize(mpi_err)
   end subroutine comms_final

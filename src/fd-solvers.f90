@@ -1,6 +1,5 @@
 !> @brief Module defining a type and allocs and deallocs for Multigrids.
-!!
-!! A multigrid is an array of rank-2 arrays. The ith entry is 2**i-by-2**i.
+!! @details A multigrid is an array of rank-2 arrays. The ith entry is 2**i-by-2**i.
 module multigrid
   use globals
 
@@ -56,8 +55,7 @@ end module multigrid
 
 
 !> @brief Module containing the solver_ufds2t2 function to solve the CH equation
-!!
-!! This module contains the public function solver_ufds2t2, which solves the
+!! @details This module contains the public function solver_ufds2t2, which solves the
 !! dimensionless Cahn-Hilliard equation using a semi-implicit splitting method,
 !! solved with a linear multigrid solver. See doi:10.1016/j.jcp.2007.02.019 for
 !! a fuller explaination of the algorithm.
@@ -83,7 +81,6 @@ module fd_solvers
 
 
   !> @brief solves the dimensionless CH equation
-  !!
   !! @param[in] t_0        starting time
   !! @param[in] Tout       output times
   !! @param[in] CH_params  solver/domain parameters
@@ -599,7 +596,6 @@ module fd_solvers
 
 
   !> @brief computes the periodic Laplacian for a grid in vector form
-  !!
   !! @param[in] x      input grid
   !! @param[inout] y   output grid, y = Lx
   !! @param[in] dx     grid spacing
@@ -625,7 +621,6 @@ module fd_solvers
 
 
   !> @brief computes the periodic Laplacian for a grid in vector form
-  !!
   !! @param[inout] g    output g vector
   !! @param[in] phi     input phi vector
   !! @param[in] dx      grid spacing
@@ -646,7 +641,6 @@ module fd_solvers
 
 
   !> @brief performs a single iteration of the multigrid v-cycle
-  !!
   !! @param[in] A       2x2 smoothing matrix (solution matrix for a 1x1 system)
   !! @param[inout] E1   error multigrid for the first variable (local)
   !! @param[inout] E2   error multigrid for the second variable (local)
@@ -727,7 +721,6 @@ module fd_solvers
 
 
   !> @brief performs a single red/black smooth
-  !!
   !! @param[in] A      2x2 smoothing matrix (inverse solution matrix for a 1x1 system)
   !! @param[inout] E1  error array for the first variable at level
   !! @param[inout] E2  error array for the second variable at level
@@ -851,7 +844,6 @@ module fd_solvers
 
 
   !> @brief restricts (ie coarsens) to level-1 from level
-  !!
   !! @param[inout] R1f  residual multigrid for the first variable (fine)
   !! @param[inout] R2f  residual multigrid for the second variable (fine)
   !! @param[inout] R1c  residual multigrid for the first variable (coarse)
@@ -881,7 +873,6 @@ module fd_solvers
 
 
   !> @brief prolongates (ie refines) from level to level+1 (bilinear interpolation)
-  !!
   !! @param[inout] E1f  error multigrid for the first variable (fine)
   !! @param[inout] E2f  error multigrid for the second variable (fine)
   !! @param[inout] E1c  error multigrid for the first variable (coarse)
