@@ -118,7 +118,7 @@ module command_line
 
     if (present(run_name) .AND. allocated(cmd_runname)) then
       run_name = cmd_runname
-      call logger%debug("get_io_commands", "Run name "// trim(run_name) // "set from CLI")
+      call logger%debug("get_io_commands", "Run name "// trim(run_name) // " set from CLI")
     end if
 
     if (present(output_dir) .AND. allocated(cmd_outpath)) then
