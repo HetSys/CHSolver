@@ -17,8 +17,8 @@ contains
     real(dp), intent(in)                              :: Tout(:)
     real(dp), intent(in)                              :: eps2, A
     real(dp), intent(in), dimension(6)                :: CH_params
-    real(dp), allocatable, intent(in)                 :: inarr(:,:)
-    real(dp), allocatable, intent(in), optional       :: inarr1(:,:)
+    real(dp), intent(in)                              :: inarr(:,:)
+    real(dp), intent(in), optional                    :: inarr1(:,:)
     real(dp), intent(in), optional                    :: dt_in
     real(dp), intent(in)                              :: t0
     integer, intent(inout)                            :: errors
@@ -293,18 +293,18 @@ contains
   !! @param[in] tau, kappa, A, ksq, fwplan, bwplan  Stuff here.
   !! @param[inout] c0, res  The concentration grids.
   subroutine initial_iteration(tau, kappa, ksq, c0, res, fwplan, bwplan)
-    complex(cdc), dimension(:,:), intent(inout)  :: c0
+    complex(cdc), dimension(:,:), intent(inout)           :: c0
     real(dp), intent(in)                                  :: tau, kappa
     real(dp), dimension(:,:), intent(in)                  :: ksq
-    complex(cdc), dimension(:,:), intent(out)    :: res
-    type(C_PTR), intent(in)                                   :: fwplan, bwplan
-    integer, dimension(2)                                     :: c_shape
-    integer                                                   :: N
+    complex(cdc), dimension(:,:), intent(out)             :: res
+    type(C_PTR), intent(in)                               :: fwplan, bwplan
+    integer, dimension(2)                                 :: c_shape
+    integer                                               :: N
     real(dp)                                              :: tau1
-    complex(cdc)                                           :: ctau1, ckappa
-    complex(cdc), allocatable ,dimension(:,:)              :: cksq
-    complex(cdc), pointer :: fc0(:,:), ft_c0(:,:), ft_fc0(:,:), ft_c1(:,:)
-    type(C_PTR) :: p1, p2, p3, p4
+    complex(cdc)                                          :: ctau1, ckappa
+    complex(cdc), allocatable ,dimension(:,:)             :: cksq
+    complex(cdc), pointer                                 :: fc0(:,:), ft_c0(:,:), ft_fc0(:,:), ft_c1(:,:)
+    type(C_PTR)                                           :: p1, p2, p3, p4
 
 
     c_shape = shape(c0)
@@ -357,9 +357,9 @@ contains
   !! @param[in] tau, kappa, A, ksq, fwplan, bwplan  Stuff here.
   !! @param[inout] c0, c1  The concentration grids.
   subroutine iteration(tau, ksq, kappa, A, c0, c1, fwplan, bwplan)
-    complex(cdc), dimension(:,:), intent(inout)  :: c1, c0
-    real(dp), intent(in)                                  :: tau, kappa, A
-    real(dp), dimension(:,:), intent(in)                  :: ksq
+    complex(cdc), dimension(:,:), intent(inout)               :: c1, c0
+    real(dp), intent(in)                                      :: tau, kappa, A
+    real(dp), dimension(:,:), intent(in)                      :: ksq
     type(C_PTR), intent(in)                                   :: fwplan, bwplan
     integer, dimension(2)                                     :: c_shape
     integer                                                   :: N
