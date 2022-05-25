@@ -18,7 +18,7 @@ module solver_utils
     implicit none
     real(dp), intent(in) :: CH_params(6)
     real(dp), intent(inout) :: T(:)
-    real(dp), dimension(:,:), allocatable, intent(inout) :: c
+    real(dp), dimension(:,:), intent(inout) :: c
     real(dp), intent(out) :: eps2
 
     real(dp) :: L, A, M, K, p0, p1 ! CH_params contents
@@ -54,7 +54,7 @@ module solver_utils
     implicit none
     real(dp), intent(in) :: CH_params(6)
     real(dp), intent(inout) :: t
-    real(dp), dimension(:,:), allocatable, intent(inout) :: c
+    real(dp), dimension(:,:), intent(inout) :: c
 
     real(dp) :: L, A, M, K, p0, p1 ! CH_params contents
     real(dp) :: a0, a1 ! conversion factors

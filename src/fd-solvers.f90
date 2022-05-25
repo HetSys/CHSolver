@@ -84,8 +84,8 @@ module fd_solvers
     real(dp), intent(in) :: Tout(:)
     real(dp), intent(in) :: eps2
     real(dp), intent(in), dimension(6) :: CH_params
-    real(dp), dimension(:,:), allocatable, intent(in) :: c0
-    real(dp), dimension(:,:), allocatable, intent(in), optional :: c1
+    real(dp), dimension(:,:), intent(in) :: c0
+    real(dp), dimension(:,:), intent(in), optional :: c1
     real(dp), intent(in), optional :: dt_in
     integer :: errors
 
@@ -121,7 +121,28 @@ module fd_solvers
     ! ======================================================================== !
     !   SETUP                                                                  !
     ! ======================================================================== !
-    ! set variables
+   
+    double_start = .false.
+
+    ! check if optionals are present
+    if (present(c1)) then
+      if (.not. present(dt_in)) then
+        call logger%warning("solver_ufds2t2", "no timestep provided, defaulting to first order")
+      else
+        double_start = .true.
+      endif
+    else
+      if (present(dt_in)) then
+        call logger%warning("solver_ufds2t2", "no paired concentration provided, defaulting to first order")
+      endif
+    endif
+
+    if (double_start) then
+      call mpi_bcast(dt_in, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpi_err)
+    end if
+      
+   
+    ! set variables    
     N = size(c0,1) / nproc_row
     call ilog2(N,level)
     dx = 1.0_dp/(real(N*nproc_row,dp))
@@ -134,7 +155,6 @@ module fd_solvers
     eps = sqrt(eps2)
     t0 = 10.0_dp * eps + t_0
     t1 = 20.0_dp * eps + t_0
-    double_start = .false.
 
     call logger%info("solver_ufds2t2", "eps:"//to_string(eps))
 
@@ -171,18 +191,6 @@ module fd_solvers
     call multigrid_alloc(R1_global, level_global-level+local_min)
     call multigrid_alloc(R2_global, level_global-level+local_min)
 
-    ! check if optionals are present
-    if (present(c1)) then
-      if (.not. present(dt_in)) then
-        call logger%warning("solver_ufds2t2", "no timestep provided, defaulting to first order")
-      else
-        double_start = .true.
-      endif
-    else
-      if (present(dt_in)) then
-        call logger%warning("solver_ufds2t2", "no paired concentration provided, defaulting to first order")
-      endif
-    endif
 
     ! send c0 (global) to phi (local)
     if (nproc > 1) then
@@ -390,8 +398,8 @@ module fd_solvers
       ! set timesteps
       dt0 = dt_in
       dt_min = dt_in
-    endif
 
+    endif
 
     ! ======================================================================== !
     !   REMAINING TIMESTEPS (second order)                                     !
@@ -497,8 +505,6 @@ module fd_solvers
           call recv_edge(n, psi(1:N,0), "r")
         endif
 
-        ! print size of residual
-        ! print *, i, "r1 max = ", maxval(abs(R1(level)%grid))
       enddo
 
       ! output if required
@@ -681,7 +687,6 @@ module fd_solvers
 
     ! final vcycles on rank 0
     if (myrank == 0) then
-      ! print *, nproc, nproc_row, l_global
       call vcycle0(A, E1g, E2g, R1g, R2g, eps2, nl*nproc_row, dxl, l_global)
     endif
 

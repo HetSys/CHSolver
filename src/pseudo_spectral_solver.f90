@@ -17,8 +17,8 @@ contains
     real(dp), intent(in)                              :: Tout(:)
     real(dp), intent(in)                              :: eps2, A
     real(dp), intent(in), dimension(6)                :: CH_params
-    real(dp), allocatable, intent(in)                 :: inarr(:,:)
-    real(dp), allocatable, intent(in), optional       :: inarr1(:,:)
+    real(dp),              intent(in)                 :: inarr(:,:)
+    real(dp), intent(in), optional                    :: inarr1(:,:)
     real(dp), intent(in), optional                    :: dt_in
     integer, intent(inout)                            :: errors
     integer                                           :: N, i, n_threads, j, k, caseflag

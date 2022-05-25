@@ -36,12 +36,13 @@ module comms
 
 
   ! Send Initial Parameters Everywhere
-  subroutine broadcast_setup(CH_params, Tout, grid, grid_res, do_restart)
+  subroutine broadcast_setup(CH_params, Tout, grid, grid_res, do_restart, t0)
     real(dp), intent(inout), dimension(6) :: CH_params
     real(dp), intent(inout), allocatable, dimension(:) :: Tout
     real(dp), dimension(:,:), allocatable :: grid
     logical, intent(inout) :: do_restart
     integer, intent(inout) :: grid_res
+    real(dp), intent(inout) :: t0
     integer :: Tout_size
 
     if (myrank == 0) then
@@ -53,6 +54,7 @@ module comms
     ! broadcast sizes
     call mpi_bcast(grid_res, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
     call mpi_bcast(Tout_size, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
+    call mpi_bcast(t0, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpi_err)
     call mpi_bcast(do_restart, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, mpi_err)
 
 
