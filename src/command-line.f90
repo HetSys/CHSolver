@@ -316,11 +316,9 @@ module command_line
           ! EG if -lamk 1.0 specified
           ! Should be equivalent to -l 1.0 -a 1.0...
           if (current_arg+1 > num_args) then
-            print *, "yes"
             ! No val arg at end
             call  parse_keyval_arg(key_arg(idx:idx), is_short_arg=.TRUE.)
           else
-            print *, "no"
             ! Val arg at end
             call  parse_keyval_arg(key_arg(idx:idx), val_arg, is_short_arg=.TRUE.)
           endif
