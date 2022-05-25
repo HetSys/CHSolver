@@ -84,8 +84,8 @@ contains
       caseflag = 1
     end if
 
-    dt1 = 0.45_dp*kappa
-    dt2 = 0.45_dp/real(N, dp)
+    dt1 = 0.3_dp*kappa
+    dt2 = 0.3_dp/real(N, dp)
 
     if ( dt1 < dt2 ) then
       dt = dt1
