@@ -54,6 +54,7 @@ program main
 
     ! Get solver selection
     call get_selected_solver(selected_solver)
+    call nproc_validate(selected_solver)
 
     ! Get JSON filename, run name, and output directory
     call get_io_commands(fname, run_name, outdir, all_params_fnd)
