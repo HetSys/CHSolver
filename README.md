@@ -26,9 +26,9 @@ git clone --recurse-submodules https://github.com/HetSys/CHSolver
 ### Dependencies
 The code requires a number of third party dependencies. We have included a build script
 ```bash
-./build_deps
+source ./build_deps
 ```
-that will call the correct commands to build these locally. If you also require the ability to run unit tests you will also need to run
+that will call the correct commands to build these locally and set up the Python environment. If you also require the ability to run unit tests you will also need to run
 ```bash
 ./build_pfunit
 ```
@@ -39,7 +39,7 @@ Once these have been built you can compile the code with
 ```bash
 make
 ```
-which will produce the executable `chsolver`
+which will produce the executable `chsolver`.
 
 ## Running
 To run the code you must fully specify the output times and solver parameters. We have included the a script
