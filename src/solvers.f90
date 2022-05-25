@@ -22,8 +22,8 @@ module solvers
     implicit none
     integer, intent(out) :: error
     real(dp), intent(in) :: CH_params(6)
-    real(dp), dimension(:,:), allocatable, intent(inout) :: c0
-    real(dp), allocatable, intent(inout) :: Tout(:)
+    real(dp), dimension(:,:), intent(inout) :: c0
+    real(dp), intent(inout) :: Tout(:)
     integer, intent(in) :: code
 
     real(dp) :: eps2
@@ -58,9 +58,9 @@ module solvers
     integer :: error
     real(dp), intent(in) :: CH_params(6)
     real(dp) :: t0
-    real(dp), allocatable, dimension(:,:), intent(inout) :: c0, c1
+    real(dp), dimension(:,:), intent(inout) :: c0, c1
     real(dp), intent(in) :: dt
-    real(dp), allocatable, intent(inout) :: Tout(:)
+    real(dp), intent(inout) :: Tout(:)
     integer, intent(in) :: code
 
     real(dp) :: eps2
