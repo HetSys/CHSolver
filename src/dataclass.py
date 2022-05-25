@@ -122,8 +122,8 @@ class CHData():
         with open(self.filepath, 'w') as f:
                 json.dump(self._data, f, indent=2)
 
-    def solve(self, out_dir="out", cmd_args=""):
-        exe = "./chsolver"
+    def solve(self, out_dir="out", cmd_args="", mpi_processes=1):
+        exe = f"mpirun -n {mpi_processes} ./chsolver"
         CH_cmds = f" -l {self.L} -a {self.A} -m {self.M} -k {self.K} -0 {self.p0} -1 {self.p1}"
         T_cmds = " -t {" + ":".join([str(t) for t in self.T]) + "}"
         other_cmds = f" -L {self.grid_level} -i {self.grid_type} -o {out_dir}"
