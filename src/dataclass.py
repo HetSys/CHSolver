@@ -71,7 +71,6 @@ class CHData():
         
         if error_code != 0:
             # Error has occurred
-            print(full_cmd)
             raise FortranSourceError("Error occurred in Fetching help")
 
         
