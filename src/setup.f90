@@ -94,10 +94,10 @@ module setup
   end subroutine
 
   !> @brief Linearly interpolate Array of sample times
-  !! @param[in] start, the starting time
-  !! @param[in] end, the finishing time
-  !! @param[in] nsteps, the number of steps between start to finish
-  !! @param[out] T, Result Array of Sample times with length nsteps+1
+  !! @param[in] start the starting time
+  !! @param[in] end the finishing time
+  !! @param[in] nsteps the number of steps between start to finish
+  !! @param[out] T Result Array of Sample times with length nsteps+1
   subroutine lin_tspace(start, end, nsteps, T)
     real(dp), intent(in) :: start, end
     integer, intent(in) :: nsteps
@@ -118,10 +118,10 @@ module setup
 
   
   !> @brief Loglinearly (base10) interpolate Array of sample times
-  !! @param[in] start, the starting time
-  !! @param[in] end, the finishing time
-  !! @param[in] nsteps, the number of steps between start to finish
-  !! @param[out] T, Result Array of Sample times with length nsteps+1
+  !! @param[in] start the starting time
+  !! @param[in] end the finishing time
+  !! @param[in] nsteps the number of steps between start to finish
+  !! @param[out] T Result Array of Sample times with length nsteps+1
   subroutine log_tspace(start, end, nsteps, T)
     real(dp), intent(in) :: start, end
     integer, intent(in) :: nsteps
@@ -135,6 +135,10 @@ module setup
   end subroutine 
 
 
+  !> @brief Validates if times provided to interpolations is right
+  !! @param[in] start the starting time
+  !! @param[in] end the finishing time
+  !! @param[in] nsteps the number of steps between start to finish
   subroutine t_validation(start, end, nsteps)
     real(dp), intent(in) :: start, end
     integer, intent(in) :: nsteps
