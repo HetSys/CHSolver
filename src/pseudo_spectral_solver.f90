@@ -16,13 +16,13 @@ module pseudo_spectral_solver
 contains
 
   !> @brief Solve the Cahn-Hilliard equation using a pseudo-spectral semi-implicit method.
-  !! @details This subroutine solves the Cahn-Hilliard equation \cite{Li2017} using a
-  !! semi-implicit (explicit second order adams-bashforth \cite{Li2017} for the non-linear
+  !! @details This subroutine solves the Cahn-Hilliard equation \cite Li2017 using a
+  !! semi-implicit (explicit second order adams-bashforth \cite Li2017 for the non-linear
   !! part, second order implicit for the linear part) pseudo-spectral (spectral
   !! in space, finite difference in time) scheme. The equation can be optionally
-  !! stabilised using a term proportional to grad-squared from \cite{Zhang2019}.
+  !! stabilised using a term proportional to grad-squared from \cite Zhang2019.
   !! @param[in] t0 The time at which to start the solver.
-  !! @param[in] A Stabilisation parameter, as seen in \cite{Zhang2019}. Larger values will
+  !! @param[in] A Stabilisation parameter, as seen in \cite Zhang2019. Larger values will
   !! significantly disrupt initial dynamics, but will allow the use of large
   !! (up to order 1!) timesteps to reach the steady state solution.
   !! @param[in] Tout An array of times at which the solver will write hdf5 checkpoint files.
@@ -288,13 +288,12 @@ contains
   end subroutine f
 
   !> @brief Takes one second order semi-implicit time step in k-space.
-  !! @details None
   !! @param[in] tau The temporal finite difference timestep.
   !! @param[in] ksq The matrix of k-values used to replace the spatial derivatives
   !! in the spectral method.
   !! @param[in] kappa The dimensionless parameter that controls the behaviour of the
   !! CH equation.
-  !! @param[in] A Stabilisation parameter, as seen in \cite{Zhang2019}. Larger values will
+  !! @param[in] A Stabilisation parameter, as seen in \cite Zhang2019. Larger values will
   !! significantly disrupt initial dynamics, but will allow the use of large
   !! (order 1) timesteps to reach the steady state solution.
   !! @param[in] ft_c1 The fourier transform of c1, the concentration array calculated
@@ -417,7 +416,7 @@ contains
   !! CH equation.
   !! @param[in] ksq The matrix of k-values used to replace the spatial derivatives in
   !! the spectral method.
-  !! @param[in] A Stabilisation parameter, as seen in \cite{Zhang2019}. Larger values will
+  !! @param[in] A Stabilisation parameter, as seen in \cite Zhang2019. Larger values will
   !! significantly disrupt initial dynamics, but will allow the use of large
   !! (order 1) timesteps to reach the steady state solution.
   !! @param[inout] c0 The concentration array at a time tau before c1.
