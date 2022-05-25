@@ -241,7 +241,7 @@ module command_line
   subroutine parse_args()
     integer :: num_args
     character(:), allocatable :: key_arg, val_arg
-    character(len=100) :: arg
+    character(len=1000) :: arg
     integer :: len_arg, equals_pos, idx
 
     num_args = command_argument_count()
@@ -486,6 +486,8 @@ module command_line
     integer :: n_elements, idx, last_idx, t_idx
 
     character(1), parameter :: separator = ":"
+
+    print *, str_array
     n_elements = 1
     do idx=2, len(str_array) - 1
       ! Find length of t array to allocate
