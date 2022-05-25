@@ -160,7 +160,7 @@ module fd_solvers
     call multigrid_alloc(E2, level)
     call multigrid_alloc(R1, level)
     call multigrid_alloc(R2, level)
-
+    
     ! allocate global storage
     allocate(phi_global(N_global,N_global))
     allocate(psi_global(N_global,N_global))
