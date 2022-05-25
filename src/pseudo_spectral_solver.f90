@@ -1,3 +1,7 @@
+!> @brief Module defining the subroutines required to run the Pseudo-spectral solver.
+!! @details It is important that any arrays passed to FFTW3 subroutine calls are
+!! initialised with the FFTW alloc functions as described on the FFTW3
+!! <a href="https://www.fftw.org/fftw3_doc/Memory-Allocation.html#Memory-Allocation">website</a>.
 module pseudo_spectral_solver
   use, intrinsic :: iso_fortran_env
   use, intrinsic :: iso_c_binding
@@ -11,13 +15,37 @@ module pseudo_spectral_solver
 
 contains
 
+  !> @brief Solve the Cahn-Hilliard equation using a pseudo-spectral semi-implicit method.
+  !! @details This subroutine solves the Cahn-Hilliard equation \cite{Li2017} using a
+  !! semi-implicit (explicit second order adams-bashforth \cite{Li2017} for the non-linear
+  !! part, second order implicit for the linear part) pseudo-spectral (spectral
+  !! in space, finite difference in time) scheme. The equation can be optionally
+  !! stabilised using a term proportional to grad-squared from \cite{Zhang2019}.
+  !! @param[in] t0 The time at which to start the solver.
+  !! @param[in] A Stabilisation parameter, as seen in \cite{Zhang2019}. Larger values will
+  !! significantly disrupt initial dynamics, but will allow the use of large
+  !! (up to order 1!) timesteps to reach the steady state solution.
+  !! @param[in] Tout An array of times at which the solver will write hdf5 checkpoint files.
+  !! @param[in] CH_params An array storing the 6 parameters defining the CH equation in
+  !! the project description. These parameters are used to convert the non-dimensionalised
+  !! problem solved by the solver to the dimensionalised version saved in the checkpoint file.
+  !! @param[in] inarr The input concentration array.
+  !! @param[in] eps2 The parameter that controls the behaviour of the non-dimensionalised
+  !! CH equation. This can be found with a call to non_dimensionalise().
+  !! @param[inout] errors A value to catch internal FFTW3 errors. A value of 1 (strangely) means
+  !! FFTW3 has been initialised with openmp correctly, while a value of 0 indicates an error.
+  !! @param[in] inarr1 An optional second concentration array, defined to be dt_in
+  !! further ahead in time than inarr. If both inarr1 and dt_in are specified,
+  !! the solver will begin from the coupled initial condition.
+  !! @param[in] dt_in An optional real value, defining the temporal separation between inarr
+  !! and inarr1, used when evaluating a system beginning from a paired initial condition.
   subroutine solver_pssi(t0, A, Tout, CH_params, inarr, eps2, errors, inarr1, dt_in)
     implicit none
 
     real(dp), intent(in)                              :: Tout(:)
     real(dp), intent(in)                              :: eps2, A
     real(dp), intent(in), dimension(6)                :: CH_params
-    real(dp),              intent(in)                 :: inarr(:,:)
+    real(dp), intent(in)                              :: inarr(:,:)
     real(dp), intent(in), optional                    :: inarr1(:,:)
     real(dp), intent(in), optional                    :: dt_in
     real(dp), intent(in)                              :: t0
@@ -249,8 +277,8 @@ contains
 
   !> @brief Calculate the bulk free potential energy.
   !!
-  !! @param[in]
-  !! @param[inout]
+  !! @param[in] c The concentration array.
+  !! @param[out] res The bulk free energy at that concentration.
   subroutine f(c, res)
     complex(cdc), dimension(:,:), intent(in)   :: c
     complex(cdc), dimension(:,:), intent(out)  :: res
@@ -259,10 +287,23 @@ contains
     !$OMP END PARALLEL WORKSHARE
   end subroutine f
 
-  !> @brief Perform a finite difference time step in k-space.
-  !!
-  !! @param[in]
-  !! @param[inout]
+  !> @brief Takes one second order semi-implicit time step in k-space.
+  !! @details None
+  !! @param[in] tau The temporal finite difference timestep.
+  !! @param[in] ksq The matrix of k-values used to replace the spatial derivatives
+  !! in the spectral method.
+  !! @param[in] kappa The dimensionless parameter that controls the behaviour of the
+  !! CH equation.
+  !! @param[in] A Stabilisation parameter, as seen in \cite{Zhang2019}. Larger values will
+  !! significantly disrupt initial dynamics, but will allow the use of large
+  !! (order 1) timesteps to reach the steady state solution.
+  !! @param[in] ft_c1 The fourier transform of c1, the concentration array calculated
+  !! 1 time step previously.
+  !! @param[in] ft_c0 The fourier transform of c0, the concentration array calculated
+  !! 2 time steps previously.
+  !! @param[in] ft_fc1 The fourier transform of the bulk potential calculated for c1.
+  !! @param[in] ft_fc0 The fourier transform of the bulk potential calculated for c0.
+  !! @param[out] res The concentration array at time tau later than c1.
   subroutine step(tau, ksq, kappa, A, ft_c1, ft_c0, ft_fc1, ft_fc0, res)
     complex(cdc), dimension(:,:), intent(in)               :: ft_c1, ft_c0, ft_fc1, ft_fc0
     real(dp), intent(in)                                   :: tau, kappa, A
@@ -288,10 +329,23 @@ contains
     deallocate(cksq)
   end subroutine step
 
-  !> @brief Perform the initial iteration of the pseudo spectral method.
-  !!
-  !! @param[in] tau, kappa, A, ksq, fwplan, bwplan  Stuff here.
-  !! @param[inout] c0, res  The concentration grids.
+  !> @brief The initial iteration for the ps solver, starting from a single concentration
+  !! array c0.
+  !! @details This iteration is an explicit first order in time pseudo-spectral step.
+  !! As such, the time-step tolerance is much worse than for iteration(). As a rule
+  !! of thumb, it should be 100 times smaller.
+  !! @param[in] tau The temporal finite difference timestep.
+  !! @param[in] kappa The dimensionless parameter that controls the behaviour of the
+  !! CH equation.
+  !! @param[in] ksq The matrix of k-values used to replace the spatial derivatives in
+  !! the spectral method.
+  !! @param[inout] c0 The initial concentration array. INOUT to be type-compatible with
+  !! FFTW3 plans.
+  !! @param[out] res The concentration array at a time tau later than c0.
+  !! @param[in] fwplan The FFTW3 plan used to forward fourier transform the concentration
+  !! arrays and the bulk potentials.
+  !! @param[in] bwplan The FFTW3 plan used to backward fourier transform the concentration
+  !! arrays and the bulk potentials.
   subroutine initial_iteration(tau, kappa, ksq, c0, res, fwplan, bwplan)
     complex(cdc), dimension(:,:), intent(inout)           :: c0
     real(dp), intent(in)                                  :: tau, kappa
@@ -352,10 +406,26 @@ contains
     deallocate(cksq)
   end subroutine initial_iteration
 
-  !> @brief Perform one iteration of the pseudo spectral method.
-  !!
-  !! @param[in] tau, kappa, A, ksq, fwplan, bwplan  Stuff here.
-  !! @param[inout] c0, c1  The concentration grids.
+  !> @brief The iteration for the ps solver, starting from a paired initial condition of
+  !! c0 and c1 separated by timestep tau.
+  !! @details This iteration is a second order in time semi-implicit pseudo-spectral
+  !! step. As a rule of thumb, tau should be the lowest of 0.3/N and 0.3*kappa.
+  !! At the output of this function, c0 will be overwritten with the input value of c1
+  !! while c1 will store the output of the iteration.
+  !! @param[in] tau The temporal finite difference timestep.
+  !! @param[in] kappa The dimensionless parameter that controls the behaviour of the
+  !! CH equation.
+  !! @param[in] ksq The matrix of k-values used to replace the spatial derivatives in
+  !! the spectral method.
+  !! @param[in] A Stabilisation parameter, as seen in \cite{Zhang2019}. Larger values will
+  !! significantly disrupt initial dynamics, but will allow the use of large
+  !! (order 1) timesteps to reach the steady state solution.
+  !! @param[inout] c0 The concentration array at a time tau before c1.
+  !! @param[inout] c1 The concentration array at a time tau before the output.
+  !! @param[in] fwplan The FFTW3 plan used to forward fourier transform the concentration
+  !! arrays and the bulk potentials.
+  !! @param[in] bwplan The FFTW3 plan used to backward fourier transform the concentration
+  !! arrays and the bulk potentials.
   subroutine iteration(tau, ksq, kappa, A, c0, c1, fwplan, bwplan)
     complex(cdc), dimension(:,:), intent(inout)               :: c1, c0
     real(dp), intent(in)                                      :: tau, kappa, A
@@ -422,10 +492,10 @@ contains
   !> @brief Create a 2D meshgrid as in numpy's "meshgrid" function.
   !!
   !! @param[in] x, y  The coordinate series for the two dimensions.
-  !! @param[out] x2, y2  The meshgrids.
+  !! @param[inout] x2, y2  The meshgrids.
   subroutine meshgrid(x, y, x2, y2)
     real(dp), intent(in) :: x(:), y(:)
-    real(dp), intent(out) :: x2(:, :), y2(:, :)
+    real(dp), intent(inout) :: x2(:, :), y2(:, :)
 
     x2 = spread(x, 1, size(y))
     y2 = spread(y, 2, size(x))
@@ -455,6 +525,7 @@ contains
       k(i) =  real(i - N - 1, dp)
     end do
     !$OMP END PARALLEL
+
     !$OMP PARALLEL WORKSHARE
     k(:) = 2.0_dp*PI*k(:)!/real(N)
     !$OMP END PARALLEL WORKSHARE
