@@ -20,6 +20,8 @@ def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1, metadata = True
   @param ti Time to intialise the visualiation (will use closest time prior to that specified). Default is 0
   @param tf Time to finish the visualiation (will use closest time prior to that specified). Default is the final time recorded.
   @param metadata Show metadata at top of the visual. Default is True
+  @param filetype Specify filetype (mp4 or gif) for the animation. Default is mp4
+
 
   '''
 
