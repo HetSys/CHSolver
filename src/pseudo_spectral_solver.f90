@@ -17,7 +17,7 @@ contains
     real(dp), intent(in)                              :: Tout(:)
     real(dp), intent(in)                              :: eps2, A
     real(dp), intent(in), dimension(6)                :: CH_params
-    real(dp), intent(in)                              :: inarr(:,:)
+    real(dp),              intent(in)                 :: inarr(:,:)
     real(dp), intent(in), optional                    :: inarr1(:,:)
     real(dp), intent(in), optional                    :: dt_in
     real(dp), intent(in)                              :: t0
