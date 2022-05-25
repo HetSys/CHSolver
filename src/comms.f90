@@ -14,16 +14,23 @@ module comms
 
   !> @brief Sets up MPI communications
   subroutine comms_init()
-    ! Assert that nrank
+    integer :: l
 
     call mpi_init(mpi_err)
     call mpi_comm_size(mpi_comm_world, nproc, mpi_err)
 
+    ! assert that nproc is a power of 4
+    call ilog2(nproc, l)
+    if (mod(l,2) /= 0 .or. 2**l /= nproc) then
+      call logger%fatal("nproc_validate", "nproc must be a power of 4")
+      call MPI_Abort(MPI_COMM_WORLD, 1, mpi_err)
+    endif
 
     call ilog2(nproc, nproc_row)
     nproc_row = nproc_row/2
     nproc_row = 2**nproc_row
 
+    ! set up a cartesian grid
     call mpi_cart_create(mpi_comm_world, 2, [nproc_row, nproc_row], &
      [.true., .true.], .true., cart_comm, mpi_err)
 
@@ -34,6 +41,27 @@ module comms
     call mpi_cart_shift(cart_comm, 1, 1, neigh(1), neigh(2), mpi_err)
     call mpi_cart_shift(cart_comm, 0, 1, neigh(4), neigh(3), mpi_err)
   end subroutine comms_init
+
+  !> @brief Ensures that nprocs is correct for the selected solver
+  !! @param[in] selected_solver  solver code
+  subroutine nproc_validate(selected_solver)
+    implicit none
+    integer, intent(in) :: selected_solver
+    integer :: l
+
+    if (selected_solver == 1) then
+      call ilog2(nproc, l)
+      if (mod(l,2) /= 0 .or. 2**l /= nproc) then
+        call logger%fatal("nproc_validate", "nproc must be a power of 4 for the FD solver")
+        call MPI_Abort(MPI_COMM_WORLD, 1, mpi_err)
+      endif
+    else
+      if (nproc > 1) then
+        call logger%fatal("nproc_validate", "nproc must be set to 1 for the PS solver")
+        call MPI_Abort(MPI_COMM_WORLD, 1, mpi_err)
+      endif
+    endif
+  end subroutine nproc_validate
 
   !> @brief Sends initial parameters to all processes
   !! @param[inout] CH_params        equation and domain parameters
