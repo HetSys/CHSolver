@@ -47,43 +47,24 @@ program main
   run_name = "default"
   outdir = "./out"
 
+  !=======!
+  ! SETUP !
+  !=======!
+
   ! Set up on rank 0 only
   if (myrank == 0) then
-    ! CLI
+    ! Parse CLI, initialise logging
     call initialise()
 
     ! Get solver selection
     call get_selected_solver(selected_solver)
     call nproc_validate(selected_solver)
 
-    ! Get JSON filename, run name, and output directory
-    call get_io_commands(fname, run_name, outdir, all_params_fnd)
-
-    ! input parameters from JSON file
-    if (.NOT. all_params_fnd) then
-      call read_json(trim(fname), trim(run_name), CH_params, init, grid_res, Tout)
-    endif
-
-    ! Grab any overriding input params from the command line
-    call get_input_commands(CH_params, grid_res, init, Tout)
-
-    ! Grab overriding linspace or logspace args
-    ! TODO: should this not be in get_input_commands
-    call get_lin_log_args(space_selected, start_val, stop_val, num_outputs)
-
-    if (space_selected == LINSPACE_SELECTED) then
-      call lin_tspace(start_val, stop_val, num_outputs, Tout)
-    endif
-    if (space_selected == LOGSPACE_SELECTED) then
-      call log_tspace(start_val, stop_val, num_outputs, Tout)
-    endif
-
-    ! check if restart required
-    restart_time = -1.0_dp
-    checkpoint_number = -1
-    call get_checkpoint_commands(checkpoint_number, restart_time, do_restart)
+    ! Gather input data from JSON file or CLI
+    call get_input_data()
 
     if (do_restart) then
+      ! Should restart from a checkpoint
       if (checkpoint_number > 0) then
         call chkpnt_init(outdir, n, ch_params, t0, ierr, n_chkpnt=checkpoint_number)
       else if (restart_time >= 0.0_dp) then
@@ -111,6 +92,11 @@ program main
   n = 2**grid_res
   call broadcast_setup(CH_params, Tout, c0, n, do_restart, t0, selected_solver)
 
+
+  !===============!
+  ! START SOLVING !
+  !===============!
+
   ! call solver (on all procs)
   if (.not. do_restart) then
     if (myrank == 0) then
@@ -136,10 +122,19 @@ program main
       endif
     enddo
     call MPI_Barrier(MPI_COMM_WORLD, ierr)
+
+    ! Mask time array to only include future times
     allocate(updated_tout(size(tout)-st_tout))
     updated_tout = Tout(st_tout:)
+
+    ! Call solver_2 to restart with explicit C and C_prev
     call solver_2(t0, updated_tout, c0, c1, dt, CH_params, selected_solver, ierr)
   endif
+
+
+  !=========!
+  ! CLEANUP !
+  !=========!
 
   if (myrank == 0) then
     ! finish HDF5 outputting
@@ -156,5 +151,48 @@ program main
 
   ! shut down comms
   call comms_final()
+
+
+  contains
+
+
+  !> @brief Generate input data from JSON anr/or CLI.
+  !! @details Distinct priority order in operations.
+  !! CLI overrides JSON file always, 
+  !! linspace overrides manual T declaration
+  !! logspace overrides all other T declaration
+  subroutine get_input_data()
+    ! Get JSON filename, run name, and output directory
+    call get_io_commands(fname, run_name, outdir, all_params_fnd)
+
+    ! input parameters from JSON file
+    if (.NOT. all_params_fnd) then
+      call read_json(trim(fname), trim(run_name), CH_params, init, grid_res, Tout)
+    endif
+
+    ! Grab any overriding input params from the command line
+    call get_input_commands(CH_params, grid_res, init, Tout)
+
+    ! Grab overriding linspace or logspace args
+    ! TODO: should this not be in get_input_commands
+    call get_lin_log_args(space_selected, start_val, stop_val, num_outputs)
+
+    if (space_selected == LINSPACE_SELECTED) then
+      call lin_tspace(start_val, stop_val, num_outputs, Tout)
+    endif
+    if (space_selected == LOGSPACE_SELECTED) then
+      call log_tspace(start_val, stop_val, num_outputs, Tout)
+    endif
+
+    ! check if restart required
+    restart_time = -1.0_dp
+    checkpoint_number = -1
+    call get_checkpoint_commands(checkpoint_number, restart_time, do_restart)
+  end subroutine
+
+
+  !> @brief Setup grid from given init condition & solve
+  subroutine start_from_scratch()
+  end subroutine
 
 end program main
