@@ -11,7 +11,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import numpy as np
-
 def find_nearest_t_index(t_array:np.array, t):
     '''! Finds the index of the time closest to t within the t_array.
     @param t_array array of all outputted times.
@@ -54,7 +53,7 @@ def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1):
   ax.set_axis_off()
   fig.add_axes(ax)
   final_an = anim.ArtistAnimation(fig, ims, interval = 5, repeat = True, blit=False)
-  final_an.save('Conc_Evolution.gif', writer = anim.PillowWriter(fps = animation_fps))
+  final_an.save('Conc_Evolution.mp4', writer = "ffmpeg", fps = animation_fps)
 
 
 def plot_free_energy(data_obj, ti=0, tf=-1):
