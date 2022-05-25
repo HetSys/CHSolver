@@ -5,6 +5,7 @@
 !! @author Tom Rocke
 module command_line
   use globals
+  use comms
   implicit none
 
   real(dp), private :: cmd_CH_params(6)
@@ -30,6 +31,9 @@ module command_line
   integer, private :: SELECTED_SOLVER
 
   integer, parameter :: SOLVER_FD_SELECTED = 1, SOLVER_PS_SELECTED = 2
+
+
+  integer, private :: ierr
 
 
   !> @var integer linspace_selected 
@@ -267,6 +271,7 @@ module command_line
     is_val = .FALSE.
 
     cmd_CH_params = -1.0_dp
+    val_arg = ""
 
     if (num_args == 0) return ! Nothing to do if no args provided
 
@@ -279,6 +284,7 @@ module command_line
       if(allocated(arg)) deallocate(arg)
       allocate(character(len_arg)::arg)
       call get_command_argument(current_arg, arg)
+
       ! Ignore arg if it's not a -{key} or --{key}
       if (len_arg < 2 .OR. arg(1:1) /= "-") cycle
       ! Check if arg is short (-{key}), or long (--{key})
@@ -299,10 +305,12 @@ module command_line
 
         key_arg = trim(arg(2:)) ! Grab key part
 
-        call get_command_argument(current_arg + 1, length=len_arg)
-        if(allocated(arg)) deallocate(arg)
-        allocate(character(len_arg)::arg)
-        call get_command_argument(current_arg + 1, arg)
+        if (current_arg+1 <= num_args) then
+          call get_command_argument(current_arg + 1, length=len_arg)
+          if(allocated(arg)) deallocate(arg)
+          allocate(character(len_arg)::arg)
+          call get_command_argument(current_arg + 1, arg)
+        end if
         val_arg = trim(arg)
         do idx=1, len_arg - 1
           ! Loop through all chars in key_arg
@@ -344,13 +352,13 @@ module command_line
       ! HELP
       case ("h", "help")
         call print_help_text()
-        stop
+        call MPI_Abort(MPI_COMM_WORLD, 0, ierr)
       ! LOGGING & STDOUTPUT
       case ("v", "verbose")
         cmd_stdout_val = cmd_stdout_val - 10
       case ("V", "version")
         print *, "CHSolver 1.0"
-        stop
+        call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
       case ("q", "quiet")
         logger%log_enabled = .FALSE.
         cmd_stdout_val = cmd_stdout_val + 10
