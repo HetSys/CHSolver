@@ -27,6 +27,10 @@ module command_line
 
   logical, private :: restart_fnd, chkpnt_fnd
 
+  integer, private :: SELECTED_SOLVER
+
+  integer, parameter :: SOLVER_FD_SELECTED = 1, SOLVER_PS_SELECTED = 2
+
 
   !> @var integer linspace_selected 
   !! Integer marker to flag that the start, stop and nsteps
@@ -70,6 +74,8 @@ module command_line
 
     restart_fnd = .FALSE.
     chkpnt_fnd = .FALSE.
+
+    SELECTED_SOLVER = 0
 
     call parse_args()
 
@@ -118,7 +124,7 @@ module command_line
 
     if (present(run_name) .AND. allocated(cmd_runname)) then
       run_name = cmd_runname
-      call logger%debug("get_io_commands", "Run name "// trim(run_name) // "set from CLI")
+      call logger%debug("get_io_commands", "Run name "// trim(run_name) // " set from CLI")
     end if
 
     if (present(output_dir) .AND. allocated(cmd_outpath)) then
@@ -236,12 +242,24 @@ module command_line
     end if
   end subroutine
 
+  !> @brief Check which solver was selected from the CLI
+  !! @param[inout] selection Integer marker for which solver was selected. Compare against
+  !! SOLVER_FD_SELECTED and SOLVER_PS_SELECTED
+  subroutine get_selected_solver(selection)
+    integer, intent(inout) :: selection
+
+    if (SELECTED_SOLVER == SOLVER_FD_SELECTED .OR. SELECTED_SOLVER == SOLVER_FD_SELECTED) then
+      selection = SELECTED_SOLVER
+    end if
+
+  end subroutine
+
   !> @brief Parse command line args
   !! @details Modifies private variables when overriding values found from the command line
   subroutine parse_args()
     integer :: num_args
     character(:), allocatable :: key_arg, val_arg
-    character(len=100) :: arg
+    character(len=:), allocatable :: arg
     integer :: len_arg, equals_pos, idx
 
     num_args = command_argument_count()
@@ -257,7 +275,10 @@ module command_line
 
       if (is_val(current_arg) .EQV. .TRUE.) cycle ! Skip values for short -{key} {val} notation
 
-      call get_command_argument(current_arg, arg, len_arg)
+      call get_command_argument(current_arg, length=len_arg)
+      if(allocated(arg)) deallocate(arg)
+      allocate(character(len_arg)::arg)
+      call get_command_argument(current_arg, arg)
       ! Ignore arg if it's not a -{key} or --{key}
       if (len_arg < 2 .OR. arg(1:1) /= "-") cycle
       ! Check if arg is short (-{key}), or long (--{key})
@@ -278,8 +299,10 @@ module command_line
 
         key_arg = trim(arg(2:)) ! Grab key part
 
-
-        call get_command_argument(current_arg+1, arg)
+        call get_command_argument(current_arg + 1, length=len_arg)
+        if(allocated(arg)) deallocate(arg)
+        allocate(character(len_arg)::arg)
+        call get_command_argument(current_arg + 1, arg)
         val_arg = trim(arg)
         do idx=1, len_arg - 1
           ! Loop through all chars in key_arg
@@ -314,6 +337,8 @@ module command_line
     logical, intent(in) :: is_short_arg
 
     integer :: idx
+
+    idx = 0
 
     select case (key_arg)
       ! HELP
@@ -413,6 +438,19 @@ module command_line
           restart_cmd_num = str_to_int(val_arg)
           chkpnt_fnd = .TRUE.
         end if
+      
+      ! SOLVERS
+      case ("solver")
+        if (present(val_arg)) then
+          select case(val_arg)
+          case ("ps") ! Pseudospectral
+            SELECTED_SOLVER = SOLVER_PS_SELECTED
+          case ("fd") ! Finite Differences
+            SELECTED_SOLVER = SOLVER_FD_SELECTED
+          case default
+            SELECTED_SOLVER = SOLVER_PS_SELECTED
+         end select
+        end if
       case ("p")
       end select
   end subroutine parse_keyval_arg
@@ -466,13 +504,16 @@ module command_line
     print *, "                                      <arr> is a colon separated list inside curly braces of the form"
     print *, "                                      {<start_time>:<stop_time>:<number_of_output_timesteps>}", newline
     print *, "Checkpointing & Restarts:"
-    print *, " --restart_num=<val>                 Restart the calculation from the checkpoint '<val>.chkpnt'"
-    print *, " --restart_time=<val>                Restart the calculation from a checkpoint taken at a time <= the given &
+    print *, "  --restart_num=<val>                 Restart the calculation from the checkpoint '<val>.chkpnt'"
+    print *, "  --restart_time=<val>                Restart the calculation from a checkpoint taken at a time <= the given &
                                                    &restart time"
     print *, "                                       Restarting will take all of the input variables from the metadata file."
     print *, "                                       The given time array will be masked to only give outputs at times after &
                                                    &the checkpoint"
-    print *, "                                       start time"
+    print *, "                                       start time", newline
+    print *, "Solver Selection:"
+    print *, "  --solver=<val>                      Set which solver is used to simulate the system evolution."
+    print *, "                                        Currently supported values are 'ps' and 'fd'" 
 
   end subroutine
 
@@ -486,6 +527,7 @@ module command_line
     integer :: n_elements, idx, last_idx, t_idx
 
     character(1), parameter :: separator = ":"
+
     n_elements = 1
     do idx=2, len(str_array) - 1
       ! Find length of t array to allocate

@@ -12,30 +12,33 @@ class CHData():
     _data = {}
 
 
-    def __init__(self, fname="input-data.json"):
+    def __init__(self, fname="input-data.json",
+                 L=1.0, A=1.0, M=0.25, K=0.0004,
+                 p0 = -1.0, p1 = 1.0, T=np.linspace(0, 0.1, 3),
+                 grid_type="r", grid_level=7):
         '''!
         Loads data from JSON file given by fname
         Will not save old files before opening a new one
         '''
         
-        self.L = 1.0
-        self.A = 1.0
-        self.M = 0.25
-        self.K = 0.0004
-        self.p0 = -1.0
-        self.p1 = 1.0
-        self.T = np.linspace(0, 0.1, 3)
+        self.L = L
+        self.A = A
+        self.M = M
+        self.K = K
+        self.p0 = p0
+        self.p1 = p1
+        self.T = T
 
 
-        self.grid_type = "r"
-        self.grid_level = 7
+        self.grid_type = grid_type
+        self.grid_level = grid_level
 
         self.fname = fname
 
-        self.cwd = os.getcwd()
-        self.filepath = self.cwd + os.sep + fname
+        self._cwd = os.getcwd()
+        self._filepath = self._cwd + os.sep + fname
 
-        if os.path.isfile(self.filepath):
+        if os.path.isfile(self._filepath):
             self._read_jsonfile()
         else:
             self.save_rundata("default")
@@ -45,7 +48,7 @@ class CHData():
 
     def _read_jsonfile(self):
         try:
-            self._data = json.loads(open(self.filepath).read())
+            self._data = json.loads(open(self._filepath).read())
             self.read_rundata("default")
         except json.decoder.JSONDecodeError:
             raise RuntimeError(f"Error in reading JSON file {self.fname}, likely due to reading a blank file")
@@ -111,7 +114,7 @@ class CHData():
         self.input_data["grid_type"] = self.grid_type
         self.input_data["T"] = list(self.T)
 
-        if os.path.isfile(self.filepath):
+        if os.path.isfile(self._filepath):
             # Update internal _data with any changes to the file
             self._read_jsonfile()
 
@@ -119,11 +122,11 @@ class CHData():
         self._save_jsonfile()
     
     def _save_jsonfile(self):
-        with open(self.filepath, 'w') as f:
+        with open(self._filepath, 'w') as f:
                 json.dump(self._data, f, indent=2)
 
-    def solve(self, out_dir="out", cmd_args=""):
-        exe = "./chsolver"
+    def solve(self, out_dir="out", cmd_args="", mpi_processes=1):
+        exe = f"mpirun -n {mpi_processes} ./chsolver"
         CH_cmds = f" -l {self.L} -a {self.A} -m {self.M} -k {self.K} -0 {self.p0} -1 {self.p1}"
         T_cmds = " -t {" + ":".join([str(t) for t in self.T]) + "}"
         other_cmds = f" -L {self.grid_level} -i {self.grid_type} -o {out_dir}"
@@ -143,7 +146,7 @@ class CHData():
         Reads output metadata and checkpoint files from outdir
         '''
 
-        grid_params, sys_params, checkpoint_times = _read_metadata(os.getcwd() + os.sep + outdir + os.sep + "metadata.dat")
+        grid_params, sys_params, checkpoint_times = _read_metadata(self._cwd + os.sep + outdir + os.sep + "metadata.dat")
         
         self.grid_dimensionality = grid_params[0]
         self.grid_level = grid_params[1]

@@ -1,3 +1,4 @@
+!> @brief Module wrapping MPI boilerplate into useful functions.
 module comms
 
   use solver_utils
@@ -11,17 +12,25 @@ module comms
   integer :: daig_neigh(4) !ul, ur, dl, dr
   contains
 
+  !> @brief Sets up MPI communications
   subroutine comms_init()
-    ! Assert that nrank
+    integer :: l
 
     call mpi_init(mpi_err)
     call mpi_comm_size(mpi_comm_world, nproc, mpi_err)
 
+    ! assert that nproc is a power of 4
+    call ilog2(nproc, l)
+    if (mod(l,2) /= 0 .or. 2**l /= nproc) then
+      call logger%fatal("nproc_validate", "nproc must be a power of 4")
+      call MPI_Abort(MPI_COMM_WORLD, 1, mpi_err)
+    endif
 
     call ilog2(nproc, nproc_row)
     nproc_row = nproc_row/2
     nproc_row = 2**nproc_row
 
+    ! set up a cartesian grid
     call mpi_cart_create(mpi_comm_world, 2, [nproc_row, nproc_row], &
      [.true., .true.], .true., cart_comm, mpi_err)
 
@@ -29,19 +38,45 @@ module comms
 
     call mpi_cart_coords(cart_comm, myrank, 2, mycoords, mpi_err)
 
-
     call mpi_cart_shift(cart_comm, 1, 1, neigh(1), neigh(2), mpi_err)
     call mpi_cart_shift(cart_comm, 0, 1, neigh(4), neigh(3), mpi_err)
   end subroutine comms_init
 
+  !> @brief Ensures that nprocs is correct for the selected solver
+  !! @param[in] selected_solver  solver code
+  subroutine nproc_validate(selected_solver)
+    implicit none
+    integer, intent(in) :: selected_solver
+    integer :: l
 
-  ! Send Initial Parameters Everywhere
-  subroutine broadcast_setup(CH_params, Tout, grid, grid_res, do_restart)
+    if (selected_solver == 1) then
+      call ilog2(nproc, l)
+      if (mod(l,2) /= 0 .or. 2**l /= nproc) then
+        call logger%fatal("nproc_validate", "nproc must be a power of 4 for the FD solver")
+        call MPI_Abort(MPI_COMM_WORLD, 1, mpi_err)
+      endif
+    else
+      if (nproc > 1) then
+        call logger%fatal("nproc_validate", "nproc must be set to 1 for the PS solver")
+        call MPI_Abort(MPI_COMM_WORLD, 1, mpi_err)
+      endif
+    endif
+  end subroutine nproc_validate
+
+  !> @brief Sends initial parameters to all processes
+  !! @param[inout] CH_params        equation and domain parameters
+  !! @param[inout] Tout             output times
+  !! @param[inout] grid_res         grid resolution
+  !! @param[inout] do_restart       whether we are restarting from a checkpoint
+  !! @param[inout] to               initial time
+  !! @param[inout] selected_solver  solver type
+  subroutine broadcast_setup(CH_params, Tout, grid, grid_res, do_restart, t0, selected_solver)
     real(dp), intent(inout), dimension(6) :: CH_params
     real(dp), intent(inout), allocatable, dimension(:) :: Tout
     real(dp), dimension(:,:), allocatable :: grid
     logical, intent(inout) :: do_restart
-    integer, intent(inout) :: grid_res
+    integer, intent(inout) :: grid_res, selected_solver
+    real(dp), intent(inout) :: t0
     integer :: Tout_size
 
     if (myrank == 0) then
@@ -53,7 +88,10 @@ module comms
     ! broadcast sizes
     call mpi_bcast(grid_res, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
     call mpi_bcast(Tout_size, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
+    call mpi_bcast(t0, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpi_err)
+
     call mpi_bcast(do_restart, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, mpi_err)
+    call mpi_bcast(selected_solver, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
 
 
     ! allocate on non-master procs
@@ -67,6 +105,11 @@ module comms
     call mpi_bcast(Tout, size(Tout), MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpi_err)
   end subroutine broadcast_setup
 
+  !> @brief Scatters a grid from rank 0 to mpi_grids on all processes
+  !! @param[in] grid       global grid
+  !! @param[in] grid_res   global grid resolution
+  !! @param[out] mpi_grid  local grid
+  !! @param[in] mpi_res    local grid resolution
   subroutine grid_scatter(grid, grid_res, mpi_grid, mpi_res)
     integer, intent(in) :: grid_res
     integer, intent(in) :: mpi_res
@@ -138,6 +181,10 @@ module comms
     call MPI_Type_free(subgrid,mpi_err)
   end subroutine grid_scatter
 
+  !> @brief Gathers a grid to rank 0 from mpi_grids on all processes
+  !! @param[in] grid         global grid
+  !! @param[inout] grid_res  global grid resolution
+  !! @param[in] mpi_grid     local grid
   subroutine grid_gather(grid, grid_res, mpi_grid)
     integer, intent(in) :: grid_res
     real(dp), intent(in), dimension(grid_res,grid_res) :: grid
@@ -197,12 +244,13 @@ module comms
     ! if (myrank == 0) print *, "11"
   end subroutine grid_gather
 
-  ! Direction will always correspond to the perspective of sending proc
-  ! Please call mpi_wait(req, mpi_ignore_status, mpi_err)
-  ! when you want to gaurantee a sent request is complete
-  ! See scatter for an example. If you recieve before the send operation is
-  ! complete it may change what you send (highly unlikely for uniform operations)
-  ! But dont risk it!!!
+  !> @brief Sends a corner to the process in the corresponding direction
+  !! @details Direction will always correspond to the perspective of sending proc
+  !! Please call mpi_wait(req, mpi_ignore_status, mpi_err) to guarantee a sent
+  !! request is complete (see scatter for an example).
+  !! @param[in] val        value of the corner
+  !! @param[in] direction  direction to neighbour
+  !! @param[out] req       request ID
   subroutine send_corner(val, direction, req)
     real(dp), intent(in) :: val
     character(2), intent(in) :: direction
@@ -242,12 +290,12 @@ module comms
   end subroutine
 
 
-  ! Direction will always correspond to the perspective of sending proc
-  ! Please call mpi_wait(req, mpi_ignore_status, mpi_err)
-  ! when you want to gaurantee a sent request is complete
-  ! See scatter for an example. If you recieve before the send operation is
-  ! complete it may change what you send (highly unlikely for uniform operations)
-  ! But dont risk it!!!
+  !> @brief Receives a corner from the process in the corresponding direction
+  !! @details Direction will always correspond to the perspective of sending proc
+  !! Please call mpi_wait(req, mpi_ignore_status, mpi_err) to guarantee a sent
+  !! request is complete (see scatter for an example).
+  !! @param[out] val       value of the corner
+  !! @param[in] direction  direction to neighbour
   subroutine recv_corner(val, direction)
     real(dp), intent(out) :: val
     character(2), intent(in) :: direction
@@ -285,13 +333,14 @@ module comms
     source_rank, 1003, cart_comm, mpi_status_ignore, mpi_err)
   end subroutine
 
-  ! Direction will always correspond to the perspective of sending proc
-  !
-  ! Please call mpi_wait(req, mpi_ignore_status, mpi_err)
-  ! when you want to gaurantee a sent request is complete
-  ! See scatter for an example. If you recieve before the send operation is
-  ! complete it may change what you send (highly unlikely for uniform operations)
-  ! But dont risk it!!!
+  !> @brief Sends an edge to the process in the corresponding direction
+  !! @details Direction will always correspond to the perspective of sending proc
+  !! Please call mpi_wait(req, mpi_ignore_status, mpi_err) to guarantee a sent
+  !! request is complete (see scatter for an example).
+  !! @param[in] n          length of the edge
+  !! @param[in] edge       values along the edge
+  !! @param[in] direction  direction to neighbour
+  !! @param[out] req       request ID
   subroutine send_edge(n, edge, direction, req)
     integer, intent(in) :: n
     real(dp), dimension(n), intent(in) :: edge
@@ -327,7 +376,13 @@ module comms
      neigh(dir_int), 1003, cart_comm, req, mpi_err)
   end subroutine send_edge
 
-  ! Direction will always correspond to the perspective of sending proc
+  !> @brief Receives an edge from the process in the corresponding direction
+  !! @details Direction will always correspond to the perspective of sending proc
+  !! Please call mpi_wait(req, mpi_ignore_status, mpi_err) to guarantee a sent
+  !! request is complete (see scatter for an example).
+  !! @param[in] n          length of the edge
+  !! @param[in] edge       values along the edge
+  !! @param[in] direction  direction to neighbour
   subroutine recv_edge(n, edge, direction)
     integer, intent(in) :: n
     real(dp), dimension(n), intent(out) :: edge
@@ -361,11 +416,8 @@ module comms
      neigh(dir_int), 1003, cart_comm, mpi_status_ignore, mpi_err)
   end subroutine recv_edge
 
+  !> @brief Shuts down MPI communications
   subroutine comms_final()
     call mpi_finalize(mpi_err)
   end subroutine comms_final
-
-
-
-
 end module comms

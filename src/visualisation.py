@@ -11,15 +11,17 @@ def find_previous_t_index(t_array:np.array, t):
     index = (np.abs(t_array - t)).argmin()
     if t_array[index] > t:
       index += -1
-    return index 
+    return index
 
 
-def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1, metadata = True):
+def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1, metadata = True, filetype = 'mp4'):
   '''! Produces an animation for the evolution of species concentration, outputted as an mp4 to the main directory.
   @param animation_fps Number of frames per second for the animation. Default is 10.
   @param ti Time to intialise the visualiation (will use closest time prior to that specified). Default is 0
   @param tf Time to finish the visualiation (will use closest time prior to that specified). Default is the final time recorded.
   @param metadata Show metadata at top of the visual. Default is True
+  @param filetype Specify filetype (mp4 or gif) for the animation. Default is mp4
+
 
   '''
 
@@ -54,7 +56,14 @@ def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1, metadata = True
   if metadata == True:
     plt.suptitle('L = '+str(L)+', A = '+str(A)+', M = '+str(M)+ ', K = '+str(K)+', p0 = '+str(p0)+', p1 = '+str(p1), fontsize = 8)
   final_an = anim.ArtistAnimation(fig, ims, interval = 5, repeat = True, blit=False)
-  final_an.save('Conc_Evolution.mp4', writer = "ffmpeg", fps = animation_fps)
+  if filetype == 'gif':
+    final_an.save('Conc_Evolution.gif', writer = anim.PillowWriter(fps = animation_fps))
+  elif filetype == 'mp4':
+    final_an.save('Conc_Evolution.mp4', writer = "ffmpeg", fps = animation_fps)
+  else:
+    print('Unable to use specified filetype, defaulting to mp4.')
+    final_an.save('Conc_Evolution.mp4', writer = "ffmpeg", fps = animation_fps)
+
   return final_an
 
 def plot_conc_snapshot(data_obj, t, metadata = True):
@@ -106,17 +115,17 @@ def plot_free_energy(data_obj, ti=0, tf=-1, metadata = True):
 
   num_checkpoints = t_array.shape[0]
 
-  
+
   if tf==-1:
     tf = t_array[-1]
 
   ti_index = find_previous_t_index(t_array, ti)
   tf_index = find_previous_t_index(t_array, tf)
-  f_c = np.zeros_like(c) #Bulk free energy density 
+  f_c = np.zeros_like(c) #Bulk free energy density
   for t in range(num_checkpoints):
     for i in range(grid_res):
       for j in range(grid_res):
-          f_c[t,i,j] = A*((c[t,i,j]-p0)**2)*(c[t,i,j]-p1)**2 
+          f_c[t,i,j] = A*((c[t,i,j]-p0)**2)*(c[t,i,j]-p1)**2
 
   F = np.zeros((num_checkpoints)) #Free energy functional
   ## Setting up an alternate c array to account for PBCs
@@ -151,7 +160,7 @@ if __name__ == "__main__":
 
   # Read outputs from default loc and plot visualisation
   dat.read_outputs("out")
-  plot_conc_evol(dat)
+  plot_conc_evol(dat, filetype = 'mp4')
   plt.clf()
   plot_free_energy(dat)
   plt.clf()

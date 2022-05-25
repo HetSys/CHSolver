@@ -23,20 +23,23 @@ program main
 
   logical :: do_restart
   integer :: checkpoint_number, st_tout
-  real(dp) :: restart_time, dt
+  real(dp) :: restart_time, dt, t0
   real(dp), allocatable :: updated_Tout(:) ! output times
 
   ! MPI timing
-  real(dp) :: t0
+  real(dp) :: mpi_t
+
+  integer :: selected_solver
 
   ! start up MPI comms
   call comms_init()
 
-
+  selected_solver = SOLVER_FD_SELECTED ! Default to ps solver
   do_restart = .false.
+  mpi_t = 0.0_dp
   t0 = 0.0_dp
   if (myrank == 0) then
-    t0 = MPI_Wtime()
+    mpi_t = MPI_Wtime()
   endif
 
   ! default fname, run_name, and outdir
@@ -48,6 +51,10 @@ program main
   if (myrank == 0) then
     ! CLI
     call initialise()
+
+    ! Get solver selection
+    call get_selected_solver(selected_solver)
+    call nproc_validate(selected_solver)
 
     ! Get JSON filename, run name, and output directory
     call get_io_commands(fname, run_name, outdir, all_params_fnd)
@@ -78,12 +85,13 @@ program main
 
     if (do_restart) then
       if (checkpoint_number > 0) then
-        call chkpnt_init(outdir, ch_params, t0, ierr, n_chkpnt=checkpoint_number)
+        call chkpnt_init(outdir, n, ch_params, t0, ierr, n_chkpnt=checkpoint_number)
       else if (restart_time >= 0.0_dp) then
-        call chkpnt_init(outdir, ch_params, t0, ierr, start_before_time=restart_time)
+        call chkpnt_init(outdir, n,  ch_params, t0, ierr, start_before_time=restart_time)
       endif
-      allocate(c0(c_dims(1), c_dims(2)))
-      allocate(c1(c_dims(1), c_dims(2)))
+      allocate(c0(n, n))
+      allocate(c1(n, n))
+ 
       call read_hdf5_chkpnt(c0, c1, dt, ierr)
     endif
 
@@ -101,7 +109,7 @@ program main
 
   ! send setup to other procs
   n = 2**grid_res
-  call broadcast_setup(CH_params, Tout, c0, n, do_restart)
+  call broadcast_setup(CH_params, Tout, c0, n, do_restart, t0, selected_solver)
 
   ! call solver (on all procs)
   if (.not. do_restart) then
@@ -114,21 +122,23 @@ program main
     endif
     
     call MPI_Barrier(MPI_COMM_WORLD, ierr)
-    call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
+    call solver_1(Tout, c0, CH_params, selected_solver, ierr)
   else
-    ! ensure that Tout(1) >= t0
-    if (myrank == 0) then
-      do st_tout=1,size(tout)
-        if (tout(st_tout) > t0) then
-          exit
-        endif
-      enddo
-    endif
-    call MPI_Barrier(MPI_COMM_WORLD, ierr)
 
+    if(myrank .ne. 0) then
+      allocate(c1(n, n))
+    end if 
+
+    ! ensure that Tout(1) >= t0
+    do st_tout=1,size(tout)
+      if (tout(st_tout) > t0) then
+        exit
+      endif
+    enddo
+    call MPI_Barrier(MPI_COMM_WORLD, ierr)
     allocate(updated_tout(size(tout)-st_tout))
     updated_tout = Tout(st_tout:)
-    call solver_2(t0, updated_tout, c0, c1, dt, CH_params, SOLVER_FD2, ierr)
+    call solver_2(t0, updated_tout, c0, c1, dt, CH_params, selected_solver, ierr)
   endif
 
   if (myrank == 0) then
@@ -141,7 +151,7 @@ program main
   deallocate(Tout)
 
   if (myrank == 0) then
-    call logger%info("main", "total time: "//to_string(MPI_Wtime()-t0))
+    call logger%info("main", "total time: "//to_string(MPI_Wtime()-mpi_t))
   endif
 
   ! shut down comms

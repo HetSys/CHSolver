@@ -195,15 +195,17 @@ module hdf5_io
   end subroutine 
 
   !> @brief Initialises a restart from a specified checkpoint.
-  !! @param[in]  chkpnt_folder Name of folder to store checkpoints and metadata
+  !! @param[in]  chkpnt_folder Name of folder to store checkpoints and metadatai
+  !! @param[out] n grid length in checkpoints
   !! @param[out]  sys_params Parameters used by the solver, to be placed in metadata.
   !! @param[out]  current_time Time of the system at the checkpoitn selected
   !! @param[out]  error error code
   !! @param[in]  n_chkpnt (Optional) Restart from the n-th checkpoint. Default is latest checkpoint.
   !! @param[in]  start_before_time (Optional) Selects latest checkpoint with time before start_before_time. n_chkpnt supercedes this, if both are supplied, in the case of conflict.
 
-  subroutine chkpnt_init(chkpnt_folder, sys_params, current_time, error, n_chkpnt, start_before_time)
+  subroutine chkpnt_init(chkpnt_folder, n,  sys_params, current_time, error, n_chkpnt, start_before_time)
     character(*), intent(in) :: chkpnt_folder
+    integer, intent(out) :: n
     integer, optional, intent(in) :: n_chkpnt
     integer, intent(out) :: error
     real(dp), optional, intent(in) :: start_before_time
@@ -357,8 +359,11 @@ module hdf5_io
     end if
 
     allocate(c_dims(grid_rank))
-    c_dims = int(2**grid_res, hsize_t)
+    n = 2**grid_res
+    c_dims = int(n, hsize_t)
     dt_dims = 1
+
+    print *, cur_chkpnt
 
     folder = chkpnt_folder
 
