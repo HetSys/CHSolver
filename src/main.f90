@@ -116,7 +116,7 @@ program main
     endif
     
     call MPI_Barrier(MPI_COMM_WORLD, ierr)
-    call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
+    call solver_1(Tout, c0, CH_params, SOLVER_PS, ierr)
   else
 
     if(myrank .ne. 0) then
@@ -132,7 +132,7 @@ program main
     call MPI_Barrier(MPI_COMM_WORLD, ierr)
     allocate(updated_tout(size(tout)-st_tout))
     updated_tout = Tout(st_tout:)
-    call solver_2(t0, updated_tout, c0, c1, dt, CH_params, SOLVER_FD2, ierr)
+    call solver_2(t0, updated_tout, c0, c1, dt, CH_params, SOLVER_PS, ierr)
   endif
 
   if (myrank == 0) then
