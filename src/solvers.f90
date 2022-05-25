@@ -2,12 +2,13 @@ module solvers
   use globals
   use solver_utils
   use fd_solvers
+  use pseudo_spectral_solver
 
   implicit none
   save
 
   ! solver codes to select the desired solver
-  integer, parameter :: SOLVER_FD2 = 1
+  integer, parameter :: SOLVER_FD2 = 1, SOLVER_PS = 2
 
   contains
 
@@ -35,6 +36,9 @@ module solvers
       case (SOLVER_FD2)
         call logger%info("solver_1", "Solving with fd2")
         call solver_ufds2t2(0.0_dp, Tout, CH_params, c0, eps2, error)
+      case (SOLVER_PS)
+        call logger%info("solver_1", "Solving with ps")
+        call solver_pssi(0.01_dp, Tout, CH_params, c0, eps2, error)
       case default
         call logger%fatal("solver_1", "Invalid solver code")
     endselect
@@ -73,6 +77,9 @@ module solvers
       case (SOLVER_FD2)
         call logger%info("solver_2", "Solving with fd2")
         call solver_ufds2t2(dt_(2), Tout, CH_params, c0, eps2, error, c1, dt_(1))
+      case (SOLVER_PS)
+        call logger%info("solver_2", "Solving with ps")
+        call solver_pssi(0.01_dp, Tout, CH_params, c0, eps2, error, c1, dt_(1))
       case default
         call logger%fatal("solver_2", "Invalid solver code")
     endselect
