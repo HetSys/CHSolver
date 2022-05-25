@@ -544,6 +544,7 @@ module fd_solvers
       endif
     enddo
 
+    call MPI_Barrier(MPI_COMM_WORLD, mpi_err)
 
     ! ========================================================================== !
     !   CLEAN UP                                                                 !
@@ -739,7 +740,7 @@ module fd_solvers
     real(dp), dimension(2) :: rhs
     real(dp) :: dx2_
     integer :: i, j, shift
-    integer :: req1, req2, req3, req4
+    integer :: req1, req2, req3, req4, req5, req6, req7, req8
 
     dx2_ = 1.0_dp / (dx*dx)
 
@@ -749,10 +750,10 @@ module fd_solvers
     call send_edge(n, E1(1:N,1), "l", req3)
     call send_edge(n, E1(1:N,N), "r", req4)
 
-    call send_edge(n, E2(1,1:N), "u", req1)
-    call send_edge(n, E2(N,1:N), "d", req2)
-    call send_edge(n, E2(1:N,1), "l", req3)
-    call send_edge(n, E2(1:N,N), "r", req4)
+    call send_edge(n, E2(1,1:N), "u", req5)
+    call send_edge(n, E2(N,1:N), "d", req6)
+    call send_edge(n, E2(1:N,1), "l", req7)
+    call send_edge(n, E2(1:N,N), "r", req8)
 
 
     ! ================ !
@@ -782,10 +783,10 @@ module fd_solvers
     call recv_edge(n, E1(1:N,N+1), "l")
     call recv_edge(n, E1(1:N,0), "r")
 
-    call mpi_wait(req1, mpi_status_ignore, mpi_err)
-    call mpi_wait(req2, mpi_status_ignore, mpi_err)
-    call mpi_wait(req3, mpi_status_ignore, mpi_err)
-    call mpi_wait(req4, mpi_status_ignore, mpi_err)
+    call mpi_wait(req5, mpi_status_ignore, mpi_err)
+    call mpi_wait(req6, mpi_status_ignore, mpi_err)
+    call mpi_wait(req7, mpi_status_ignore, mpi_err)
+    call mpi_wait(req8, mpi_status_ignore, mpi_err)
     call recv_edge(n, E2(N+1,1:N), "u")
     call recv_edge(n, E2(0,1:N), "d")
     call recv_edge(n, E2(1:N,N+1), "l")

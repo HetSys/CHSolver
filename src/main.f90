@@ -34,7 +34,7 @@ program main
   ! start up MPI comms
   call comms_init()
 
-  selected_solver = 2 ! Default to ps solver
+  selected_solver = SOLVER_FD_SELECTED ! Default to ps solver
   do_restart = .false.
   mpi_t = 0.0_dp
   t0 = 0.0_dp
