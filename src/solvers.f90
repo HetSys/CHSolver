@@ -38,7 +38,7 @@ module solvers
         call solver_ufds2t2(0.0_dp, Tout, CH_params, c0, eps2, error)
       case (SOLVER_PS)
         call logger%info("solver_1", "Solving with ps")
-        call solver_pssi(0.01_dp, Tout, CH_params, c0, eps2, error)
+        call solver_pssi(0.0_dp, 0.01_dp, Tout, CH_params, c0, eps2, error)
       case default
         call logger%fatal("solver_1", "Invalid solver code")
     endselect
@@ -79,7 +79,7 @@ module solvers
         call solver_ufds2t2(dt_(2), Tout, CH_params, c0, eps2, error, c1, dt_(1))
       case (SOLVER_PS)
         call logger%info("solver_2", "Solving with ps")
-        call solver_pssi(0.01_dp, Tout, CH_params, c0, eps2, error, c1, dt_(1))
+        call solver_pssi(dt_(2), 0.01_dp, Tout, CH_params, c0, eps2, error, c1, dt_(1))
       case default
         call logger%fatal("solver_2", "Invalid solver code")
     endselect
