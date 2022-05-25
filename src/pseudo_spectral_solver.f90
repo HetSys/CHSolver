@@ -11,24 +11,25 @@ module pseudo_spectral_solver
 
 contains
 
-  subroutine solver_pssi(A, Tout, CH_params, inarr, eps2, errors, inarr1, dt_in)
+  subroutine solver_pssi(t0, A, Tout, CH_params, inarr, eps2, errors, inarr1, dt_in)
     implicit none
 
     real(dp), intent(in)                              :: Tout(:)
     real(dp), intent(in)                              :: eps2, A
     real(dp), intent(in), dimension(6)                :: CH_params
-    real(dp), allocatable, intent(in)                 :: inarr(:,:)
-    real(dp), allocatable, intent(in), optional       :: inarr1(:,:)
+    real(dp),              intent(in)                 :: inarr(:,:)
+    real(dp), intent(in), optional                    :: inarr1(:,:)
     real(dp), intent(in), optional                    :: dt_in
+    real(dp), intent(in)                              :: t0
     integer, intent(inout)                            :: errors
     integer                                           :: N, i, n_threads, j, k, caseflag
     type(C_PTR)                                       :: fwplan, bwplan, pc0, pc1
     real(dp), dimension(:, :), allocatable            :: ksq
     complex(cdc), dimension(:,:), pointer             :: c0, c1
     real(dp), allocatable, dimension(:,:)             :: rc0, rc1
-    real(dp)                                          :: dt1, dt2, t, tmax, dt, dt0, t_out, dt_out, kappa, origdt
+    real(dp)                                          :: dt1, dt2, t, tmax, dt, dt0, t_out, dt_out, kappa, origdt, initdt
     logical                                           :: outflag
-    character(len=48)                                 :: msg
+    character(len=42)                                 :: msg
     character(1), parameter                           :: newline = NEW_LINE('a')
 
     ! SETUP=====================================================================
@@ -36,7 +37,7 @@ contains
     N = size(inarr, 1)
     tmax = maxval(Tout)
     i = 1
-    t = 0.0_dp
+    t = t0
     kappa = eps2
     outflag = .true.
     caseflag = 0
@@ -55,8 +56,8 @@ contains
       caseflag = 1
     end if
 
-    dt1 = 0.1_dp*kappa
-    dt2 = 0.1_dp/real(N, dp)
+    dt1 = 0.45_dp*kappa
+    dt2 = 0.45_dp/real(N, dp)
 
     if ( dt1 < dt2 ) then
       dt = dt1
@@ -64,6 +65,7 @@ contains
       dt = dt2
     end if
     origdt = dt
+    initdt = dt*1e-3_dp
 
     allocate(rc0(N,N))
     allocate(rc1(N,N))
@@ -93,7 +95,7 @@ contains
       end do
       !$OMP END PARALLEL
 
-      if (tout(i) < epsilon(tout(i))) then
+      if (abs(tout(i)-t) < epsilon(tout(i))) then
         write(msg, 24) "Initial condition output at t=  ", t
         call logger%info("solver_pssi", msg)
         dt_out = dt
@@ -110,7 +112,7 @@ contains
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
-        call write_to_traj(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
+        call write_to_traj(rc0, rc1, t_out, dt_out, errors)
         i = i + 1
       endif
 
@@ -122,10 +124,11 @@ contains
         outflag = .false.
       end if
 
-      t = t + dt
-      dt0 = dt
+      t = t + initdt
+      dt0 = initdt
 
-      call initial_iteration(dt, kappa, ksq, c0, c1, fwplan, bwplan)
+      call initial_iteration(initdt, kappa, ksq, c0, c1, fwplan, bwplan)
+
       dt = origdt
 
       if (outflag) then
@@ -147,7 +150,7 @@ contains
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
-        call write_to_traj(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
+        call write_to_traj(rc1, rc0, t_out, dt_out, errors)
 
         i = i + 1
       end if
@@ -166,7 +169,7 @@ contains
       end do
       !$OMP END PARALLEL
 
-      if (tout(i) < epsilon(tout(i))) then
+      if (abs(tout(i)-t) < epsilon(tout(i))) then
         write(msg, 24) "Initial from checkpoint output at t=  ", t
         call logger%info("solver_pssi", msg)
         dt_out = dt
@@ -184,7 +187,7 @@ contains
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
-        call write_to_traj(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
+        call write_to_traj(rc1, rc0, t_out, dt_out, errors)
         i = i + 1
       end if
 
@@ -223,7 +226,7 @@ contains
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
-        call write_to_traj(real(rc1,kind=dp), real(rc0,kind=dp), t_out, dt_out, errors)
+        call write_to_traj(rc1, rc0, t_out, dt_out, errors)
 
         i = i + 1
       end if
@@ -290,18 +293,18 @@ contains
   !! @param[in] tau, kappa, A, ksq, fwplan, bwplan  Stuff here.
   !! @param[inout] c0, res  The concentration grids.
   subroutine initial_iteration(tau, kappa, ksq, c0, res, fwplan, bwplan)
-    complex(cdc), dimension(:,:), intent(inout)  :: c0
+    complex(cdc), dimension(:,:), intent(inout)           :: c0
     real(dp), intent(in)                                  :: tau, kappa
     real(dp), dimension(:,:), intent(in)                  :: ksq
-    complex(cdc), dimension(:,:), intent(out)    :: res
-    type(C_PTR), intent(in)                                   :: fwplan, bwplan
-    integer, dimension(2)                                     :: c_shape
-    integer                                                   :: N
+    complex(cdc), dimension(:,:), intent(out)             :: res
+    type(C_PTR), intent(in)                               :: fwplan, bwplan
+    integer, dimension(2)                                 :: c_shape
+    integer                                               :: N
     real(dp)                                              :: tau1
-    complex(cdc)                                           :: ctau1, ckappa
-    complex(cdc), allocatable ,dimension(:,:)              :: cksq
-    complex(cdc), pointer :: fc0(:,:), ft_c0(:,:), ft_fc0(:,:), ft_c1(:,:)
-    type(C_PTR) :: p1, p2, p3, p4
+    complex(cdc)                                          :: ctau1, ckappa
+    complex(cdc), allocatable ,dimension(:,:)             :: cksq
+    complex(cdc), pointer                                 :: fc0(:,:), ft_c0(:,:), ft_fc0(:,:), ft_c1(:,:)
+    type(C_PTR)                                           :: p1, p2, p3, p4
 
 
     c_shape = shape(c0)
@@ -354,9 +357,9 @@ contains
   !! @param[in] tau, kappa, A, ksq, fwplan, bwplan  Stuff here.
   !! @param[inout] c0, c1  The concentration grids.
   subroutine iteration(tau, ksq, kappa, A, c0, c1, fwplan, bwplan)
-    complex(cdc), dimension(:,:), intent(inout)  :: c1, c0
-    real(dp), intent(in)                                  :: tau, kappa, A
-    real(dp), dimension(:,:), intent(in)                  :: ksq
+    complex(cdc), dimension(:,:), intent(inout)               :: c1, c0
+    real(dp), intent(in)                                      :: tau, kappa, A
+    real(dp), dimension(:,:), intent(in)                      :: ksq
     type(C_PTR), intent(in)                                   :: fwplan, bwplan
     integer, dimension(2)                                     :: c_shape
     integer                                                   :: N

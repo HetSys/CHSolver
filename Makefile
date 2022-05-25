@@ -15,7 +15,7 @@ endif
 LD=$(FC)
 
 # flags and libraries
-FFLAGS= -O3 -Wall -Wextra -Wconversion-extra -std=f2008 -g -fall-intrinsics -fopenmp
+FFLAGS= -O0 -Wall -Wextra -Wconversion-extra -std=f2008 -g -fall-intrinsics -fopenmp
 FFLAGS+= -I./src/submodules/bin/jsonfortran-gnu-8.2.5/lib -I/usr/include
 FLIBS= -lpthread -lsz -lz -ldl -lm ./src/submodules/bin/jsonfortran-gnu-8.2.5/lib/libjsonfortran.a -lfftw3_omp -lfftw3
 
