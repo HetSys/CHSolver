@@ -115,5 +115,5 @@ $(OBJ_DIR)/fd-solvers.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o $(OBJ_D
 $(OBJ_DIR)/pseudo_spectral_solver.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/solver-utils.o $(OBJ_DIR)/hdf5-io.o $(OBJ_DIR)/fftw3.o
 $(OBJ_DIR)/logging.o : $(OBJ_DIR)/logger_mod.o
 $(OBJ_DIR)/json-parser.o $(OBJ_DIR)/hdf5-io.o $(OBJ_DIR)/setup.o $(OBJ_DIR)/solvers.o $(OBJ_DIR)/progress.o : $(OBJ_DIR)/globals.o
-$(OBJ_DIR)/command-line.o : $(OBJ_DIR)/globals.o
+$(OBJ_DIR)/command-line.o : $(OBJ_DIR)/globals.o $(OBJ_DIR)/comms.o
 $(OBJ_DIR)/main.o : $(OBJ_DIR)/json-parser.o $(OBJ_DIR)/solvers.o $(OBJ_DIR)/globals.o $(OBJ_DIR)/progress.o $(OBJ_DIR)/hdf5-io.o $(OBJ_DIR)/setup.o $(OBJ_DIR)/globals.o
