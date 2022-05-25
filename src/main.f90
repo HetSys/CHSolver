@@ -83,13 +83,8 @@ program main
    call setup_grid(c0, grid_res, ch_params, init)
    call output_init(outdir, [2, grid_res], CH_params, ierr)
 
-<<<<<<< HEAD
-
    call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
-=======
-   
-   call solver_1(Tout, c0, CH_params, SOLVER_PS, ierr)
->>>>>>> e088e43f43b654e8703b0a8d0e552a65e086401e
+
   else
 
   !do st_Tout = 1, size(Tout)
