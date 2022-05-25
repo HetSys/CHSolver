@@ -284,7 +284,7 @@ module fd_solvers
 
       ! solve system with repeated v-cycles
       do i=1,niter
-        ! compute residuals TODO: maybe use MPI
+        ! compute residuals
         call laplacian(psi, R1(level)%grid, dx, n)
         R1(level)%grid = R1(level)%grid - phi/dt + b
         call laplacian(phi, R2(level)%grid, dx, n)
@@ -408,7 +408,7 @@ module fd_solvers
     !   REMAINING TIMESTEPS (second order)                                     !
     ! ======================================================================== !
     do while (t < tmax)
-      ! set current timestep TODO: condition on curvature rather than time
+      ! set current timestep
       if (t < t0) then
         dt = dt_min
       else if (t < t1) then
@@ -416,6 +416,9 @@ module fd_solvers
       else
         dt = dt_max
       endif
+
+      ! ensure timestep doesn't change too fast
+      dt = dt0 + 0.1_dp * (dt - dt0)
 
       ! restrict timestep if we would otherwise exceed an output time
       if (t + dt + epsilon(t) >= tout(it)) then
