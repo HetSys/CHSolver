@@ -1,5 +1,7 @@
 module solver_utils
   use globals
+  use omp_lib
+
 
   implicit none
   save
@@ -86,5 +88,4 @@ module solver_utils
 
     res = bit_size(val)-leadz(val)-1
   end subroutine ilog2
-
 end module solver_utils

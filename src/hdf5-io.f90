@@ -30,22 +30,10 @@ module hdf5_io
   integer(hid_t) :: dt_dspace_id ! dataspace identifier for 3/4D
   integer(hsize_t), dimension(1) :: dt_dims
 
-
-  !> @brief Called from within solvers to output c, c_prev and dt to a HDF5 checkpoint file.
-  !! @param[in]  c Concentration at current timestep.
-  !! @param[in]  c_prev Concentration at previous timestep.
-  !! @param[in]  dt Difference in time between the current and previous timesteps.
-  !! @param[in]  t The time at the current step.
-  !! @param[out]  error error code
-  interface write_to_traj
-    module procedure write_to_traj_2D
-    module procedure write_to_traj_3D
-  end interface write_to_traj
-
   contains
 
 
-  !> @brief Should create a folder to store the trajectory and in the folder, a metadata file should be created. Also, hdf5 variables should be allocated to fit grid lengths/ranks.
+  !> @brief Creates a folder to store the trajectory and inside the folder a metadata file is created. HDF5 variables are allocated to fit grid lengths/ranks.
   !! @param[in]  foldername Folder name to store the checkpoint files and metadata.
   !! @param[in]  grid_params (1) Number of dimensions, (2) 2 raised to the power of this number will give the grid resolution.
   !! @param[in]  sys_params Parameters used by the solver, to be placed in metadata.
@@ -84,7 +72,15 @@ module hdf5_io
   
 
 
-  subroutine write_to_traj_2D(c, c_prev, time, dt, error)
+
+  !> @brief Called from within solvers to output c, c_prev and dt to a HDF5 checkpoint file.
+  !! @param[in]  c Concentration at current timestep.
+  !! @param[in]  c_prev Concentration at previous timestep.
+  !! @param[in]  dt Difference in time between the current and previous timesteps.
+  !! @param[in]  t The time at the current step.
+  !! @param[out]  error error code
+
+  subroutine write_to_traj(c, c_prev, time, dt, error)
     real(dp), intent(in), dimension(:, :) :: c, c_prev
     real(dp), intent(in) :: time, dt
     integer, intent(out) :: error
@@ -131,50 +127,6 @@ module hdf5_io
 
   end subroutine
 
-  subroutine write_to_traj_3D(c, c_prev, time, dt, error)
-    real(dp), intent(in), dimension(:, :, :) :: c, c_prev
-    real(dp), intent(in) :: time, dt 
-    integer, intent(out) :: error
-
-    integer(hid_t) ::  file_id
-    integer :: iu, i
-
-    cur_chkpnt = cur_chkpnt + 1
-
-    
-    call h5fcreate_f(trim(folder)//"/"//TRIM(adjustl(to_string(cur_chkpnt)))//".chkpnt", h5f_acc_trunc_f, file_id, error)
-    
-    call h5screate_simple_f(3, c_dims, c_dspace_id, error)
-    call h5screate_simple_f(1, dt_dims, dt_dspace_id, error)
-    
-    call h5dcreate_f(file_id,"c", h5t_native_double, c_dspace_id, c_dset_id, error)
-    call h5dcreate_f(file_id,"c_prev", h5t_native_double, c_dspace_id, c_prev_dset_id, error)
-    call h5dcreate_f(file_id,"dt", h5t_native_double, dt_dspace_id, dt_dset_id, error)
-    
-    call h5dwrite_f(c_dset_id, h5t_native_double, c, c_dims, error, c_dspace_id)
-    call h5dwrite_f(c_prev_dset_id, h5t_native_double, c_prev, c_dims, error, c_dspace_id)
-    call h5dwrite_f(dt_dset_id, h5t_native_double, dt, dt_dims, error, dt_dspace_id)
-
-    call h5dclose_f(c_dset_id,error)
-    call h5dclose_f(c_prev_dset_id,error)
-    call h5dclose_f(dt_dset_id,error)
-
-    call h5sclose_f(c_dspace_id,error)
-    call h5sclose_f(dt_dspace_id,error)
-
-    call h5fclose_f(file_id, error)
-
-    open(newunit=iu, file=trim(folder)//metadata_fname, status="old")
-    
-    do i = 1, cur_chkpnt + 4
-      read(iu, *)
-    end do
-
-    write(iu, metaformat) cur_chkpnt, time
-    
-    close(iu)
-
-  end subroutine
   
   !> @brief Closes interfaces.
   !! @param[out]  error error code
@@ -243,12 +195,12 @@ module hdf5_io
   end subroutine 
 
   !> @brief Initialises a restart from a specified checkpoint.
-  !! @param[in]  chkpnt_folder 
+  !! @param[in]  chkpnt_folder Name of folder to store checkpoints and metadata
   !! @param[out]  sys_params Parameters used by the solver, to be placed in metadata.
-  !! @param[out]  current_time
+  !! @param[out]  current_time Time of the system at the checkpoitn selected
   !! @param[out]  error error code
-  !! @param[in]  n_chkpnt 
-  !! @param[in]  start_before_time 
+  !! @param[in]  n_chkpnt (Optional) Restart from the n-th checkpoint. Default is latest checkpoint.
+  !! @param[in]  start_before_time (Optional) Selects latest checkpoint with time before start_before_time. n_chkpnt supercedes this, if both are supplied, in the case of conflict.
 
   subroutine chkpnt_init(chkpnt_folder, sys_params, current_time, error, n_chkpnt, start_before_time)
     character(*), intent(in) :: chkpnt_folder
