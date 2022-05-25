@@ -32,10 +32,10 @@ class CHData():
 
         self.fname = fname
 
-        self.cwd = os.getcwd()
-        self.filepath = self.cwd + os.sep + fname
+        self._cwd = os.getcwd()
+        self._filepath = self.cwd + os.sep + fname
 
-        if os.path.isfile(self.filepath):
+        if os.path.isfile(self._filepath):
             self._read_jsonfile()
         else:
             self.save_rundata("default")
@@ -45,7 +45,7 @@ class CHData():
 
     def _read_jsonfile(self):
         try:
-            self._data = json.loads(open(self.filepath).read())
+            self._data = json.loads(open(self._filepath).read())
         except json.decoder.JSONDecodeError:
             raise RuntimeError(f"Error in reading JSON file {self.fname}, likely due to reading a blank file")
 
@@ -110,7 +110,7 @@ class CHData():
         self.input_data["grid_type"] = self.grid_type
         self.input_data["T"] = list(self.T)
 
-        if os.path.isfile(self.filepath):
+        if os.path.isfile(self._filepath):
             # Update internal _data with any changes to the file
             self._read_jsonfile()
 
@@ -118,7 +118,7 @@ class CHData():
         self._save_jsonfile()
     
     def _save_jsonfile(self):
-        with open(self.filepath, 'w') as f:
+        with open(self._filepath, 'w') as f:
                 json.dump(self._data, f, indent=2)
 
     def solve(self, cmd_args=""):
@@ -142,7 +142,7 @@ class CHData():
         Reads output metadata and checkpoint files from outdir
         '''
 
-        grid_params, sys_params, checkpoint_times = _read_metadata(os.getcwd() + os.sep + outdir + os.sep + "metadata.dat")
+        grid_params, sys_params, checkpoint_times = _read_metadata(self._cwd + os.sep + outdir + os.sep + "metadata.dat")
         
         self.grid_dimensionality = grid_params[0]
         self.grid_level = grid_params[1]
