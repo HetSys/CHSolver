@@ -359,8 +359,6 @@ module hdf5_io
     c_dims = int(n, hsize_t)
     dt_dims = 1
 
-    print *, cur_chkpnt
-
     folder = chkpnt_folder
 
     call h5open_f(error)
