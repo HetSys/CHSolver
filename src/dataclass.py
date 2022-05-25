@@ -33,7 +33,7 @@ class CHData():
         self.fname = fname
 
         self._cwd = os.getcwd()
-        self._filepath = self.cwd + os.sep + fname
+        self._filepath = self._cwd + os.sep + fname
 
         if os.path.isfile(self._filepath):
             self._read_jsonfile()
