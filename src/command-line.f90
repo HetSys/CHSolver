@@ -412,7 +412,7 @@ module command_line
         case ("1", "p1")
           idx = 6
         end select
-        if (present(val_arg)) then
+        if (present(val_arg) .AND. val_arg(1:1) .NE. "{") then
           cmd_CH_params(idx) = str_to_real(val_arg)
           is_val(current_arg+1) = is_short_arg
           CH_fnd(idx) = .TRUE.
