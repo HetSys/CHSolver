@@ -2,7 +2,6 @@
 !> @brief Command Line Interface for the CH Solver.
 !! @details Parses for getopt style args to adjust input parameters, logging verbosity,
 !! and other features.
-!! @author Tom Rocke
 module command_line
   use globals
   use comms

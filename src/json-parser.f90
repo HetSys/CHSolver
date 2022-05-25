@@ -1,6 +1,5 @@
 !> @brief Parser for input JSON formatted files
 !! @details Methods to search a target JSON file for the required input parameters
-!! @author Tom Rocke
 
 module JSON_Parser
 

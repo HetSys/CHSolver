@@ -1,3 +1,4 @@
+!> @brief Subroutines to setup concentration grids and output time arrays
 module setup
 
   use globals
