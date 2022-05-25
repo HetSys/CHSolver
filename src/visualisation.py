@@ -11,7 +11,7 @@ def find_previous_t_index(t_array:np.array, t):
     index = (np.abs(t_array - t)).argmin()
     if t_array[index] > t:
       index += -1
-    return index 
+    return index
 
 
 def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1, metadata = True):
@@ -106,17 +106,17 @@ def plot_free_energy(data_obj, ti=0, tf=-1, metadata = True):
 
   num_checkpoints = t_array.shape[0]
 
-  
+
   if tf==-1:
     tf = t_array[-1]
 
   ti_index = find_previous_t_index(t_array, ti)
   tf_index = find_previous_t_index(t_array, tf)
-  f_c = np.zeros_like(c) #Bulk free energy density 
+  f_c = np.zeros_like(c) #Bulk free energy density
   for t in range(num_checkpoints):
     for i in range(grid_res):
       for j in range(grid_res):
-          f_c[t,i,j] = A*((c[t,i,j]-p0)**2)*(c[t,i,j]-p1)**2 
+          f_c[t,i,j] = A*((c[t,i,j]-p0)**2)*(c[t,i,j]-p1)**2
 
   F = np.zeros((num_checkpoints)) #Free energy functional
   ## Setting up an alternate c array to account for PBCs
