@@ -10,7 +10,7 @@ Before building the dependencies and compiling the code, ensure that you have th
 - Python/3.8.6
 - FFTW/3.3.8
 
-If you using [Environment Modules](http://modules.sourceforge.net/) (eg on Warwick's HetMathSys nodes) then this can be accomplished via
+If you are using [Environment Modules](http://modules.sourceforge.net/) (eg on Warwick's HetMathSys nodes) then this can be accomplished via
 ```bash
 module purge
 module load GCC/10.2.0 CMake/3.20.1 OpenMPI/4.0.5 HDF5/1.10.7 Python/3.8.6 FFTW/3.3.8
