@@ -42,45 +42,6 @@ program main
   run_name = "default"
   outdir = "./out"
 
-<<<<<<< HEAD
-  ! Grab overriding restarts args
-
-  restart_time = -99.0_DP
-  checkpoint_number = -99
-
-  call get_checkpoint_commands(checkpoint_number, restart_time, do_restart)
-
-  if(do_restart) then
-    if (checkpoint_number > 0) then
-      print *, "Number"
-      call chkpnt_init(outdir, ch_params, t0, ierr, n_chkpnt=checkpoint_number)
-    else if (restart_time >= 0) then
-      print *, "Time"
-      call chkpnt_init(outdir, ch_params, t0, ierr, start_before_time=restart_time)
-    end if
-  end if
-
-
-
-  ! Validate input params
-  call validate_params(CH_params, init, grid_res, Tout, errors)
-
-  if (errors) then
-    call logger%fatal("main", "Errors found in input params, aborting.")
-    stop 1
-  end if
-
-  !!! END JSON, CLI, and LOGGING
-
-  ! GRID INITIALISATION
-
-  if (.NOT. do_restart) then
-   call setup_grid(c0, grid_res, ch_params, init)
-   call output_init(outdir, [2, grid_res], CH_params, ierr)
-
-   call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
-
-=======
   ! Set up on rank 0 only
   if (myrank == 0) then
     ! CLI
@@ -132,7 +93,6 @@ program main
       call logger%fatal("main", "Errors found in input params, aborting.")
       call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
     end if
->>>>>>> a683fbaeddf827818b8f867a0190ec253701f801
   else
     grid_res = 0
   endif
@@ -141,19 +101,11 @@ program main
   n = 2**grid_res
   call broadcast_setup(CH_params, Tout, c0, n)
 
-<<<<<<< HEAD
-    do st_Tout = 1, size(Tout)
-      if (Tout(st_Tout) > t0) then
-        exit
-      end if
-    end do
-=======
   ! call solver (on all procs)
   if (.not. do_restart) then
     if (myrank == 0) then
       ! initial concentration
       call setup_grid(c0, grid_res, ch_params, init)
->>>>>>> a683fbaeddf827818b8f867a0190ec253701f801
 
       ! set up HDF5 outputting
       call output_init(outdir, [2, grid_res], CH_params, ierr)
