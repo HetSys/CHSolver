@@ -92,7 +92,8 @@ module fd_solvers
     integer :: N ! grid size
     integer :: level ! grid level
     real(dp) :: dx ! grid spacing
-    real(dp) :: dt, dt0, dt1, dt_out ! timesteps
+    real(dp) :: dt, dt_min, dt_max ! timesteps
+    real(dp) :: dt0, dt1, dt_out ! timesteps
     real(dp) :: a0, a1, a2, b0, b1 ! time constants
     real(dp) :: t, t_out,  tmax
     real(dp) :: t0, t1 ! adaptive timestep
@@ -124,7 +125,9 @@ module fd_solvers
     N = size(c0,1) / nproc_row
     call ilog2(N,level)
     dx = 1.0_dp/(real(N*nproc_row,dp))
-    dt = 2.5_dp * eps2
+    dt_min = 2.5_dp * eps2
+    dt_max = dx
+    dt = dt_min
     tmax = maxval(tout)
     t = t_0
     it = 1
@@ -174,7 +177,6 @@ module fd_solvers
         call logger%warning("solver_ufds2t2", "no timestep provided, defaulting to first order")
       else
         double_start = .true.
-        dt = dt_in
       endif
     else
       if (present(dt_in)) then
@@ -385,7 +387,9 @@ module fd_solvers
         call recv_edge(n, psi(1:N,0), "r")
       end if
 
+      ! set timesteps
       dt0 = dt_in
+      dt_min = dt_in
     endif
 
 
@@ -395,11 +399,11 @@ module fd_solvers
     do while (t < tmax)
       ! set current timestep TODO: condition on curvature rather than time
       if (t < t0) then
-        dt = 2.5_dp * eps2
+        dt = dt_min
       else if (t < t1) then
-        dt = ((t1-t) * 2.5_dp * eps2 + (t-t0) * dx)/(t1-t0)
+        dt = ((t1-t) * dt_min + (t-t0) * dt_max)/(t1-t0)
       else
-        dt = dx
+        dt = dt_max
       endif
 
       ! restrict timestep if we would otherwise exceed an output time
