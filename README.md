@@ -67,4 +67,4 @@ Detailed documentation can be generated via [Doxygen](https://www.doxygen.nl/):
 make docs
 ```
 
-The pseudo spectral solver is based on this [paper](https://link.springer.com/article/10.1007/s10915-016-0251-4) (Li and Qiao, 2016) and the finite-difference solver is based on [paper](https://www.sciencedirect.com/science/article/pii/S0021999107000903) (Ceniceros and Roma, 2007).
+The pseudo spectral solver is based on this [paper](https://link.springer.com/article/10.1007/s10915-016-0251-4) (Li and Qiao, 2016) and the finite-difference solver is based on this [paper](https://www.sciencedirect.com/science/article/pii/S0021999107000903) (Ceniceros and Roma, 2007).
