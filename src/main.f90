@@ -29,10 +29,12 @@ program main
   ! MPI timing
   real(dp) :: mpi_t
 
+  integer :: selected_solver
+
   ! start up MPI comms
   call comms_init()
 
-
+  selected_solver = 2 ! Default to ps solver
   do_restart = .false.
   mpi_t = 0.0_dp
   t0 = 0.0_dp
@@ -49,6 +51,9 @@ program main
   if (myrank == 0) then
     ! CLI
     call initialise()
+
+    ! Get solver selection
+    call get_selected_solver(selected_solver)
 
     ! Get JSON filename, run name, and output directory
     call get_io_commands(fname, run_name, outdir, all_params_fnd)
@@ -103,7 +108,7 @@ program main
 
   ! send setup to other procs
   n = 2**grid_res
-  call broadcast_setup(CH_params, Tout, c0, n, do_restart, t0)
+  call broadcast_setup(CH_params, Tout, c0, n, do_restart, t0, selected_solver)
 
   ! call solver (on all procs)
   if (.not. do_restart) then
@@ -116,7 +121,7 @@ program main
     endif
     
     call MPI_Barrier(MPI_COMM_WORLD, ierr)
-    call solver_1(Tout, c0, CH_params, SOLVER_PS, ierr)
+    call solver_1(Tout, c0, CH_params, selected_solver, ierr)
   else
 
     if(myrank .ne. 0) then
@@ -132,7 +137,7 @@ program main
     call MPI_Barrier(MPI_COMM_WORLD, ierr)
     allocate(updated_tout(size(tout)-st_tout))
     updated_tout = Tout(st_tout:)
-    call solver_2(t0, updated_tout, c0, c1, dt, CH_params, SOLVER_PS, ierr)
+    call solver_2(t0, updated_tout, c0, c1, dt, CH_params, selected_solver, ierr)
   endif
 
   if (myrank == 0) then

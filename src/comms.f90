@@ -36,17 +36,18 @@ module comms
   end subroutine comms_init
 
   !> @Brief Sends initial parameters to all processes
-  !! @param[inout] CH_params   equation and domain parameters
-  !! @param[inout] Tout        output times
-  !! @param[inout] grid_res    grid resolution
-  !! @param[inout] do_restart  whether we are restarting from a checkpoint
-  !! @param[inout] to          initial time
-  subroutine broadcast_setup(CH_params, Tout, grid, grid_res, do_restart, t0)
+  !! @param[inout] CH_params        equation and domain parameters
+  !! @param[inout] Tout             output times
+  !! @param[inout] grid_res         grid resolution
+  !! @param[inout] do_restart       whether we are restarting from a checkpoint
+  !! @param[inout] to               initial time
+  !! @param[inout] selected_solver  solver type
+  subroutine broadcast_setup(CH_params, Tout, grid, grid_res, do_restart, t0, selected_solver)
     real(dp), intent(inout), dimension(6) :: CH_params
     real(dp), intent(inout), allocatable, dimension(:) :: Tout
     real(dp), dimension(:,:), allocatable :: grid
     logical, intent(inout) :: do_restart
-    integer, intent(inout) :: grid_res
+    integer, intent(inout) :: grid_res, selected_solver
     real(dp), intent(inout) :: t0
     integer :: Tout_size
 
@@ -60,7 +61,9 @@ module comms
     call mpi_bcast(grid_res, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
     call mpi_bcast(Tout_size, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
     call mpi_bcast(t0, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpi_err)
+
     call mpi_bcast(do_restart, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, mpi_err)
+    call mpi_bcast(selected_solver, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpi_err)
 
 
     ! allocate on non-master procs
