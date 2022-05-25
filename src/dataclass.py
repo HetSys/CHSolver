@@ -12,23 +12,26 @@ class CHData():
     _data = {}
 
 
-    def __init__(self, fname="input-data.json"):
+    def __init__(self, fname="input-data.json",
+                 L=1.0, A=1.0, M=0.25, K=0.0004,
+                 p0 = -1.0, p1 = 1.0, T=np.linspace(0, 0.1, 3),
+                 grid_type="r", grid_level=7):
         '''!
         Loads data from JSON file given by fname
         Will not save old files before opening a new one
         '''
         
-        self.L = 1.0
-        self.A = 1.0
-        self.M = 0.25
-        self.K = 0.0004
-        self.p0 = -1.0
-        self.p1 = 1.0
-        self.T = np.linspace(0, 0.1, 3)
+        self.L = L
+        self.A = A
+        self.M = M
+        self.K = K
+        self.p0 = p0
+        self.p1 = p1
+        self.T = T
 
 
-        self.grid_type = "r"
-        self.grid_level = 7
+        self.grid_type = grid_type
+        self.grid_level = grid_level
 
         self.fname = fname
 
