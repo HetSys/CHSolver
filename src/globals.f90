@@ -1,7 +1,6 @@
 !> @brief Globally accessible methods and variables
 !! @details Includes methods for string conversion, logging setup,
 !! parameter validation, and random seeding setup
-!! @author Tom Rocke
 
 module globals
   use iso_fortran_env
