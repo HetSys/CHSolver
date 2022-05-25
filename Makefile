@@ -1,6 +1,17 @@
 # compiler and linker
-FC=h5pfc # can use h5fc #HDF5's compiler (that wraps gfortran) then no need for most the flags/libs
+ifeq (, $(shell which h5pfc))
+ifeq (, $(shell which h5fc))
+$(info $(shell tput setaf 1)Message: Neither h5fc nor h5pfc found!$(shell tput sgr0))
+else
+$(info $(shell tput setaf 1)Message: No h5pfc (parallel wrapper) found, defaulting to h5fc (serial wrapper)$(shell tput sgr0))
+FC=h5fc # use h5fc's alias to get correct flags
+endif
+else
+$(info $(shell tput setaf 1)Message: Using h5pfc (parallel wrapper)$(shell tput sgr0))
+FC=h5pfc  # use h5pfc's alias to get correct flags
+endif
 LD=$(FC)
+
 
 
 

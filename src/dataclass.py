@@ -155,6 +155,9 @@ class CHData():
 
         c, c_prev, dt = _read_hdf5_files(self.T.shape[0], grid_res, outdir)
 
+        if len(c.shape) == 2:
+            c = c[None]
+
         self.C = c
 
 
@@ -165,8 +168,12 @@ def _read_metadata(filename):
     grid_params = np.array(f.readline().split()[1:], dtype=int)
     sys_params = f.readline().split()[1:]
     sys_params = np.array(sys_params + f.readline().split()[1:], dtype=float)
-  chkpnt_times = np.genfromtxt(filename, skip_header=4, dtype=float)[:, 1]
+    chkpnt_times = np.genfromtxt(filename, skip_header=4, dtype=float)
 
+    if len(chkpnt_times.shape) == 1:
+        chkpnt_times = chkpnt_times[None] 
+
+    chkpnt_times = chkpnt_times[:, 1]
 
 
   return grid_params, sys_params, chkpnt_times
