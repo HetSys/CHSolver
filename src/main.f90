@@ -32,6 +32,8 @@ program main
   ! start up MPI comms
   call comms_init()
 
+
+  do_restart = .false.
   t0 = 0.0_dp
   if (myrank == 0) then
     t0 = MPI_Wtime()
@@ -99,7 +101,7 @@ program main
 
   ! send setup to other procs
   n = 2**grid_res
-  call broadcast_setup(CH_params, Tout, c0, n)
+  call broadcast_setup(CH_params, Tout, c0, n, do_restart)
 
   ! call solver (on all procs)
   if (.not. do_restart) then
@@ -110,7 +112,8 @@ program main
       ! set up HDF5 outputting
       call output_init(outdir, [2, grid_res], CH_params, ierr)
     endif
-
+    
+    call MPI_Barrier(MPI_COMM_WORLD, ierr)
     call solver_1(Tout, c0, CH_params, SOLVER_FD2, ierr)
   else
     ! ensure that Tout(1) >= t0
