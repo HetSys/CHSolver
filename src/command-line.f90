@@ -243,15 +243,13 @@ module command_line
   end subroutine
 
   !> @brief Check which solver was selected from the CLI
-  !! @param[out] selection Integer marker for which solver was selected. Compare against
+  !! @param[inout] selection Integer marker for which solver was selected. Compare against
   !! SOLVER_FD_SELECTED and SOLVER_PS_SELECTED
   subroutine get_selected_solver(selection)
-    integer, intent(out) :: selection
+    integer, intent(inout) :: selection
 
     if (SELECTED_SOLVER == SOLVER_FD_SELECTED .OR. SELECTED_SOLVER == SOLVER_FD_SELECTED) then
       selection = SELECTED_SOLVER
-    else
-      selection = SOLVER_PS_SELECTED
     end if
 
   end subroutine
