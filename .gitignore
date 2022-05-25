@@ -37,15 +37,32 @@ __pycache__/*
 
 # Data files
 *.json
-*.htf5
+*.chkpnt
+*.dat
 
 # Doxygen documentation
 doxygen/output/*
 
 # Compiled submodules
 src/submodules/bin/*
+
 # Log files
 *.log
 
 # Exe
 chsolver
+test_all
+
+# Unit tests additional
+tests/unit_tests/*.F90
+tests/unit_tests/*.inc
+
+# Other
+**/.DS_Store
+*.png
+*.mp4
+*.gif
+*.pdf
+
+#python enviroment
+chenv

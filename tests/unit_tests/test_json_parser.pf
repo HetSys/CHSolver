@@ -1,0 +1,398 @@
+module test_json_parser
+  use funit
+  use json_module
+  use globals
+  use JSON_Parser
+  use logging
+
+  ! Global json definitions
+  type(json_core) :: json
+  type(json_file) :: jfile
+  type(json_value), pointer :: root, good_run, missing_L, missing_A, missing_M, missing_K, &
+                               missing_p0, missing_p1, missing_init, missing_level, retrieve_test
+  
+  character(*), parameter ::  good_run_name       = "working_run",     &
+                              missing_L_name      = "missing_l",       &
+                              missing_A_name      = "missing_a",       &
+                              missing_M_name      = "missing_m",       &
+                              missing_K_name      = "missing_k",       &
+                              missing_p0_name     = "missing_p0",      &
+                              missing_p1_name     = "missing_p1",      &
+                              missing_init_name   = "missing_init",    &
+                              missing_level_name  = "missing_level",   &
+                              retrieve_test_name  = "retrieve_test"
+  
+  character(*), parameter ::  L_name              = "L",               &
+                              A_name              = "A",               &
+                              M_name              = "M",               &
+                              K_name              = "K",               &
+                              p0_name             = "p0",              &
+                              p1_name             = "p1",              &
+                              init_name           = "grid_type",       &
+                              level_name          = "grid_level"
+  character(*), parameter :: fname = "test.json"
+
+
+  real(dp), parameter, dimension(6) ::  retrieve_CH_vals = (/1.0_dp, 2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp, 6.0_dp/)
+  integer, parameter ::                 retrieve_level_val = 7
+  character(len=1), parameter ::        retrieve_init_val = "r"
+  
+  contains
+
+  !============================================================================!
+  ! JSON RETRIEVAL TESTS                                                       !
+  ! Test that data is correctly retrieved from the JSON_file data structure    !
+  !============================================================================!
+
+  @test
+  subroutine test_CH_retrieval()
+    real(dp), dimension(6) :: fnd_CH_vals
+    logical :: fnd
+
+    fnd = json_retrieve(jfile, retrieve_test_name, L_name, fnd_CH_vals(1))
+    @assertTrue(fnd)
+    fnd = json_retrieve(jfile, retrieve_test_name, A_name, fnd_CH_vals(2))
+    @assertTrue(fnd)
+    fnd = json_retrieve(jfile, retrieve_test_name, M_name, fnd_CH_vals(3))
+    @assertTrue(fnd)
+    fnd = json_retrieve(jfile, retrieve_test_name, K_name, fnd_CH_vals(4))
+    @assertTrue(fnd)
+    fnd = json_retrieve(jfile, retrieve_test_name, p0_name, fnd_CH_vals(5))
+    @assertTrue(fnd)
+    fnd = json_retrieve(jfile, retrieve_test_name, p1_name, fnd_CH_vals(6))
+    @assertTrue(fnd)
+
+    @assertEqual(fnd_CH_vals, retrieve_CH_vals)
+  end subroutine
+
+  @test
+  subroutine test_level_retrieval()
+    integer :: level
+    logical :: fnd
+
+    fnd = json_retrieve(jfile, retrieve_test_name, level_name, level)
+    @assertTrue(fnd)
+
+    @assertEqual(level, retrieve_level_val)
+  end subroutine
+
+  @test
+  subroutine test_init_retrieval()
+    character(len=:), allocatable :: init
+    logical :: fnd
+
+    fnd = json_retrieve(jfile, retrieve_test_name, init_name, init)
+    @assertTrue(fnd)
+
+    @assertEqual(init, retrieve_init_val)
+  end subroutine
+
+  !============================================================================!
+  ! PATH GENERATION TESTS                                                      !
+  ! Check that json_get_path correctly generates valid JSON paths              !
+  !============================================================================!
+
+  @test
+  subroutine test_pathing()
+    character(128) :: path
+    character(*), parameter :: foo = "foo", bar = "bar", baz = "baz"
+    character(128), parameter :: foobar_path = "$['foo']['bar']", &
+                                 barbaz_path = "$['bar']['baz']", &
+                                 bazfoo_path = "$['baz']['foo']"
+
+    path = json_get_path(foo, bar)
+    @assertEqual(path, foobar_path)
+
+
+    path = json_get_path(bar, baz)
+    @assertEqual(path, barbaz_path)
+
+
+    path = json_get_path(baz, foo)
+    @assertEqual(path, bazfoo_path)
+
+  end subroutine
+
+  !============================================================================!
+  ! RUN NAME TESTS                                                             !
+  ! Check that get_json_params correctly flags missing run names as errors     !
+  !============================================================================!
+  @test
+  subroutine test_missing_run_name()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+    call get_json_params(jfile, "name_not_in_json", CH_params, grid_init, grid_level, error=error)
+    @assertTrue(error, message="Did not correctly flag missing run name") 
+  end subroutine
+
+  !============================================================================!
+  ! MISSING PARAM JSON TESTS                                                   !
+  ! Check that get_json_params correctly flags missing parameters as errors    !
+  !============================================================================!
+
+  @test
+  subroutine test_all_present()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+    call get_json_params(jfile, good_run_name, CH_params, grid_init, grid_level, error=error)
+    @assertFalse(error, message="Incorrectly raised error for run which should be populated") 
+  end subroutine
+
+  @test
+  subroutine test_missing_L()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+    call get_json_params(jfile, missing_L_name, CH_params, grid_init, grid_level, error=error)
+    @assertTrue(error, message="Did not correctly flag missing L parameter") 
+  end subroutine
+
+  @test
+  subroutine test_missing_A()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+    call get_json_params(jfile, missing_A_name, CH_params, grid_init, grid_level, error=error)
+    @assertTrue(error, message="Did not correctly flag missing A parameter") 
+  end subroutine
+
+  @test
+  subroutine test_missing_M()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+    call get_json_params(jfile, missing_M_name, CH_params, grid_init, grid_level, error=error)
+    @assertTrue(error, message="Did not correctly flag missing M parameter") 
+  end subroutine
+
+  @test
+  subroutine test_missing_K()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+    call get_json_params(jfile, missing_K_name, CH_params, grid_init, grid_level, error=error)
+    @assertTrue(error, message="Did not correctly flag missing K parameter") 
+  end subroutine
+
+  @test
+  subroutine test_missing_p0()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+    call get_json_params(jfile, missing_p0_name, CH_params, grid_init, grid_level, error=error)
+    @assertTrue(error, message="Did not correctly flag missing p0 parameter") 
+  end subroutine
+
+  @test
+  subroutine test_missing_p1()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+    call get_json_params(jfile, missing_p1_name, CH_params, grid_init, grid_level, error=error)
+    @assertTrue(error, message="Did not correctly flag missing p1 parameter") 
+  end subroutine
+
+  @test
+  subroutine test_missing_init()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+    call get_json_params(jfile, missing_init_name, CH_params, grid_init, grid_level, error=error)
+    @assertTrue(error, message="Did not correctly flag missing initialisation parameter") 
+  end subroutine
+
+  @test
+  subroutine test_missing_level()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+    call get_json_params(jfile, missing_level_name, CH_params, grid_init, grid_level, error=error)
+    @assertTrue(error, message="Did not correctly flag missing level parameter") 
+  end subroutine
+
+
+  !============================================================================!
+  ! INITIALISATION + CLEANUP                                                   !
+  ! Setup test JSON object prior to testing, and clean it after tests          !
+  !============================================================================!
+
+
+  @before
+  subroutine json_setup()
+    ! Setup test json structure
+    real(dp), parameter ::     real_fill_val  = 1.0_DP
+    integer, parameter ::      int_fill_val   = 1
+    character(*), parameter :: char_fill_val = "r"
+  
+    logger%disable_all_logging = .TRUE.
+    
+    call json%initialize(path_mode=3)
+    call json%create_object(root,'')
+
+
+    ! Good run (all defined)
+    call json%create_object(good_run, good_run_name)
+    call json%add(root, good_run)
+    call json%add(good_run, L_name, real_fill_val)
+    call json%add(good_run, A_name, real_fill_val)
+    call json%add(good_run, M_name, real_fill_val)
+    call json%add(good_run, K_name, real_fill_val)
+    call json%add(good_run, p0_name, real_fill_val)
+    call json%add(good_run, p1_name, real_fill_val)
+    call json%add(good_run, init_name, char_fill_val)
+    call json%add(good_run, level_name, int_fill_val)
+
+    ! Missing L
+    call json%create_object(missing_L, missing_L_name)
+    call json%add(root, missing_L)
+    !call json%add(missing_L, L_name, real_fill_val)
+    call json%add(missing_L, A_name, real_fill_val)
+    call json%add(missing_L, M_name, real_fill_val)
+    call json%add(missing_L, K_name, real_fill_val)
+    call json%add(missing_L, p0_name, real_fill_val)
+    call json%add(missing_L, p1_name, real_fill_val)
+    call json%add(missing_L, init_name, char_fill_val)
+    call json%add(missing_L, level_name, int_fill_val)
+
+    ! Missing A
+    call json%create_object(missing_A, missing_A_name)
+    call json%add(root, missing_A)
+    call json%add(missing_A, L_name, real_fill_val)
+    !call json%add(missing_A, A_name, real_fill_val)
+    call json%add(missing_A, M_name, real_fill_val)
+    call json%add(missing_A, K_name, real_fill_val)
+    call json%add(missing_A, p0_name, real_fill_val)
+    call json%add(missing_A, p1_name, real_fill_val)
+    call json%add(missing_A, init_name, char_fill_val)
+    call json%add(missing_A, level_name, int_fill_val)
+
+    ! Missing M
+    call json%create_object(missing_M, missing_M_name)
+    call json%add(root, missing_M)
+    call json%add(missing_M, L_name, real_fill_val)
+    call json%add(missing_M, A_name, real_fill_val)
+    !call json%add(missing_M, M_name, real_fill_val)
+    call json%add(missing_M, K_name, real_fill_val)
+    call json%add(missing_M, p0_name, real_fill_val)
+    call json%add(missing_M, p1_name, real_fill_val)
+    call json%add(missing_M, init_name, char_fill_val)
+    call json%add(missing_M, level_name, int_fill_val)
+
+    ! Missing K
+    call json%create_object(missing_K, missing_K_name)
+    call json%add(root, missing_K)
+    call json%add(missing_K, L_name, real_fill_val)
+    call json%add(missing_K, A_name, real_fill_val)
+    call json%add(missing_K, M_name, real_fill_val)
+    !call json%add(missing_K, K_name, real_fill_val)
+    call json%add(missing_K, p0_name, real_fill_val)
+    call json%add(missing_K, p1_name, real_fill_val)
+    call json%add(missing_K, init_name, char_fill_val)
+    call json%add(missing_K, level_name, int_fill_val)
+
+    ! Missing p0
+    call json%create_object(missing_p0, missing_p0_name)
+    call json%add(root, missing_p0)
+    call json%add(missing_p0, L_name, real_fill_val)
+    call json%add(missing_p0, A_name, real_fill_val)
+    call json%add(missing_p0, M_name, real_fill_val)
+    call json%add(missing_p0, K_name, real_fill_val)
+    !call json%add(missing_p0, p0_name, real_fill_val)
+    call json%add(missing_p0, p1_name, real_fill_val)
+    call json%add(missing_p0, init_name, char_fill_val)
+    call json%add(missing_p0, level_name, int_fill_val)
+
+    ! Missing p1
+    call json%create_object(missing_p1, missing_p1_name)
+    call json%add(root, missing_p1)
+    call json%add(missing_p1, L_name, real_fill_val)
+    call json%add(missing_p1, A_name, real_fill_val)
+    call json%add(missing_p1, M_name, real_fill_val)
+    call json%add(missing_p1, K_name, real_fill_val)
+    call json%add(missing_p1, p0_name, real_fill_val)
+    !call json%add(missing_p1, p1_name, real_fill_val)
+    call json%add(missing_p1, init_name, char_fill_val)
+    call json%add(missing_p1, level_name, int_fill_val)
+
+    ! Missing init
+    call json%create_object(missing_init, missing_init_name)
+    call json%add(root, missing_init)
+    call json%add(missing_init, L_name, real_fill_val)
+    call json%add(missing_init, A_name, real_fill_val)
+    call json%add(missing_init, M_name, real_fill_val)
+    call json%add(missing_init, K_name, real_fill_val)
+    call json%add(missing_init, p0_name, real_fill_val)
+    call json%add(missing_init, p1_name, real_fill_val)
+    !call json%add(missing_init, init_name, char_fill_val)
+    call json%add(missing_init, level_name, int_fill_val)
+
+    ! Missing level
+    call json%create_object(missing_level, missing_level_name)
+    call json%add(root, missing_level)
+    call json%add(missing_level, L_name, real_fill_val)
+    call json%add(missing_level, A_name, real_fill_val)
+    call json%add(missing_level, M_name, real_fill_val)
+    call json%add(missing_level, K_name, real_fill_val)
+    call json%add(missing_level, p0_name, real_fill_val)
+    call json%add(missing_level, p1_name, real_fill_val)
+    call json%add(missing_level, init_name, char_fill_val)
+    !call json%add(missing_level, level_name, int_fill_val)
+
+
+    ! Retrieve test
+    call json%create_object(retrieve_test, retrieve_test_name)
+    call json%add(root, retrieve_test)
+    call json%add(retrieve_test, L_name, retrieve_CH_vals(1))
+    call json%add(retrieve_test, A_name, retrieve_CH_vals(2))
+    call json%add(retrieve_test, M_name, retrieve_CH_vals(3))
+    call json%add(retrieve_test, K_name, retrieve_CH_vals(4))
+    call json%add(retrieve_test, p0_name, retrieve_CH_vals(5))
+    call json%add(retrieve_test, p1_name, retrieve_CH_vals(6))
+    call json%add(retrieve_test, init_name, retrieve_init_val)
+    call json%add(retrieve_test, level_name, retrieve_level_val)
+
+
+    jfile = json_file(root, json)
+
+  end subroutine json_setup
+
+  @after
+  subroutine json_cleanup()
+    call json%destroy()
+    call jfile%destroy()
+  end subroutine
+
+
+end module test_json_parser

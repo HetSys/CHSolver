@@ -1,0 +1,216 @@
+module test_globals
+  use funit
+  use globals
+                         
+contains
+
+  @before
+  subroutine setup()
+    logger%disable_all_logging = .TRUE.
+
+  end subroutine
+
+
+  !============================================================================!
+  ! VALID PARAMETER TEST                                                       !
+  ! Check that validate_params doesn't return an error if params all fine      !
+  !============================================================================!
+
+  @test
+  subroutine test_valid_params()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+
+    CH_params = (/1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 0.0_dp, 1.0_dp/)
+    grid_init = "r"
+    grid_level = 4
+
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
+    @assertFalse(error, "validate_params shouldn't error for this working case")
+  end subroutine
+
+  !============================================================================!
+  ! INVALID PARAMETER TESTS                                                    !
+  ! Check that validate_params returns an error if params are invalid          !
+  !============================================================================!
+
+  ! L testing
+
+  @test
+  subroutine test_invalid_L()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+
+    CH_params = (/-1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 0.0_dp, 1.0_dp/)
+    grid_init = "r"
+    grid_level = 4
+
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
+    @assertTrue(error, message="validate_params should error for negative L")
+  end subroutine
+
+
+  ! A testing
+  @test
+  subroutine test_invalid_A()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+
+    CH_params = (/1.0_dp, -1.0_dp, 1.0_dp, 1.0_dp, 0.0_dp, 1.0_dp/)
+    grid_init = "r"
+    grid_level = 4
+
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
+    @assertTrue(error, message="validate_params should error for negative A")
+
+    error = .FALSE.
+
+    CH_params = (/1.0_dp, 0.0_dp, 1.0_dp, 1.0_dp, 0.0_dp, 1.0_dp/)
+    grid_init = "r"
+    grid_level = 4
+
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
+    @assertTrue(error, message="validate_params should error for A=0")
+  end subroutine
+
+
+  ! M testing
+  @test
+  subroutine test_invalid_M()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+
+    CH_params = (/1.0_dp, 1.0_dp, -1.0_dp, 1.0_dp, 0.0_dp, 1.0_dp/)
+    grid_init = "r"
+    grid_level = 4
+
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
+    @assertTrue(error, message="validate_params should error for negative M")
+  end subroutine
+
+
+  ! K testing
+  @test
+  subroutine test_invalid_K()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+
+    CH_params = (/1.0_dp, 1.0_dp, 1.0_dp, -1.0_dp, 0.0_dp, 1.0_dp/)
+    grid_init = "r"
+    grid_level = 4
+
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
+    @assertTrue(error, message="validate_params should error for negative K")
+  end subroutine
+
+
+  ! p0 & p1 testing
+  @test
+  subroutine test_invalid_p0_equal_p1()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+
+    CH_params = (/1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp/)
+    grid_init = "r"
+    grid_level = 4
+
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
+    @assertTrue(error, message="validate_params should error for p0==p1")
+  end subroutine
+
+
+  ! Grid level testing
+  @test
+  subroutine test_invalid_level()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+
+    CH_params = (/1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp/)
+    grid_init = "r"
+    grid_level = -1
+
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
+    @assertTrue(error, message="validate_params should error for negative grid level")
+  end subroutine
+
+  ! Grid init char testing
+  @test
+  subroutine test_invalid_init()
+    real(kind=dp) :: CH_params(6)
+    character(:), allocatable :: grid_init
+    integer:: grid_level
+    logical :: error
+    
+    error = .FALSE.
+
+    CH_params = (/1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp/)
+    grid_init = "long_char"
+    grid_level = 4
+
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
+    @assertTrue(error, message="validate_params should error for len(grid_init)>1")
+    
+    
+    error = .FALSE.
+
+    CH_params = (/1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp, 1.0_dp/)
+    grid_init = "z"
+    grid_level = 4
+
+    call validate_params(CH_params, grid_init, grid_level, errors=error)
+    @assertTrue(error, message="validate_params should error for grid_init not in accepted inits")
+  end subroutine
+
+
+  !============================================================================!
+  ! TO_STRING TESTS                                                            !
+  ! Tests that to_string returns the desired result for all types              !
+  !============================================================================!
+
+  @test
+  subroutine test_to_string()
+    integer, parameter :: int_short = 1, int_longer=1001
+    real(kind=dp), parameter :: real_test = 1.0_dp
+    character(128) :: result
+
+    result = adjustl(to_string(int_short))
+    @assertEqual(result(1:1), "1", message="to_string(1) should return 1")
+   
+    result = adjustl(to_string(int_longer))
+    @assertEqual(result(1:4), "1001", message="to_string(1001) should return 1001")
+    
+    result = adjustl(to_string(real_test))
+    @assertEqual(result(1:1), "1", message="to_string(1.0_dp) should return 1.00000...")
+    @assertTrue((result(2:2) == "."), message="to_string(1.0_dp) should return 1.00000...")
+    @assertTrue((result(3:7) == "00000"), message="to_string(1.0_dp) should return 1.00000...")
+  end subroutine  
+
+end module test_globals
