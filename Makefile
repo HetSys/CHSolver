@@ -104,6 +104,7 @@ docs:
 	doxygen ./doxygen/doxygen-config
 	(cd ./doxygen/output/latex && make)
 	cp ./doxygen/output/latex/refman.pdf CH-docs.pdf
+	ln -s ./doxygen/output/html/index.html CH-Docs.html
 
 # dependencies
 $(OBJ_DIR)/logger_mod.o : $(OBJ_DIR)/face.o

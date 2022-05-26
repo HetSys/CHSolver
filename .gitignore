@@ -66,3 +66,4 @@ tests/unit_tests/*.inc
 
 #python enviroment
 chenv
+*.html
