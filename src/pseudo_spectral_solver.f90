@@ -319,10 +319,10 @@ contains
 
   end subroutine solver_pssi
 
-  !> @brief Calculate the bulk free potential energy.
+  !> @brief Calculate the bulk free potential energy gradient.
   !!
   !! @param[in] c The concentration array.
-  !! @param[out] res The bulk free energy at that concentration.
+  !! @param[out] res The bulk free energy gradient at that concentration.
   subroutine f(c, res)
     complex(cdc), dimension(:,:), intent(in)   :: c
     complex(cdc), dimension(:,:), intent(out)  :: res
@@ -344,8 +344,8 @@ contains
   !! 1 time step previously.
   !! @param[in] ft_c0 The fourier transform of c0, the concentration array calculated
   !! 2 time steps previously.
-  !! @param[in] ft_fc1 The fourier transform of the bulk potential calculated for c1.
-  !! @param[in] ft_fc0 The fourier transform of the bulk potential calculated for c0.
+  !! @param[in] ft_fc1 The fourier transform of the bulk free potential energy gradient calculated for c1.
+  !! @param[in] ft_fc0 The fourier transform of the bulk free potential energy gradient calculated for c0.
   !! @param[out] res The concentration array at time tau later than c1.
   subroutine step(tau, ksq, kappa, A, ft_c1, ft_c0, ft_fc1, ft_fc0, res)
     complex(cdc), dimension(:,:), intent(in)               :: ft_c1, ft_c0, ft_fc1, ft_fc0
@@ -387,9 +387,9 @@ contains
   !! FFTW3 plans.
   !! @param[out] res The concentration array at a time tau later than c0.
   !! @param[in] fwplan The FFTW3 plan used to forward fourier transform the concentration
-  !! arrays and the bulk potentials.
+  !! arrays and the bulk free potential energy gradient.
   !! @param[in] bwplan The FFTW3 plan used to backward fourier transform the concentration
-  !! arrays and the bulk potentials.
+  !! arrays and the bulk free potential energy gradient.
   subroutine initial_iteration(tau, kappa, ksq, c0, res, fwplan, bwplan)
     complex(cdc), dimension(:,:), intent(inout)           :: c0
     real(dp), intent(in)                                  :: tau, kappa
@@ -409,8 +409,8 @@ contains
     N = c_shape(1)
     allocate(cksq(N,N))
 
-    !Allocate arrays to store the fourier transformed concentrations and bulk
-    !potential energies.
+    !Allocate arrays to store the fourier transformed concentrations and bulk free
+    !potential energy gradients.
     p1 = fftw_alloc_complex(int(N * N, C_SIZE_T))
     call c_f_pointer(p1, fc0, [N, N])
     p2 = fftw_alloc_complex(int(N * N, C_SIZE_T))
@@ -420,7 +420,7 @@ contains
     p4 = fftw_alloc_complex(int(N * N, C_SIZE_T))
     call c_f_pointer(p4, ft_c1, [N, N])
 
-    !Calculate bulk potential energy.
+    !Calculate bulk free potential energy gradient.
     call f(c0, fc0)
     !Execute fourier transforms.
     call fftw_execute_dft(fwplan, c0, ft_c0)
@@ -477,9 +477,9 @@ contains
   !! @param[inout] c0 The concentration array at a time tau before c1.
   !! @param[inout] c1 The concentration array at a time tau before the output.
   !! @param[in] fwplan The FFTW3 plan used to forward fourier transform the concentration
-  !! arrays and the bulk potentials.
+  !! arrays and the bulk free potential energy gradients.
   !! @param[in] bwplan The FFTW3 plan used to backward fourier transform the concentration
-  !! arrays and the bulk potentials.
+  !! arrays and the bulk free potential energy gradients.
   subroutine iteration(tau, ksq, kappa, A, c0, c1, fwplan, bwplan)
     complex(cdc), dimension(:,:), intent(inout)               :: c1, c0
     real(dp), intent(in)                                      :: tau, kappa, A
@@ -513,15 +513,15 @@ contains
     p8 = fftw_alloc_complex(int(N * N, C_SIZE_T))
     call c_f_pointer(p8, ft_res, [N, N])
 
-    !Calculate bulk potential energies.
+    !Calculate bulk free potential energy gradients.
     call f(c1, fc1)
     call f(c0, fc0)
 
-    !Fourier transform the conc and bulk potential energies at the current time.
+    !Fourier transform the conc and bulk free potential energy gradients at the current time.
     call fftw_execute_dft(fwplan, c1, ft_c1)
     call fftw_execute_dft(fwplan, fc1, ft_fc1)
 
-    !Fourier transform the conc and bulk potential energies at the previous time.
+    !Fourier transform the conc and bulk free potential energy gradients at the previous time.
     call fftw_execute_dft(fwplan, c0, ft_c0)
     call fftw_execute_dft(fwplan, fc0, ft_fc0)
 
