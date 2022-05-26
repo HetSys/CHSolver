@@ -61,15 +61,18 @@ contains
     character(1), parameter                           :: newline = NEW_LINE('a')
 
     ! SETUP=====================================================================
-    24 format(A, F7.4)
-    N = size(inarr, 1)
-    tmax = maxval(Tout)
-    i = 1
-    t = t0
-    kappa = eps2
-    outflag = .true.
-    caseflag = 0
+    24 format(A, F7.4)  !Format for printing checkpoint times.
+    N = size(inarr, 1)  !Domain size.
+    tmax = maxval(Tout) !The maximum time.
+    i = 1               !Iterator.
+    t = t0              !The current time.
+    kappa = eps2        !The dimensionless parameter that controls the CH equation's behaviour.
+    outflag = .true.    !Flag to enable a checkpoint.
+    caseflag = 0        !Flag to switch between paired and single initial conditions.
 
+    !Check if both the parameters required for the paired condition are present.
+    !If they are, set the caseflag to indicate that we are working with a paired condition.
+    !If they're not, set the caseflag to indicate that we are wokring with a single condition.
     if (present(inarr1) .and. present(dt_in)) then
       caseflag = 0
     else if (present(inarr1)) then
@@ -84,6 +87,7 @@ contains
       caseflag = 1
     end if
 
+    !To get a stable timestep, we have to select the smallest value out of dt1 and dt2.
     dt1 = 0.3_dp*kappa
     dt2 = 0.3_dp/real(N, dp)
 
@@ -92,29 +96,40 @@ contains
     else
       dt = dt2
     end if
+    !We store the original dt so that we can restore it after dt is changed due to checkpointing
+    !requirements.
     origdt = dt
+    !We make the timestep for the initial iteration 1000 times smaller than the others.
+    !This is needed because the initial iteration uses an explicit first order
+    !pseudo-spectral method.
     initdt = dt*1e-3_dp
 
+    !Allocate the real arrays used for outputting.
     allocate(rc0(N,N))
     allocate(rc1(N,N))
 
+    !Allocate and initialise the k^2 arrays used in the pseudo-spectral method.
     allocate(ksq(N,N))
     call create_ksq(ksq, N)
 
+    !Initialise openmp for FFTW3.
     errors = fftw_init_threads()
     n_threads = omp_get_max_threads()
     call fftw_plan_with_nthreads(int(n_threads))
 
+    !Use fftw alloc to initialise complex concentration arrays.
     pc0 = fftw_alloc_complex(int(N * N, C_SIZE_T))
     call c_f_pointer(pc0, c0, [N, N])
     pc1 = fftw_alloc_complex(int(N * N, C_SIZE_T))
     call c_f_pointer(pc1, c1, [N, N])
 
+    !Create the plan.
     fwplan = fftw_plan_dft_2d(N, N, c0, c1, FFTW_FORWARD, FFTW_ESTIMATE)
     bwplan = fftw_plan_dft_2d(N, N, c0, c1, FFTW_BACKWARD, FFTW_ESTIMATE)
 
     ! START FROM BEGINNING======================================================
     if (caseflag == 1) then
+      !Copy the real valued in array into a complex valued c0.
       !$OMP PARALLEL PRIVATE(j, k)
       do j = 1, N
         do k = 1, N
@@ -123,11 +138,13 @@ contains
       end do
       !$OMP END PARALLEL
 
+      !Conditionally checkpoint - should be a subroutine!
       if (abs(tout(i)-t) < epsilon(tout(i))) then
         write(msg, 24) "Initial condition output at t=  ", t
         call logger%info("solver_pssi", msg)
         dt_out = dt
         t_out = t
+        !Convert complex valued c's in real valued rc's.
         !$OMP PARALLEL PRIVATE(j, k)
         do j = 1, N
           do k = 1, N
@@ -137,14 +154,18 @@ contains
         end do
         !$OMP END PARALLEL
 
+        !Restore units for checkpointing.
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
+        !Checkpoint.
         call write_to_traj(rc0, rc1, t_out, dt_out, errors)
         i = i + 1
       endif
 
     ! INITAL TIMESTEP===========================================================
+    !Check if checkpoint is required. If it is, reduce dt to hit the checkpoint
+    !time.
       if ( t + dt + epsilon(t) > Tout(i) ) then
         dt = tout(i) - t
         outflag = .true.
@@ -152,13 +173,18 @@ contains
         outflag = .false.
       end if
 
+      !Incriment time and store dt.
       t = t + initdt
       dt0 = initdt
 
+      !Call the initial iteration.
       call initial_iteration(initdt, kappa, ksq, c0, c1, fwplan, bwplan)
 
+      !set future dt's to be the original dt calculated at the start of the
+      !subroutine.
       dt = origdt
 
+      !Conditionally checkpoint - should be a subroutine!
       if (outflag) then
         write(msg, 24) "Output at t=", t
         call logger%info("solver_pssi", msg)
@@ -166,6 +192,7 @@ contains
         dt_out = dt
         t_out = t
 
+        !Convert complex valued c's in real valued rc's.
         !$OMP PARALLEL PRIVATE(j, k)
         do j = 1, N
           do k = 1, N
@@ -175,9 +202,11 @@ contains
         end do
         !$OMP END PARALLEL
 
+        !Restore units for checkpoint.
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
+        !Checkpoint.
         call write_to_traj(rc1, rc0, t_out, dt_out, errors)
 
         i = i + 1
@@ -186,8 +215,10 @@ contains
     ! START FROM CHECKPOINT=====================================================
     else if (caseflag == 0) then
 
+      !Set dt to be the dt stored in the checkpoint.
       dt = dt_in
 
+      !Construct complex valued concentration arrays from input concs.
       !$OMP PARALLEL PRIVATE(j, k)
       do j = 1, N
         do k = 1, N
@@ -197,12 +228,14 @@ contains
       end do
       !$OMP END PARALLEL
 
+      !Conditionally checkpoint - should be a subroutine!
       if (abs(tout(i)-t) < epsilon(tout(i))) then
         write(msg, 24) "Initial from checkpoint output at t=  ", t
         call logger%info("solver_pssi", msg)
         dt_out = dt
         t_out = t
 
+        !Convert complex valued c's in real valued rc's.
         !$OMP PARALLEL PRIVATE(j, k)
         do j = 1, N
           do k = 1, N
@@ -212,9 +245,11 @@ contains
         end do
         !$OMP END PARALLEL
 
+        !Restore units for checkpoint.
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
+        !Checkpoint.
         call write_to_traj(rc1, rc0, t_out, dt_out, errors)
         i = i + 1
       end if
@@ -223,25 +258,33 @@ contains
 
     ! REMAINING TIMESTEPS=======================================================
     do while (t < tmax)
+      !Check if checkpoint is required. If it is, reduce dt to hit the checkpoint
+      !time.
       if ( t + dt +epsilon(t) > Tout(i) ) then
         dt = Tout(i) - t
         outflag = .true.
       else
         outflag = .false.
       end if
+
+      !Incriment time and store dt.
       t = t + dt
       dt0 = dt
 
+      !Call iteration, updating c0 and c1.
       call iteration(dt, ksq, kappa, A, c0, c1, fwplan, bwplan)
+
+      !Set dt back to originally calculated stable timestep.
       dt = origdt
 
+      !Conditionally checkpoint - should be a subroutine!
       if (outflag) then
-        write(msg, 24) "Output at t=", t
+        write(msg, 24) "Output at t=  ", t
         call logger%info("solver_pssi", msg)
-
         dt_out = dt
         t_out = t
 
+        !Convert complex valued c's in real valued rc's.
         !$OMP PARALLEL PRIVATE(j, k)
         do j = 1, N
           do k = 1, N
@@ -251,11 +294,12 @@ contains
         end do
         !$OMP END PARALLEL
 
+        !Restore units for checkpoint.
         call dimensionalise(CH_params, rc1, t_out)
         call dimensionalise(CH_params, rc0, dt_out)
 
+        !Checkpoint.
         call write_to_traj(rc1, rc0, t_out, dt_out, errors)
-
         i = i + 1
       end if
 
@@ -313,6 +357,7 @@ contains
     integer                                                :: N
     N = size(ft_c1, 1)
     allocate(cksq(N,N))
+    !Set complex versions of parameters to remove conversion warnings.
     ctau = cmplx(tau, kind=cdc)
     ckappa = cmplx(kappa, kind=cdc)
     cA = cmplx(A, kind=cdc)
@@ -364,6 +409,8 @@ contains
     N = c_shape(1)
     allocate(cksq(N,N))
 
+    !Allocate arrays to store the fourier transformed concentrations and bulk
+    !potential energies.
     p1 = fftw_alloc_complex(int(N * N, C_SIZE_T))
     call c_f_pointer(p1, fc0, [N, N])
     p2 = fftw_alloc_complex(int(N * N, C_SIZE_T))
@@ -373,31 +420,39 @@ contains
     p4 = fftw_alloc_complex(int(N * N, C_SIZE_T))
     call c_f_pointer(p4, ft_c1, [N, N])
 
+    !Calculate bulk potential energy.
     call f(c0, fc0)
+    !Execute fourier transforms.
     call fftw_execute_dft(fwplan, c0, ft_c0)
     call fftw_execute_dft(fwplan, fc0, ft_fc0)
+
+    !Ensure intial timestep isn't too large.
     if (tau < 1.0_dp) then
       tau1 = tau
     else
       tau1 = 1.0_dp
     end if
-    tau1 = tau*1e-6_dp
+    !tau1 = tau*1e-6_dp
 
+    !create complex versions of parameters to avoid conversion warnings.
     ctau1 = cmplx(tau1, kind=cdc)
     ckappa = cmplx(kappa, kind=cdc)
 
-
+    !Explicit first order pseudo spectral step.
     !$OMP PARALLEL WORKSHARE
     cksq(:,:) = cmplx(ksq(:,:), kind=cdc)
     ft_c1(:,:) = ctau1*(-ckappa*cksq(:,:)*cksq(:,:)*ft_c0(:,:)+cksq(:,:)*ft_fc0(:,:))+ft_c0(:,:)
     !$OMP END PARALLEL WORKSHARE
 
+    !Inverse fourier transform back to real space.
     call fftw_execute_dft(bwplan, ft_c1, res)
 
+    !Normalise the forward x backward fourier transform application.
     !$OMP PARALLEL WORKSHARE
     res(:,:) = res(:,:)/cmplx(N*N, kind=cdc)
     !$OMP END PARALLEL WORKSHARE
 
+    !Free pointers to arrays.
     call fftw_free(p1)
     call fftw_free(p2)
     call fftw_free(p3)
@@ -440,6 +495,7 @@ contains
     c_shape = shape(c0)
     N = c_shape(1)
 
+    !Allocate arrays to be used in the FFTW3 fourier transform calls.
     p1 = fftw_alloc_complex(int(N * N, C_SIZE_T))
     call c_f_pointer(p1, fc1, [N, N])
     p2 = fftw_alloc_complex(int(N * N, C_SIZE_T))
@@ -457,27 +513,36 @@ contains
     p8 = fftw_alloc_complex(int(N * N, C_SIZE_T))
     call c_f_pointer(p8, ft_res, [N, N])
 
+    !Calculate bulk potential energies.
     call f(c1, fc1)
     call f(c0, fc0)
 
+    !Fourier transform the conc and bulk potential energies at the current time.
     call fftw_execute_dft(fwplan, c1, ft_c1)
     call fftw_execute_dft(fwplan, fc1, ft_fc1)
 
+    !Fourier transform the conc and bulk potential energies at the previous time.
     call fftw_execute_dft(fwplan, c0, ft_c0)
     call fftw_execute_dft(fwplan, fc0, ft_fc0)
 
+    !Make a second order semi-implicit pseudo-spectral step.
     call step(tau, ksq, kappa, A, ft_c1, ft_c0, ft_fc1, ft_fc0, ft_res)
 
+    !Fourier transform the result of step back to real space.
     call fftw_execute_dft(bwplan, ft_res, res)
+
+    !Normalise the forward x backward fourier transform application.
     !$OMP PARALLEL WORKSHARE
     res(:,:) = res(:,:)/cmplx(N*N, kind=cdc)
     !$OMP END PARALLEL WORKSHARE
 
+    !Update c0 and c1 to store their new values.
     !$OMP PARALLEL WORKSHARE
     c0(:,:) = c1(:,:)
     c1(:,:) = res(:,:)
     !$OMP END PARALLEL WORKSHARE
 
+    !Free pointers to arrays.
     call fftw_free(p1)
     call fftw_free(p2)
     call fftw_free(p3)
@@ -516,6 +581,7 @@ contains
     allocate(KY(N,N))
     allocate(k(N))
 
+    !Fill a k-vector in the convention used by FFTW3.
     !$OMP PARALLEL PRIVATE(i)
     do i = 1, int(N/2)
       k(i) = real((i - 1), dp)
@@ -525,15 +591,19 @@ contains
     end do
     !$OMP END PARALLEL
 
+    !Scale by 2pi but NOT N to make the solver resolution independent.
     !$OMP PARALLEL WORKSHARE
     k(:) = 2.0_dp*PI*k(:)!/real(N)
     !$OMP END PARALLEL WORKSHARE
 
+    !Use meshgrid to create a matrix, ksq, that will allow us to use fortran's
+    !array multiplication to multiply the entire conc grid by -k^2 at once.
     call meshgrid(k, k, KX, KY)
     !$OMP PARALLEL WORKSHARE
     ksq(:,:) = -(KX(:,:)*KX(:,:) + KY(:,:)*KY(:,:))
     !$OMP END PARALLEL WORKSHARE
 
+    !Free temporary arrays.
     deallocate(KX)
     deallocate(KY)
     deallocate(k)
