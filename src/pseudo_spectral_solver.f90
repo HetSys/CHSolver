@@ -278,8 +278,8 @@ contains
       dt = origdt
 
       !Conditionally checkpoint - should be a subroutine!
-      if (abs(tout(i)-t) < epsilon(tout(i))) then
-        write(msg, 24) "Initial from checkpoint output at t=  ", t
+      if (outflag) then
+        write(msg, 24) "Output at t=  ", t
         call logger%info("solver_pssi", msg)
         dt_out = dt
         t_out = t
