@@ -68,9 +68,9 @@ def plot_conc_evol(data_obj, animation_fps = 10 , ti = 0, tf=-1, metadata = True
 
 def plot_conc_snapshot(data_obj, t, metadata = True):
   '''! Produces a snapshort of species concentration at a specified time, outputted as an png to the main directory.
-@param t Snapshot time to visualise (will use closest time prior to that specified). Default is 0
-@param metadata Show metadata at top of the visual. Default is True
-'''
+       @param t Snapshot time to visualise (will use closest time prior to that specified). Default is 0
+       @param metadata Show metadata at top of the visual. Default is True
+  '''
 
   t_array = data_obj.T
   c = data_obj.C

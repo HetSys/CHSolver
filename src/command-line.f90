@@ -135,7 +135,7 @@ module command_line
       call logger%debug("get_io_commands", "Output directory "// trim(output_dir) // "set from CLI")
     end if
 
-    all_params_fnd = .TRUE.
+    all_params_fnd = .FALSE.
 
     all_ch_params_fnd = all(CH_fnd)
     cmd_t_fnd = linspace_fnd .OR. logspace_fnd .OR. allocated(cmd_timearray)
