@@ -173,7 +173,7 @@ module setup
 
     if (error) then
       call logger%fatal("tspace_validation", "Invalid timespace setup")
-      stop 1
+      call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
     end if
   end subroutine
 end module
