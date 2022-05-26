@@ -13,7 +13,7 @@ cmake --build .
 cmake --install .
 cd ..
 rm -r -d build
-cd ..
+cd ..; cd ..; cd ..
 
 
 python3.8 -m venv chenv
