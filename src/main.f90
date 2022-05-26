@@ -133,7 +133,7 @@ program main
   !! CLI overrides JSON file always, 
   !! linspace overrides manual T declaration
   !! logspace overrides all other T declaration
-  !! SHOULD BE ONLY CALLED BY RANK 0
+  !! SHOULD BE ONLY CALLED BY MPI RANK 0
   subroutine get_input_data()
 
     if (myrank /= 0) call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
@@ -167,7 +167,8 @@ program main
 
 
   !> @brief read new input data from checkpointed info
-  !! Also initialise initial conditions of C and C_prev
+  !! @details Also initialise initial conditions of C and C_prev
+  !! SHOULD BE ONLY CALLED BY MPI RANK 0
   subroutine read_from_checkpoint()
 
     
@@ -186,7 +187,6 @@ program main
 
 
   !> @brief Setup grid from given init condition & solve
-  !! SHOULD BE ONLY CALLED BY RANK 0
   subroutine start_from_scratch()
     if (myrank == 0) then
       ! initial concentration

@@ -3,6 +3,7 @@ module setup
 
   use globals
   use solver_utils
+  use comms
   implicit none
 
   contains
@@ -145,6 +146,7 @@ module setup
     integer, intent(in) :: nsteps
     real(dp), parameter :: REAL_TOL = 1e-10_DP
     logical :: error
+    integer :: ierr 
 
     error = .FALSE.
 
@@ -173,7 +175,7 @@ module setup
 
     if (error) then
       call logger%fatal("tspace_validation", "Invalid timespace setup")
-      stop 1
+      call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
     end if
   end subroutine
 end module
